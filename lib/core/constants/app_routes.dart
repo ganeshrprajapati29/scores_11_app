@@ -1,0 +1,61 @@
+class AppRoutes {
+  // Routes
+  static const String splash = '/';
+  static const String login = '/login';
+  static const String register = '/register';
+  static const String forgotPassword = '/forgot-password';
+  static const String dashboard = '/dashboard';
+  
+  // Matches
+  static const String matches = '/matches';
+  static const String matchDetail = '/match/:id';
+  static const String createMatch = '/create-match';
+  static const String liveMatch = '/live-match/:id';
+  static const String scoreEntry = '/score-entry/:id';
+  static const String scorecard = '/scorecard/:id';
+  
+  // Tournaments
+  static const String tournaments = '/tournaments';
+  static const String tournamentDetail = '/tournament/:id';
+  static const String createTournament = '/create-tournament';
+  static const String pointsTable = '/points-table/:id';
+  
+  // Teams
+  static const String teams = '/teams';
+  static const String teamDetail = '/team/:id';
+  static const String createTeam = '/create-team';
+  
+  // Profile
+  static const String profile = '/profile';
+  static const String editProfile = '/edit-profile';
+  static const String myPerformance = '/my-performance';
+  static const String wallet = '/wallet';
+  static const String subscription = '/subscription';
+  
+  // Community
+  static const String community = '/community';
+  static const String createPost = '/create-post';
+  static const String postDetail = '/post/:id';
+  
+  // Store
+  static const String store = '/store';
+  static const String productDetail = '/product/:id';
+  static const String cart = '/cart';
+  static const String orders = '/orders';
+  
+  // Settings
+  static const String settings = '/settings';
+  static const String changePassword = '/change-password';
+  static const String privacyPolicy = '/privacy-policy';
+  
+  // Helper
+  static String matchDetailRoute(String id) => '/match/$id';
+  static String tournamentDetailRoute(String id) => '/tournament/$id';
+  static String teamDetailRoute(String id) => '/team/$id';
+  static String liveMatchRoute(String id) => '/live-match/$id';
+  static String scoreEntryRoute(String id) => '/score-entry/$id';
+  static String scorecardRoute(String id) => '/scorecard/$id';
+  static String pointsTableRoute(String id) => '/points-table/$id';
+  static String productDetailRoute(String id) => '/product/$id';
+  static String postDetailRoute(String id) => '/post/$id';
+}
