@@ -1,5 +1,5 @@
-name: cric11_app
-description: "Cric11 - Play Cricket. Win Glory."
+name: Scores_app
+description: "Scores11 - Play Cricket. Win Glory."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -29,6 +29,11 @@ dependencies:
   cached_network_image: ^3.3.1
   flutter_animate: ^4.3.0
   shimmer: ^3.0.0
+  
+  # Maps & Location
+  google_maps_flutter: ^2.5.3
+  geolocator: ^11.0.0
+  geocoding: ^3.0.0
   
   # Utils
   intl: ^0.19.0

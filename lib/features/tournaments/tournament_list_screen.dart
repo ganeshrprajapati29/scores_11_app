@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/config/theme_config.dart';
 import '../../data/models/tournament_model.dart';
 import '../../data/services/tournament_service.dart';
+import 'tournament_detail_screen.dart';
 
 class TournamentListScreen extends StatefulWidget {
   const TournamentListScreen({super.key});
@@ -136,10 +137,13 @@ class _TournamentCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
-          Navigator.pushNamed(
+          Navigator.push(
             context,
-            '/tournament-detail',
-            arguments: tournament.id,
+            MaterialPageRoute(
+              builder: (context) => TournamentDetailScreen(
+                tournamentId: tournament.id,
+              ),
+            ),
           );
         },
         borderRadius: BorderRadius.circular(12),

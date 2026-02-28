@@ -5,11 +5,12 @@ import '../models/user_model.dart';
 class AuthService {
   final ApiClient _apiClient = ApiClient();
 
-  Future<AuthResponse> register({
+  Future<Map<String, dynamic>> register({
     required String email,
     required String password,
     required String name,
     String? phone,
+    String role = 'user',
   }) async {
     try {
       final response = await _apiClient.post(
@@ -19,6 +20,7 @@ class AuthService {
           'password': password,
           'name': name,
           if (phone != null) 'phone': phone,
+          'role': role,
         },
       );
       
@@ -28,27 +30,27 @@ class AuthService {
           data['accessToken'],
           data['refreshToken'],
         );
-        return AuthResponse(
-          user: User.fromJson(data['user']),
-          accessToken: data['accessToken'],
-          refreshToken: data['refreshToken'],
-        );
+        return {
+          'success': true,
+          'data': {
+            'user': User.fromJson(data['user']),
+            'accessToken': data['accessToken'],
+            'refreshToken': data['refreshToken'],
+          }
+        };
       }
-      throw Exception(response.data['message'] ?? 'Registration failed');
+      return {'success': false, 'message': response.data['message'] ?? 'Registration failed'};
     } catch (e) {
-      rethrow;
+      return {'success': false, 'message': e.toString()};
     }
   }
 
-  Future<AuthResponse> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<Map<String, dynamic>> login(String identifier, String password) async {
     try {
       final response = await _apiClient.post(
         '${ApiConfig.auth}/login',
         data: {
-          'email': email,
+          'identifier': identifier,
           'password': password,
         },
       );
@@ -59,15 +61,85 @@ class AuthService {
           data['accessToken'],
           data['refreshToken'],
         );
-        return AuthResponse(
-          user: User.fromJson(data['user']),
-          accessToken: data['accessToken'],
-          refreshToken: data['refreshToken'],
-        );
+        return {
+          'success': true,
+          'data': {
+            'user': User.fromJson(data['user']),
+            'accessToken': data['accessToken'],
+            'refreshToken': data['refreshToken'],
+          }
+        };
       }
-      throw Exception(response.data['message'] ?? 'Login failed');
+      return {'success': false, 'message': response.data['message'] ?? 'Login failed'};
     } catch (e) {
-      rethrow;
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> sendOTP(String identifier) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.auth}/send-otp',
+        data: {'identifier': identifier},
+      );
+      
+      if (response.statusCode == 200) {
+        // In development, OTP is returned in response
+        final otp = response.data['data']?['otp'];
+        return {'success': true, 'data': {'otp': otp}};
+      }
+      return {'success': false, 'message': response.data['message'] ?? 'Failed to send OTP'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyOTP(String identifier, String otp) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.auth}/verify-otp',
+        data: {'identifier': identifier, 'otp': otp},
+      );
+      
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'OTP verified successfully'};
+      }
+      return {'success': false, 'message': response.data['message'] ?? 'Invalid OTP'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> forgotPassword(String identifier) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.auth}/forgot-password',
+        data: {'identifier': identifier},
+      );
+      
+      if (response.statusCode == 200) {
+        final otp = response.data['data']?['otp'];
+        return {'success': true, 'data': {'otp': otp}};
+      }
+      return {'success': false, 'message': response.data['message'] ?? 'Failed to process request'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> resetPassword(String identifier, String otp, String newPassword) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.auth}/reset-password',
+        data: {'identifier': identifier, 'otp': otp, 'newPassword': newPassword},
+      );
+      
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Password reset successfully'};
+      }
+      return {'success': false, 'message': response.data['message'] ?? 'Failed to reset password'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 
@@ -117,16 +189,4 @@ class AuthService {
     final token = await _apiClient.getAccessToken();
     return token != null;
   }
-}
-
-class AuthResponse {
-  final User user;
-  final String accessToken;
-  final String refreshToken;
-
-  AuthResponse({
-    required this.user,
-    required this.accessToken,
-    required this.refreshToken,
-  });
 }

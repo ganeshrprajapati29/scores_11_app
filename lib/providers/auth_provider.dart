@@ -1,102 +1,206 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../data/models/user_model.dart';
-import '../data/services/auth_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../data/services/auth_service.dart';
+import '../../data/models/user_model.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
-class AuthProvider with ChangeNotifier {
+class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   
   AuthStatus _status = AuthStatus.initial;
-  User? _user;
   String? _errorMessage;
+  UserModel? _user;
 
   AuthStatus get status => _status;
-  User? get user => _user;
   String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _status == AuthStatus.authenticated;
-
-  Future<void> checkAuthStatus() async {
-    _status = AuthStatus.loading;
-    notifyListeners();
-
-    try {
-      final isLoggedIn = await _authService.isLoggedIn();
-      if (isLoggedIn) {
-        final user = await _authService.getCurrentUser();
-        _user = user;
-        _status = AuthStatus.authenticated;
-      } else {
-        _status = AuthStatus.unauthenticated;
-      }
-    } catch (e) {
-      _status = AuthStatus.unauthenticated;
-      _errorMessage = e.toString();
-    }
-    notifyListeners();
-  }
+  UserModel? get user => _user;
 
   Future<bool> login(String email, String password) async {
-    _status = AuthStatus.loading;
-    _errorMessage = null;
-    notifyListeners();
-
     try {
-      final response = await _authService.login(
-        email: email,
-        password: password,
-      );
-      _user = response.user;
-      _status = AuthStatus.authenticated;
+      _status = AuthStatus.loading;
+      _errorMessage = null;
       notifyListeners();
-      return true;
+
+      final response = await _authService.login(email, password);
+      
+      if (response['success'] == true) {
+        _user = UserModel.fromJson(response['data']['user']);
+        _status = AuthStatus.authenticated;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = response['message'] ?? 'Login failed';
+        _status = AuthStatus.error;
+        notifyListeners();
+        _status = AuthStatus.unauthenticated;
+        return false;
+      }
     } catch (e) {
-      _status = AuthStatus.error;
       _errorMessage = e.toString();
+      _status = AuthStatus.error;
       notifyListeners();
+      _status = AuthStatus.unauthenticated;
       return false;
     }
   }
 
   Future<bool> register({
+    required String name,
     required String email,
     required String password,
-    required String name,
     String? phone,
+    String role = 'user',
   }) async {
-    _status = AuthStatus.loading;
-    _errorMessage = null;
-    notifyListeners();
-
     try {
+      _status = AuthStatus.loading;
+      _errorMessage = null;
+      notifyListeners();
+
       final response = await _authService.register(
+        name: name,
         email: email,
         password: password,
-        name: name,
         phone: phone,
+        role: role,
       );
-      _user = response.user;
-      _status = AuthStatus.authenticated;
-      notifyListeners();
-      return true;
+      
+      if (response['success'] == true) {
+        _user = UserModel.fromJson(response['data']['user']);
+        _status = AuthStatus.authenticated;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = response['message'] ?? 'Registration failed';
+        _status = AuthStatus.error;
+        notifyListeners();
+        _status = AuthStatus.unauthenticated;
+        return false;
+      }
     } catch (e) {
-      _status = AuthStatus.error;
       _errorMessage = e.toString();
+      _status = AuthStatus.error;
+      notifyListeners();
+      _status = AuthStatus.unauthenticated;
+      return false;
+    }
+  }
+
+  Future<bool> sendOTP(String identifier) async {
+    try {
+      _status = AuthStatus.loading;
+      _errorMessage = null;
+      notifyListeners();
+
+      final response = await _authService.sendOTP(identifier);
+      
+      if (response['success'] == true) {
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = response['message'] ?? 'Failed to send OTP';
+        _status = AuthStatus.error;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+      _status = AuthStatus.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> verifyOTP(String identifier, String otp) async {
+    try {
+      _status = AuthStatus.loading;
+      _errorMessage = null;
+      notifyListeners();
+
+      final response = await _authService.verifyOTP(identifier, otp);
+      
+      if (response['success'] == true) {
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = response['message'] ?? 'Invalid OTP';
+        _status = AuthStatus.error;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+      _status = AuthStatus.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> forgotPassword(String identifier) async {
+    try {
+      _status = AuthStatus.loading;
+      _errorMessage = null;
+      notifyListeners();
+
+      final response = await _authService.forgotPassword(identifier);
+      
+      if (response['success'] == true) {
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = response['message'] ?? 'Failed to process request';
+        _status = AuthStatus.error;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+      _status = AuthStatus.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(String identifier, String otp, String newPassword) async {
+    try {
+      _status = AuthStatus.loading;
+      _errorMessage = null;
+      notifyListeners();
+
+      final response = await _authService.resetPassword(identifier, otp, newPassword);
+      
+      if (response['success'] == true) {
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = response['message'] ?? 'Failed to reset password';
+        _status = AuthStatus.error;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+      _status = AuthStatus.error;
       notifyListeners();
       return false;
     }
   }
 
   Future<void> logout() async {
-    await _authService.logout();
-    _user = null;
-    _status = AuthStatus.unauthenticated;
-    notifyListeners();
-  }
-
-  Future<void> updateUser(User user) async {
-    _user = user;
-    notifyListeners();
+    try {
+      await _authService.logout();
+    } catch (e) {
+      // Ignore logout errors
+    } finally {
+      _user = null;
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+    }
   }
 
   void clearError() {
