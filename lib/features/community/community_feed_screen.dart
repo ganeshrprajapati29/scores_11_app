@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_appbar.dart';
+import '../../data/services/community_service.dart';
 
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
@@ -12,24 +13,81 @@ class CommunityFeedScreen extends StatefulWidget {
 
 class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final CommunityService _communityService = CommunityService();
   
-  final List<Map<String, dynamic>> _posts = [
-    {'id': '1', 'user': 'Cricket Fan', 'avatar': 'https://picsum.photos/50/50', 'content': 'Amazing match today! 🏏️ The way Rohit Sharma played was phenomenal. Best innings of the season!', 'time': '2h ago', 'likes': 245, 'comments': 32, 'shares': 12, 'images': ['https://picsum.photos/400/300']},
-    {'id': '2', 'user': 'Sports Analyst', 'avatar': 'https://picsum.photos/50/50', 'content': 'Player performance review: Jasprit Bumrah has been the most consistent bowler this season with 28 wickets at an economy of just 6.5. Definitely a contender for the Purple Cap!', 'time': '4h ago', 'likes': 128, 'comments': 15, 'shares': 8, 'images': null},
-    {'id': '3', 'user': 'Cricket Academy', 'avatar': 'https://picsum.photos/50/50', 'content': 'Join our coaching camp this weekend! Learn from former international players. Limited seats available.', 'time': '6h ago', 'likes': 89, 'comments': 45, 'shares': 20, 'images': ['https://picsum.photos/400/300', 'https://picsum.photos/400/300']},
-    {'id': '4', 'user': 'Fantasy Expert', 'avatar': 'https://picsum.photos/50/50', 'content': 'Dream11 Tips for tonight\'s match: Go heavy on MI bowlers as they have a good record at Wankhede. Captain: Bumrah, Vice-Captain: SKY', 'time': '8h ago', 'likes': 312, 'comments': 89, 'shares': 45, 'images': null},
-  ];
+  // Pagination state
+  int _currentPage = 1;
+  bool _hasMore = true;
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  
+  List<Map<String, dynamic>> _posts = [];
+
+  /// Pagination Algorithm:
+  /// int page = 1;
+  /// loadMore(){
+  ///   page++;
+  ///   fetchPosts(page);
+  /// }
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadPosts();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPosts() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await _communityService.getPosts(page: 1);
+      setState(() {
+        _posts = result.posts;
+        _hasMore = result.hasMore;
+        _currentPage = 1;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load more posts
+  Future<void> _loadMorePosts() async {
+    if (_isLoadingMore || !_hasMore) return;
+    
+    setState(() => _isLoadingMore = true);
+    
+    try {
+      _currentPage++;
+      final result = await _communityService.getPosts(page: _currentPage);
+      setState(() {
+        _posts.addAll(result.posts);
+        _hasMore = result.hasMore;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      setState(() {
+        _currentPage--;
+        _isLoadingMore = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading more: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -57,7 +115,14 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildFeedList(),
+          _FeedTab(
+            posts: _posts,
+            isLoading: _isLoading,
+            isLoadingMore: _isLoadingMore,
+            hasMore: _hasMore,
+            loadMore: _loadMorePosts,
+            loadPosts: _loadPosts,
+          ),
           _buildTrendingList(),
         ],
       ),
@@ -68,22 +133,6 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add),
         label: const Text('Post'),
-      ),
-    );
-  }
-
-  Widget _buildFeedList() {
-    return RefreshIndicator(
-      onRefresh: () async {
-        await Future.delayed(const Duration(seconds: 1));
-      },
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _posts.length,
-        itemBuilder: (context, index) {
-          final post = _posts[index];
-          return _buildPostCard(post, index);
-        },
       ),
     );
   }
@@ -172,6 +221,101 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
       ],
     );
   }
+}
+
+class _FeedTab extends StatefulWidget {
+  final List<Map<String, dynamic>> posts;
+  final bool isLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final VoidCallback loadMore;
+  final VoidCallback loadPosts;
+
+  const _FeedTab({
+    required this.posts,
+    required this.isLoading,
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.loadMore,
+    required this.loadPosts,
+  });
+
+  @override
+  State<_FeedTab> createState() => _FeedTabState();
+}
+
+class _FeedTabState extends State<_FeedTab> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Detect when user scrolls to bottom and load more
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent - 200) {
+      widget.loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (widget.posts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.forum, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No posts yet',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        widget.loadPosts();
+      },
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16),
+        itemCount: widget.posts.length + (widget.hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == widget.posts.length) {
+            return widget.isLoadingMore
+                ? const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : const SizedBox.shrink();
+          }
+          return _buildPostCard(widget.posts[index], index);
+        },
+      ),
+    );
+  }
 
   Widget _buildPostCard(Map<String, dynamic> post, int index) {
     return Container(
@@ -196,7 +340,12 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundImage: NetworkImage(post['avatar']),
+                  backgroundImage: post['userAvatar'] != null
+                      ? NetworkImage(post['userAvatar'])
+                      : null,
+                  child: post['userAvatar'] == null
+                      ? const Icon(Icons.person)
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -204,13 +353,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        post['user'],
+                        post['userName'] ?? 'Unknown User',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        post['time'],
+                        post['timeAgo'] ?? '',
                         style: TextStyle(
                           color: Colors.grey[600],
                           fontSize: 12,
@@ -231,7 +380,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
-              post['content'],
+              post['content'] ?? '',
               style: const TextStyle(fontSize: 14),
             ),
           ),
@@ -245,13 +394,23 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
                 height: 200,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.image, size: 50),
+                ),
               )
             else
               SizedBox(
                 height: 200,
                 child: Row(
                   children: (post['images'] as List).map((img) => Expanded(
-                    child: Image.network(img, fit: BoxFit.cover),
+                    child: Image.network(img, fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.image),
+                      ),
+                    ),
                   )).toList(),
                 ),
               ),
@@ -262,9 +421,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                _buildActionButton(Icons.thumb_up_outlined, '${post['likes']}'),
-                _buildActionButton(Icons.comment_outlined, '${post['comments']}'),
-                _buildActionButton(Icons.share_outlined, '${post['shares']}'),
+                _buildActionButton(Icons.thumb_up_outlined, '${post['likes'] ?? 0}'),
+                _buildActionButton(Icons.comment_outlined, '${post['comments'] ?? 0}'),
+                _buildActionButton(Icons.share_outlined, '${post['shares'] ?? 0}'),
               ],
             ),
           ),

@@ -15,10 +15,32 @@ class _TournamentListScreenState extends State<TournamentListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TournamentService _tournamentService = TournamentService();
+  
+  // Pagination state for each tab
   List<Tournament> _liveTournaments = [];
   List<Tournament> _upcomingTournaments = [];
   List<Tournament> _completedTournaments = [];
+  
+  int _livePage = 1;
+  int _upcomingPage = 1;
+  int _completedPage = 1;
+  
+  bool _liveHasMore = true;
+  bool _upcomingHasMore = true;
+  bool _completedHasMore = true;
+  
+  bool _isLiveLoadingMore = false;
+  bool _isUpcomingLoadingMore = false;
+  bool _isCompletedLoadingMore = false;
+  
   bool _isLoading = true;
+
+  /// Pagination Algorithm:
+  /// int page = 1;
+  /// loadMore(){
+  ///   page++;
+  ///   fetchTournaments(page);
+  /// }
 
   @override
   void initState() {
@@ -36,11 +58,19 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   Future<void> _loadTournaments() async {
     setState(() => _isLoading = true);
     try {
-      final live = await _tournamentService.getLiveTournaments();
-      final upcoming = await _tournamentService.getUpcomingTournaments();
+      final liveResult = await _tournamentService.getTournaments(status: 'LIVE', page: 1);
+      final upcomingResult = await _tournamentService.getTournaments(status: 'UPCOMING', page: 1);
+      final completedResult = await _tournamentService.getTournaments(status: 'COMPLETED', page: 1);
+      
       setState(() {
-        _liveTournaments = live;
-        _upcomingTournaments = upcoming;
+        _liveTournaments = liveResult.tournaments;
+        _upcomingTournaments = upcomingResult.tournaments;
+        _completedTournaments = completedResult.tournaments;
+        
+        _liveHasMore = liveResult.hasMore;
+        _upcomingHasMore = upcomingResult.hasMore;
+        _completedHasMore = completedResult.hasMore;
+        
         _isLoading = false;
       });
     } catch (e) {
@@ -48,6 +78,87 @@ class _TournamentListScreenState extends State<TournamentListScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load more live tournaments
+  Future<void> _loadMoreLive() async {
+    if (_isLiveLoadingMore || !_liveHasMore) return;
+    
+    setState(() => _isLiveLoadingMore = true);
+    
+    try {
+      _livePage++;
+      final result = await _tournamentService.getTournaments(status: 'LIVE', page: _livePage);
+      setState(() {
+        _liveTournaments.addAll(result.tournaments);
+        _liveHasMore = result.hasMore;
+        _isLiveLoadingMore = false;
+      });
+    } catch (e) {
+      setState(() {
+        _livePage--;
+        _isLiveLoadingMore = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading more: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load more upcoming tournaments
+  Future<void> _loadMoreUpcoming() async {
+    if (_isUpcomingLoadingMore || !_upcomingHasMore) return;
+    
+    setState(() => _isUpcomingLoadingMore = true);
+    
+    try {
+      _upcomingPage++;
+      final result = await _tournamentService.getTournaments(status: 'UPCOMING', page: _upcomingPage);
+      setState(() {
+        _upcomingTournaments.addAll(result.tournaments);
+        _upcomingHasMore = result.hasMore;
+        _isUpcomingLoadingMore = false;
+      });
+    } catch (e) {
+      setState(() {
+        _upcomingPage--;
+        _isUpcomingLoadingMore = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading more: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load more completed tournaments
+  Future<void> _loadMoreCompleted() async {
+    if (_isCompletedLoadingMore || !_completedHasMore) return;
+    
+    setState(() => _isCompletedLoadingMore = true);
+    
+    try {
+      _completedPage++;
+      final result = await _tournamentService.getTournaments(status: 'COMPLETED', page: _completedPage);
+      setState(() {
+        _completedTournaments.addAll(result.tournaments);
+        _completedHasMore = result.hasMore;
+        _isCompletedLoadingMore = false;
+      });
+    } catch (e) {
+      setState(() {
+        _completedPage--;
+        _isCompletedLoadingMore = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading more: $e')),
         );
       }
     }
@@ -72,9 +183,24 @@ class _TournamentListScreenState extends State<TournamentListScreen>
           : TabBarView(
               controller: _tabController,
               children: [
-                _TournamentList(tournaments: _liveTournaments),
-                _TournamentList(tournaments: _upcomingTournaments),
-                _TournamentList(tournaments: _completedTournaments),
+                _TournamentList(
+                  tournaments: _liveTournaments,
+                  isLoadingMore: _isLiveLoadingMore,
+                  hasMore: _liveHasMore,
+                  loadMore: _loadMoreLive,
+                ),
+                _TournamentList(
+                  tournaments: _upcomingTournaments,
+                  isLoadingMore: _isUpcomingLoadingMore,
+                  hasMore: _upcomingHasMore,
+                  loadMore: _loadMoreUpcoming,
+                ),
+                _TournamentList(
+                  tournaments: _completedTournaments,
+                  isLoadingMore: _isCompletedLoadingMore,
+                  hasMore: _completedHasMore,
+                  loadMore: _loadMoreCompleted,
+                ),
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -89,14 +215,51 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   }
 }
 
-class _TournamentList extends StatelessWidget {
+class _TournamentList extends StatefulWidget {
   final List<Tournament> tournaments;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final VoidCallback loadMore;
 
-  const _TournamentList({required this.tournaments});
+  const _TournamentList({
+    required this.tournaments,
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.loadMore,
+  });
+
+  @override
+  State<_TournamentList> createState() => _TournamentListState();
+}
+
+class _TournamentListState extends State<_TournamentList> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Detect when user scrolls to bottom and load more
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent - 200) {
+      widget.loadMore();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (tournaments.isEmpty) {
+    if (widget.tournaments.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -112,12 +275,24 @@ class _TournamentList extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: tournaments.length,
-      itemBuilder: (context, index) {
-        return _TournamentCard(tournament: tournaments[index]);
-      },
+    return RefreshIndicator(
+      onRefresh: () async {},
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16),
+        itemCount: widget.tournaments.length + (widget.hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == widget.tournaments.length) {
+            return widget.isLoadingMore
+                ? const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : const SizedBox.shrink();
+          }
+          return _TournamentCard(tournament: widget.tournaments[index]);
+        },
+      ),
     );
   }
 }

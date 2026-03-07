@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_appbar.dart';
+import '../../data/services/store_service.dart';
 
 class StoreHomeScreen extends StatefulWidget {
   const StoreHomeScreen({super.key});
@@ -11,28 +12,84 @@ class StoreHomeScreen extends StatefulWidget {
 }
 
 class _StoreHomeScreenState extends State<StoreHomeScreen> {
+  final StoreService _storeService = StoreService();
   String _selectedCategory = 'all';
-  final List<Map<String, dynamic>> _products = [
-    {'id': '1', 'name': 'Cricket Bat - Pro', 'price': 2999, 'originalPrice': 4999, 'image': 'https://picsum.photos/200/200', 'rating': 4.5, 'reviews': 128, 'category': 'equipment'},
-    {'id': '2', 'name': 'Cricket Ball Pack', 'price': 499, 'originalPrice': 799, 'image': 'https://picsum.photos/200/200', 'rating': 4.2, 'reviews': 86, 'category': 'equipment'},
-    {'id': '3', 'name': 'Cricket Helmet', 'price': 1299, 'originalPrice': 1999, 'image': 'https://picsum.photos/200/200', 'rating': 4.7, 'reviews': 234, 'category': 'gear'},
-    {'id': '4', 'name': 'Cricket Gloves', 'price': 899, 'originalPrice': 1499, 'image': 'https://picsum.photos/200/200', 'rating': 4.3, 'reviews': 67, 'category': 'gear'},
-    {'id': '5', 'name': 'Cricket Shoes', 'price': 2499, 'originalPrice': 3999, 'image': 'https://picsum.photos/200/200', 'rating': 4.6, 'reviews': 189, 'category': 'shoes'},
-    {'id': '6', 'name': 'Cricket Jersey', 'price': 799, 'originalPrice': 1299, 'image': 'https://picsum.photos/200/200', 'rating': 4.4, 'reviews': 312, 'category': 'apparel'},
-    {'id': '7', 'name': 'Cricket Kit Bag', 'price': 1799, 'originalPrice': 2999, 'image': 'https://picsum.photos/200/200', 'rating': 4.5, 'reviews': 145, 'category': 'equipment'},
-    {'id': '8', 'name': 'Cricket Pad Set', 'price': 1599, 'originalPrice': 2499, 'image': 'https://picsum.photos/200/200', 'rating': 4.1, 'reviews': 78, 'category': 'gear'},
-  ];
-
+  
+  // Pagination state
+  int _currentPage = 1;
+  bool _hasMore = true;
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  
+  List<Map<String, dynamic>> _products = [];
   final List<Map<String, dynamic>> _cart = [];
   int _cartCount = 0;
 
+  /// Pagination Algorithm:
+  /// int page = 1;
+  /// loadMore(){
+  ///   page++;
+  ///   fetchProducts(page);
+  /// }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await _storeService.getProducts(page: 1, category: _selectedCategory);
+      setState(() {
+        _products = result.products;
+        _hasMore = result.hasMore;
+        _currentPage = 1;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load more products
+  Future<void> _loadMoreProducts() async {
+    if (_isLoadingMore || !_hasMore) return;
+    
+    setState(() => _isLoadingMore = true);
+    
+    try {
+      _currentPage++;
+      final result = await _storeService.getProducts(
+        page: _currentPage,
+        category: _selectedCategory,
+      );
+      setState(() {
+        _products.addAll(result.products);
+        _hasMore = result.hasMore;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      setState(() {
+        _currentPage--;
+        _isLoadingMore = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading more: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filteredProducts = _products.where((p) {
-      if (_selectedCategory == 'all') return true;
-      return p['category'] == _selectedCategory;
-    }).toList();
-
     return Scaffold(
       appBar: CustomAppbar(
         title: 'Cric11 Store',
@@ -86,20 +143,39 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
           
           // Products Grid
           Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.65,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: filteredProducts.length,
-              itemBuilder: (context, index) {
-                final product = filteredProducts[index];
-                return _buildProductCard(product, index);
-              },
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _products.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.inventory_2, size: 64, color: Colors.grey[400]),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No products found',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _ProductGrid(
+                        products: _products,
+                        isLoadingMore: _isLoadingMore,
+                        hasMore: _hasMore,
+                        loadMore: _loadMoreProducts,
+                        cart: _cart,
+                        cartCount: _cartCount,
+                        onAddToCart: (product) {
+                          setState(() {
+                            _cart.add(product);
+                            _cartCount = _cart.length;
+                          });
+                        },
+                      ),
           ),
         ],
       ),
@@ -114,7 +190,12 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
         label: Text(label),
         selected: isSelected,
         onSelected: (selected) {
-          setState(() => _selectedCategory = value);
+          setState(() {
+            _selectedCategory = value;
+            _currentPage = 1;
+            _hasMore = true;
+          });
+          _loadProducts();
         },
         selectedColor: AppColors.primary,
         labelStyle: TextStyle(
@@ -123,8 +204,100 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
       ),
     );
   }
+}
 
-  Widget _buildProductCard(Map<String, dynamic> product, int index) {
+class _ProductGrid extends StatefulWidget {
+  final List<Map<String, dynamic>> products;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final VoidCallback loadMore;
+  final List<Map<String, dynamic>> cart;
+  final int cartCount;
+  final Function(Map<String, dynamic>) onAddToCart;
+
+  const _ProductGrid({
+    required this.products,
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.loadMore,
+    required this.cart,
+    required this.cartCount,
+    required this.onAddToCart,
+  });
+
+  @override
+  State<_ProductGrid> createState() => _ProductGridState();
+}
+
+class _ProductGridState extends State<_ProductGrid> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Detect when user scrolls to bottom and load more
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent - 200) {
+      widget.loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async {},
+      child: GridView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.65,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+        ),
+        itemCount: widget.products.length + (widget.hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == widget.products.length) {
+            return widget.isLoadingMore
+                ? const Center(child: CircularProgressIndicator())
+                : const SizedBox.shrink();
+          }
+          return _ProductCard(
+            product: widget.products[index],
+            index: index,
+            onAddToCart: widget.onAddToCart,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ProductCard extends StatelessWidget {
+  final Map<String, dynamic> product;
+  final int index;
+  final Function(Map<String, dynamic>) onAddToCart;
+
+  const _ProductCard({
+    required this.product,
+    required this.index,
+    required this.onAddToCart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final discount = ((product['originalPrice'] - product['price']) / product['originalPrice'] * 100).round();
     
     return Container(
@@ -154,10 +327,15 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                     child: Image.network(
-                      product['image'],
+                      product['image'] ?? 'https://picsum.photos/200/200',
                       height: 120,
                       width: double.infinity,
                       fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 120,
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.image, size: 50),
+                      ),
                     ),
                   ),
                   Positioned(
@@ -190,7 +368,7 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        product['name'],
+                        product['name'] ?? 'Product',
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
                           fontSize: 13,
@@ -204,11 +382,11 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
                           const Icon(Icons.star, color: Colors.amber, size: 14),
                           const SizedBox(width: 2),
                           Text(
-                            product['rating'].toString(),
+                            (product['rating'] ?? 0).toString(),
                             style: const TextStyle(fontSize: 12),
                           ),
                           Text(
-                            ' (${product['reviews']})',
+                            ' (${product['reviews'] ?? 0})',
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 10,
@@ -241,16 +419,19 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
                               ),
                             ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.add_shopping_cart,
-                              color: Colors.white,
-                              size: 18,
+                          GestureDetector(
+                            onTap: () => onAddToCart(product),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.add_shopping_cart,
+                                color: Colors.white,
+                                size: 18,
+                              ),
                             ),
                           ),
                         ],

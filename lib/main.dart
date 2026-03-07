@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/config/theme_config.dart';
+import 'core/services/cache_service.dart';
 import 'providers/auth_provider.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/login_screen.dart';
@@ -29,13 +30,22 @@ import 'features/teams/create_team_screen.dart';
 import 'features/players/player_search_screen.dart';
 import 'features/leaderboard/top_batsman_screen.dart';
 import 'features/store/store_home_screen.dart';
+import 'features/store/product_detail_screen.dart';
+import 'features/store/cart_screen.dart';
+import 'features/store/checkout_screen.dart';
+import 'features/store/orders_screen.dart';
 import 'features/community/community_feed_screen.dart';
 import 'features/community/create_post_screen.dart';
 import 'features/community/post_detail_screen.dart';
 import 'features/settings/app_settings_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize cache service
+  final cacheService = CacheService();
+  await cacheService.init();
+  
   runApp(const Cric11App());
 }
 
@@ -49,7 +59,7 @@ class Cric11App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: MaterialApp(
-        title: 'Cric11',
+        title: 'Scores11',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
@@ -118,10 +128,10 @@ class Cric11App extends StatelessWidget {
           
           // Store Routes
           '/store': (context) => const StoreHomeScreen(),
-          '/product-detail': (context) => const DashboardScreen(),
-          '/cart': (context) => const DashboardScreen(),
-          '/checkout': (context) => const DashboardScreen(),
-          '/orders': (context) => const DashboardScreen(),
+          '/product-detail': (context) => const ProductDetailScreen(productId: ''),
+          '/cart': (context) => const CartScreen(),
+          '/checkout': (context) => const CheckoutScreen(),
+          '/orders': (context) => const OrdersScreen(),
           
           // Wallet & Subscription
           '/wallet': (context) => const DashboardScreen(),

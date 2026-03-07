@@ -1,17 +1,62 @@
 import '../../core/services/api_client.dart';
 
+/// Pagination response wrapper for products
+class PaginatedProducts {
+  final List<Map<String, dynamic>> products;
+  final int page;
+  final int limit;
+  final int total;
+  final int totalPages;
+  final bool hasMore;
+
+  PaginatedProducts({
+    required this.products,
+    required this.page,
+    required this.limit,
+    required this.total,
+    required this.totalPages,
+    required this.hasMore,
+  });
+}
+
 class StoreService {
   final ApiClient _apiClient = ApiClient();
 
-  Future<List<Map<String, dynamic>>> getProducts({int page = 1, int limit = 20, String? category}) async {
+  /// Get products with pagination support
+  Future<PaginatedProducts> getProducts({
+    int page = 1,
+    int limit = 20,
+    String? category,
+  }) async {
     final queryParams = {
-      'page': page.toString(),
-      'limit': limit.toString(),
+      'page': page,
+      'limit': limit,
       if (category != null) 'category': category,
     };
     final response = await _apiClient.get('/store/products', queryParams: queryParams);
     final List<dynamic> data = response['data'] ?? [];
-    return List<Map<String, dynamic>>.from(data);
+    final pagination = response['pagination'] ?? {};
+    
+    final products = List<Map<String, dynamic>>.from(data);
+    
+    return PaginatedProducts(
+      products: products,
+      page: pagination['page'] ?? page,
+      limit: pagination['limit'] ?? limit,
+      total: pagination['total'] ?? data.length,
+      totalPages: pagination['pages'] ?? 1,
+      hasMore: page < (pagination['pages'] ?? 1),
+    );
+  }
+
+  /// Legacy method for backward compatibility
+  Future<List<Map<String, dynamic>>> getProductsList({
+    int page = 1,
+    int limit = 20,
+    String? category,
+  }) async {
+    final result = await getProducts(page: page, limit: limit, category: category);
+    return result.products;
   }
 
   Future<Map<String, dynamic>> getProductById(String id) async {

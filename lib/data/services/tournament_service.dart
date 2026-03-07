@@ -2,10 +2,30 @@ import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../models/tournament_model.dart';
 
+/// Pagination response wrapper for tournaments
+class PaginatedTournaments {
+  final List<Tournament> tournaments;
+  final int page;
+  final int limit;
+  final int total;
+  final int totalPages;
+  final bool hasMore;
+
+  PaginatedTournaments({
+    required this.tournaments,
+    required this.page,
+    required this.limit,
+    required this.total,
+    required this.totalPages,
+    required this.hasMore,
+  });
+}
+
 class TournamentService {
   final ApiClient _apiClient = ApiClient();
 
-  Future<List<Tournament>> getTournaments({
+  /// Get tournaments with pagination support
+  Future<PaginatedTournaments> getTournaments({
     int page = 1,
     int limit = 20,
     String? status,
@@ -20,13 +40,34 @@ class TournamentService {
         },
       );
       if (response.statusCode == 200) {
-        final List data = response.data['data'];
-        return data.map((json) => Tournament.fromJson(json)).toList();
+        final List data = response.data['data'] ?? [];
+        final pagination = response.data['pagination'] ?? {};
+        
+        final tournaments = data.map((json) => Tournament.fromJson(json)).toList();
+        
+        return PaginatedTournaments(
+          tournaments: tournaments,
+          page: pagination['page'] ?? page,
+          limit: pagination['limit'] ?? limit,
+          total: pagination['total'] ?? data.length,
+          totalPages: pagination['pages'] ?? 1,
+          hasMore: page < (pagination['pages'] ?? 1),
+        );
       }
       throw Exception(response.data['message'] ?? 'Failed to get tournaments');
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// Legacy method for backward compatibility
+  Future<List<Tournament>> getTournamentsList({
+    int page = 1,
+    int limit = 20,
+    String? status,
+  }) async {
+    final result = await getTournaments(page: page, limit: limit, status: status);
+    return result.tournaments;
   }
 
   Future<Tournament> getTournamentById(String id) async {
@@ -143,10 +184,12 @@ class TournamentService {
   }
 
   Future<List<Tournament>> getLiveTournaments() async {
-    return getTournaments(status: 'LIVE');
+    final result = await getTournaments(status: 'LIVE');
+    return result.tournaments;
   }
 
   Future<List<Tournament>> getUpcomingTournaments({int limit = 10}) async {
-    return getTournaments(status: 'UPCOMING', limit: limit);
+    final result = await getTournaments(status: 'UPCOMING', limit: limit);
+    return result.tournaments;
   }
 }

@@ -2,23 +2,60 @@ import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../models/team_model.dart';
 
+/// Pagination response wrapper for teams
+class PaginatedTeams {
+  final List<Team> teams;
+  final int page;
+  final int limit;
+  final int total;
+  final int totalPages;
+  final bool hasMore;
+
+  PaginatedTeams({
+    required this.teams,
+    required this.page,
+    required this.limit,
+    required this.total,
+    required this.totalPages,
+    required this.hasMore,
+  });
+}
+
 class TeamService {
   final ApiClient _apiClient = ApiClient();
 
-  Future<List<Team>> getTeams({int page = 1, int limit = 20}) async {
+  /// Get teams with pagination support
+  Future<PaginatedTeams> getTeams({int page = 1, int limit = 20}) async {
     try {
       final response = await _apiClient.get(
         '${ApiConfig.teams}',
         queryParameters: {'page': page, 'limit': limit},
       );
       if (response.statusCode == 200) {
-        final List data = response.data['data'];
-        return data.map((json) => Team.fromJson(json)).toList();
+        final List data = response.data['data'] ?? [];
+        final pagination = response.data['pagination'] ?? {};
+        
+        final teams = data.map((json) => Team.fromJson(json)).toList();
+        
+        return PaginatedTeams(
+          teams: teams,
+          page: pagination['page'] ?? page,
+          limit: pagination['limit'] ?? limit,
+          total: pagination['total'] ?? data.length,
+          totalPages: pagination['pages'] ?? 1,
+          hasMore: page < (pagination['pages'] ?? 1),
+        );
       }
       throw Exception(response.data['message'] ?? 'Failed to get teams');
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// Legacy method for backward compatibility
+  Future<List<Team>> getTeamsList({int page = 1, int limit = 20}) async {
+    final result = await getTeams(page: page, limit: limit);
+    return result.teams;
   }
 
   Future<Team> getTeamById(String id) async {

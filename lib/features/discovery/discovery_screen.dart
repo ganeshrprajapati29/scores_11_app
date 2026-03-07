@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/services/location_service.dart';
+import '../../core/utils/debounce.dart';
 import '../../data/models/discovery_model.dart';
 import '../../data/services/discovery_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -20,6 +21,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
   final LocationService _locationService = LocationService();
   
   late TabController _tabController;
+  
+  // Debounce for search
+  Debounce? _debounce;
   
   // Data
   List<DiscoveryItem> _items = [];
@@ -54,11 +58,13 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _debounce = Debounce(delay: const Duration(milliseconds: 500));
     _initLocation();
   }
 
   @override
   void dispose() {
+    _debounce?.dispose();
     _tabController.dispose();
     _mapController?.dispose();
     super.dispose();
@@ -521,11 +527,13 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               ),
             ).animate().fadeIn(duration: 300.ms),
           const SizedBox(height: 12),
-          // Search bar
+          // Search bar with debounce
           TextField(
             onChanged: (value) {
               _searchQuery = value;
-              _loadItems();
+              _debounce?.run(() {
+                _loadItems();
+              });
             },
             decoration: InputDecoration(
               hintText: 'Search players, umpires, grounds...',

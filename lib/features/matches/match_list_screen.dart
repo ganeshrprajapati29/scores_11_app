@@ -14,10 +14,24 @@ class _MatchListScreenState extends State<MatchListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final MatchService _matchService = MatchService();
+  
+  // Pagination state for each tab
+  int _livePage = 1;
+  int _upcomingPage = 1;
+  int _completedPage = 1;
+  
+  bool _hasMoreLive = true;
+  bool _hasMoreUpcoming = true;
+  bool _hasMoreCompleted = true;
+  
+  bool _isLoading = true;
+  bool _isLoadingMoreLive = false;
+  bool _isLoadingMoreUpcoming = false;
+  bool _isLoadingMoreCompleted = false;
+  
   List<Match> _liveMatches = [];
   List<Match> _upcomingMatches = [];
   List<Match> _completedMatches = [];
-  bool _isLoading = true;
 
   @override
   void initState() {
@@ -32,16 +46,39 @@ class _MatchListScreenState extends State<MatchListScreen>
     super.dispose();
   }
 
-  Future<void> _loadMatches() async {
+  /// Pagination Algorithm:
+  /// int page = 1;
+  /// loadMore(){
+  ///   page++;
+  ///   fetchMatches(page);
+  /// }
+  
+  Future<void> _loadMatches({bool refresh = false}) async {
+    if (refresh) {
+      _livePage = 1;
+      _upcomingPage = 1;
+      _completedPage = 1;
+      _hasMoreLive = true;
+      _hasMoreUpcoming = true;
+      _hasMoreCompleted = true;
+    }
+    
     setState(() => _isLoading = true);
     try {
-      final live = await _matchService.getLiveMatches();
-      final upcoming = await _matchService.getUpcomingMatches();
-      final completed = await _matchService.getCompletedMatches();
+      // Load first page (20 matches per page)
+      final liveResult = await _matchService.getMatches(page: 1, status: 'LIVE');
+      final upcomingResult = await _matchService.getMatches(page: 1, status: 'SCHEDULED');
+      final completedResult = await _matchService.getMatches(page: 1, status: 'COMPLETED');
+      
       setState(() {
-        _liveMatches = live;
-        _upcomingMatches = upcoming;
-        _completedMatches = completed;
+        _liveMatches = liveResult.matches;
+        _upcomingMatches = upcomingResult.matches;
+        _completedMatches = completedResult.matches;
+        
+        _hasMoreLive = liveResult.hasMore;
+        _hasMoreUpcoming = upcomingResult.hasMore;
+        _hasMoreCompleted = completedResult.hasMore;
+        
         _isLoading = false;
       });
     } catch (e) {
@@ -49,6 +86,93 @@ class _MatchListScreenState extends State<MatchListScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load more matches for Live tab
+  Future<void> _loadMoreLive() async {
+    if (_isLoadingMoreLive || !_hasMoreLive) return;
+    
+    setState(() {
+      _isLoadingMoreLive = true;
+      _livePage++; // Increment page
+    });
+    
+    try {
+      final result = await _matchService.getMatches(page: _livePage, status: 'LIVE');
+      setState(() {
+        _liveMatches.addAll(result.matches);
+        _hasMoreLive = result.hasMore;
+        _isLoadingMoreLive = false;
+      });
+    } catch (e) {
+      setState(() {
+        _livePage--; // Revert page on error
+        _isLoadingMoreLive = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading more: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load more matches for Upcoming tab
+  Future<void> _loadMoreUpcoming() async {
+    if (_isLoadingMoreUpcoming || !_hasMoreUpcoming) return;
+    
+    setState(() {
+      _isLoadingMoreUpcoming = true;
+      _upcomingPage++; // Increment page
+    });
+    
+    try {
+      final result = await _matchService.getMatches(page: _upcomingPage, status: 'SCHEDULED');
+      setState(() {
+        _upcomingMatches.addAll(result.matches);
+        _hasMoreUpcoming = result.hasMore;
+        _isLoadingMoreUpcoming = false;
+      });
+    } catch (e) {
+      setState(() {
+        _upcomingPage--;
+        _isLoadingMoreUpcoming = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading more: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load more matches for Completed tab
+  Future<void> _loadMoreCompleted() async {
+    if (_isLoadingMoreCompleted || !_hasMoreCompleted) return;
+    
+    setState(() {
+      _isLoadingMoreCompleted = true;
+      _completedPage++; // Increment page
+    });
+    
+    try {
+      final result = await _matchService.getMatches(page: _completedPage, status: 'COMPLETED');
+      setState(() {
+        _completedMatches.addAll(result.matches);
+        _hasMoreCompleted = result.hasMore;
+        _isLoadingMoreCompleted = false;
+      });
+    } catch (e) {
+      setState(() {
+        _completedPage--;
+        _isLoadingMoreCompleted = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading more: $e')),
         );
       }
     }
@@ -73,9 +197,27 @@ class _MatchListScreenState extends State<MatchListScreen>
           : TabBarView(
               controller: _tabController,
               children: [
-                _MatchList(matches: _liveMatches, type: 'live'),
-                _MatchList(matches: _upcomingMatches, type: 'upcoming'),
-                _MatchList(matches: _completedMatches, type: 'completed'),
+                _MatchList(
+                  matches: _liveMatches, 
+                  type: 'live',
+                  isLoadingMore: _isLoadingMoreLive,
+                  hasMore: _hasMoreLive,
+                  loadMore: _loadMoreLive,
+                ),
+                _MatchList(
+                  matches: _upcomingMatches, 
+                  type: 'upcoming',
+                  isLoadingMore: _isLoadingMoreUpcoming,
+                  hasMore: _hasMoreUpcoming,
+                  loadMore: _loadMoreUpcoming,
+                ),
+                _MatchList(
+                  matches: _completedMatches, 
+                  type: 'completed',
+                  isLoadingMore: _isLoadingMoreCompleted,
+                  hasMore: _hasMoreCompleted,
+                  loadMore: _loadMoreCompleted,
+                ),
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -90,15 +232,54 @@ class _MatchListScreenState extends State<MatchListScreen>
   }
 }
 
-class _MatchList extends StatelessWidget {
+class _MatchList extends StatefulWidget {
   final List<Match> matches;
   final String type;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final VoidCallback loadMore;
 
-  const _MatchList({required this.matches, required this.type});
+  const _MatchList({
+    required this.matches,
+    required this.type,
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.loadMore,
+  });
+
+  @override
+  State<_MatchList> createState() => _MatchListState();
+}
+
+class _MatchListState extends State<_MatchList> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Detect when user scrolls to bottom and load more
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent - 200) {
+      // User is near bottom, load more matches
+      widget.loadMore();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (matches.isEmpty) {
+    if (widget.matches.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -110,7 +291,7 @@ class _MatchList extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No ${type} matches',
+              'No ${widget.type} matches',
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 16,
@@ -124,10 +305,20 @@ class _MatchList extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: () async {},
       child: ListView.builder(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16),
-        itemCount: matches.length,
+        itemCount: widget.matches.length + (widget.hasMore ? 1 : 0),
         itemBuilder: (context, index) {
-          return _MatchCard(match: matches[index]);
+          // Show loading indicator at bottom when loading more
+          if (index == widget.matches.length) {
+            return widget.isLoadingMore
+                ? const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : const SizedBox.shrink();
+          }
+          return _MatchCard(match: widget.matches[index]);
         },
       ),
     );

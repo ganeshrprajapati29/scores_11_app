@@ -1,15 +1,58 @@
 import '../../core/services/api_client.dart';
 
+/// Pagination response wrapper for community posts
+class PaginatedPosts {
+  final List<Map<String, dynamic>> posts;
+  final int page;
+  final int limit;
+  final int total;
+  final int totalPages;
+  final bool hasMore;
+
+  PaginatedPosts({
+    required this.posts,
+    required this.page,
+    required this.limit,
+    required this.total,
+    required this.totalPages,
+    required this.hasMore,
+  });
+}
+
 class CommunityService {
   final ApiClient _apiClient = ApiClient();
 
-  Future<List<Map<String, dynamic>>> getPosts({int page = 1, int limit = 20}) async {
+  /// Get posts with pagination support
+  Future<PaginatedPosts> getPosts({
+    int page = 1,
+    int limit = 20,
+  }) async {
     final response = await _apiClient.get('/community/posts', queryParams: {
-      'page': page.toString(),
-      'limit': limit.toString(),
+      'page': page,
+      'limit': limit,
     });
     final List<dynamic> data = response['data'] ?? [];
-    return List<Map<String, dynamic>>.from(data);
+    final pagination = response['pagination'] ?? {};
+    
+    final posts = List<Map<String, dynamic>>.from(data);
+    
+    return PaginatedPosts(
+      posts: posts,
+      page: pagination['page'] ?? page,
+      limit: pagination['limit'] ?? limit,
+      total: pagination['total'] ?? data.length,
+      totalPages: pagination['pages'] ?? 1,
+      hasMore: page < (pagination['pages'] ?? 1),
+    );
+  }
+
+  /// Legacy method for backward compatibility
+  Future<List<Map<String, dynamic>>> getPostsList({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final result = await getPosts(page: page, limit: limit);
+    return result.posts;
   }
 
   Future<Map<String, dynamic>> getPostById(String id) async {

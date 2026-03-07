@@ -12,8 +12,14 @@ class TeamListScreen extends StatefulWidget {
 
 class _TeamListScreenState extends State<TeamListScreen> {
   final TeamService _teamService = TeamService();
-  List<Team> _teams = [];
+  
+  // Pagination state
+  int _currentPage = 1;
+  bool _hasMore = true;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  
+  List<Team> _teams = [];
 
   @override
   void initState() {
@@ -21,12 +27,25 @@ class _TeamListScreenState extends State<TeamListScreen> {
     _loadTeams();
   }
 
-  Future<void> _loadTeams() async {
+  /// Pagination Algorithm:
+  /// int page = 1;
+  /// loadMore(){
+  ///   page++;
+  ///   fetchTeams(page);
+  /// }
+  
+  Future<void> _loadTeams({bool refresh = false}) async {
+    if (refresh) {
+      _currentPage = 1;
+      _hasMore = true;
+    }
+    
     setState(() => _isLoading = true);
     try {
-      final teams = await _teamService.getTeams();
+      final result = await _teamService.getTeams(page: 1);
       setState(() {
-        _teams = teams;
+        _teams = result.teams;
+        _hasMore = result.hasMore;
         _isLoading = false;
       });
     } catch (e) {
@@ -34,6 +53,35 @@ class _TeamListScreenState extends State<TeamListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  /// Load more teams
+  Future<void> _loadMoreTeams() async {
+    if (_isLoadingMore || !_hasMore) return;
+    
+    setState(() {
+      _isLoadingMore = true;
+      _currentPage++; // Increment page
+    });
+    
+    try {
+      final result = await _teamService.getTeams(page: _currentPage);
+      setState(() {
+        _teams.addAll(result.teams);
+        _hasMore = result.hasMore;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      setState(() {
+        _currentPage--; // Revert page on error
+        _isLoadingMore = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading more: $e')),
         );
       }
     }
@@ -72,15 +120,11 @@ class _TeamListScreenState extends State<TeamListScreen> {
                     ],
                   ),
                 )
-              : RefreshIndicator(
-                  onRefresh: _loadTeams,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _teams.length,
-                    itemBuilder: (context, index) {
-                      return _TeamCard(team: _teams[index]);
-                    },
-                  ),
+              : _TeamList(
+                  teams: _teams,
+                  isLoadingMore: _isLoadingMore,
+                  hasMore: _hasMore,
+                  loadMore: _loadMoreTeams,
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -89,6 +133,72 @@ class _TeamListScreenState extends State<TeamListScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Create Team'),
         backgroundColor: AppColors.primary,
+      ),
+    );
+  }
+}
+
+class _TeamList extends StatefulWidget {
+  final List<Team> teams;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final VoidCallback loadMore;
+
+  const _TeamList({
+    required this.teams,
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.loadMore,
+  });
+
+  @override
+  State<_TeamList> createState() => _TeamListState();
+}
+
+class _TeamListState extends State<_TeamList> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Detect when user scrolls to bottom and load more
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent - 200) {
+      widget.loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async {},
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16),
+        itemCount: widget.teams.length + (widget.hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == widget.teams.length) {
+            return widget.isLoadingMore
+                ? const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : const SizedBox.shrink();
+          }
+          return _TeamCard(team: widget.teams[index]);
+        },
       ),
     );
   }
