@@ -337,11 +337,11 @@ class _PlayerCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: _getRoleColor(player.role),
+                          color: _getRoleColor(player.role ?? ''),
                           shape: BoxShape.circle,
                         ),
                         child: Text(
-                          player.role.isNotEmpty ? player.role[0] : 'P',
+                          player.role != null && player.role!.isNotEmpty ? player.role![0] : 'P',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -369,13 +369,13 @@ class _PlayerCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: _getRoleColor(player.role).withValues(alpha: 0.1),
+                              color: _getRoleColor(player.role ?? '').withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              player.role,
+                              player.role ?? 'Player',
                               style: TextStyle(
-                                color: _getRoleColor(player.role),
+                                color: _getRoleColor(player.role ?? ''),
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
                               ),

@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-class User extends Equatable {
+class UserModel extends Equatable {
   final String id;
   final String email;
   final String name;
@@ -15,8 +15,9 @@ class User extends Equatable {
   final DateTime? lastLogin;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final Map<String, dynamic>? cricketProfile;
 
-  const User({
+  const UserModel({
     required this.id,
     required this.email,
     required this.name,
@@ -31,10 +32,11 @@ class User extends Equatable {
     this.lastLogin,
     required this.createdAt,
     required this.updatedAt,
+    this.cricketProfile,
   });
 
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel(
       id: json['_id'] ?? json['id'] ?? '',
       email: json['email'] ?? '',
       name: json['name'] ?? '',
@@ -79,7 +81,7 @@ class User extends Equatable {
     };
   }
 
-  User copyWith({
+  UserModel copyWith({
     String? id,
     String? email,
     String? name,
@@ -95,7 +97,7 @@ class User extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return User(
+    return UserModel(
       id: id ?? this.id,
       email: email ?? this.email,
       name: name ?? this.name,
@@ -204,3 +206,4 @@ class Address extends Equatable {
   @override
   List<Object?> get props => [street, city, state, country, pincode];
 }
+

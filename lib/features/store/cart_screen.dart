@@ -19,7 +19,7 @@ class _CartScreenState extends State<CartScreen> {
 
   double get _subtotal => _cartItems.fold(0, (sum, item) => sum + (item['price'] * item['quantity']));
   double get _discount => _cartItems.fold(0, (sum, item) => sum + ((item['originalPrice'] - item['price']) * item['quantity']));
-  double _shipping = _subtotal > 1000 ? 0 : 99;
+  double get _shipping => _subtotal > 1000 ? 0 : 99;
   double get _total => _subtotal + _shipping;
 
   void _updateQuantity(String id, int change) {

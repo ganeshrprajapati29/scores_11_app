@@ -3,26 +3,31 @@ import '../constants/app_colors.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
+  final String? label;
   final VoidCallback? onPressed;
   final bool isLoading;
   final bool isOutlined;
   final Color? color;
   final double? width;
   final double height;
+  final IconData? icon;
 
   const CustomButton({
     super.key,
     required this.text,
+    this.label,
     this.onPressed,
     this.isLoading = false,
     this.isOutlined = false,
     this.color,
     this.width,
     this.height = 50,
+    this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
+    final String buttonText = text.isNotEmpty ? text : (label ?? '');
     return SizedBox(
       width: width ?? double.infinity,
       height: height,
@@ -35,7 +40,7 @@ class CustomButton extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: _buildChild(),
+              child: _buildChild(buttonText),
             )
           : ElevatedButton(
               onPressed: isLoading ? null : onPressed,
@@ -47,12 +52,12 @@ class CustomButton extends StatelessWidget {
                 ),
                 elevation: 0,
               ),
-              child: _buildChild(),
+              child: _buildChild(buttonText),
             ),
     );
   }
 
-  Widget _buildChild() {
+  Widget _buildChild(String buttonText) {
     if (isLoading) {
       return const SizedBox(
         width: 24,
@@ -64,7 +69,7 @@ class CustomButton extends StatelessWidget {
       );
     }
     return Text(
-      text,
+      buttonText,
       style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,

@@ -5,6 +5,12 @@ import '../models/user_model.dart';
 class AuthService {
   final ApiClient _apiClient = ApiClient();
 
+  // Static method to get token (for backward compatibility)
+  static Future<String?> getToken() async {
+    final instance = ApiClient();
+    return await instance.getAccessToken();
+  }
+
   Future<Map<String, dynamic>> register({
     required String email,
     required String password,
@@ -33,7 +39,7 @@ class AuthService {
         return {
           'success': true,
           'data': {
-            'user': User.fromJson(data['user']),
+            'user': UserModel.fromJson(data['user']),
             'accessToken': data['accessToken'],
             'refreshToken': data['refreshToken'],
           }
@@ -64,7 +70,7 @@ class AuthService {
         return {
           'success': true,
           'data': {
-            'user': User.fromJson(data['user']),
+            'user': UserModel.fromJson(data['user']),
             'accessToken': data['accessToken'],
             'refreshToken': data['refreshToken'],
           }
@@ -153,11 +159,11 @@ class AuthService {
     }
   }
 
-  Future<User> getCurrentUser() async {
+  Future<UserModel> getCurrentUser() async {
     try {
       final response = await _apiClient.get('${ApiConfig.auth}/me');
       if (response.statusCode == 200) {
-        return User.fromJson(response.data['data']);
+        return UserModel.fromJson(response.data['data']);
       }
       throw Exception(response.data['message'] ?? 'Failed to get user');
     } catch (e) {

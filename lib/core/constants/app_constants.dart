@@ -1,6 +1,6 @@
 class AppConstants {
   // App Info
-  static const String appName = 'Cric11';
+  static const String appName = 'Scores11';
   static const String appVersion = '1.0.0';
   
   // Storage Keys

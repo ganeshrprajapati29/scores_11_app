@@ -1,5 +1,5 @@
-name: Scores_app
-description: "Scores11 - Play Cricket. Win Glory."
+name: Scores11
+description: "Cric11 - Play Cricket. Win Glory."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -43,11 +43,19 @@ dependencies:
   # Firebase (optional)
   firebase_core: ^2.25.4
   firebase_messaging: ^14.7.10
+  
+  # QR Code & Sharing
+  qr_flutter: ^4.1.0
+  share_plus: ^7.2.1
+  
+  # Data Classes
+  equatable: ^2.0.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -55,3 +63,11 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+
+# App icon configuration (run: flutter_launcher_icons)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: "assets/images/logo.png"

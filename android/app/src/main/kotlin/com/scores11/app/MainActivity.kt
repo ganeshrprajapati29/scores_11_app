@@ -1,4 +1,4 @@
-package com.example.cric11_app
+package com.scores11.app
 
 import io.flutter.embedding.android.FlutterActivity
 

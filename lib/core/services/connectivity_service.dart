@@ -9,9 +9,9 @@ class ConnectivityService {
 
   Future<bool> isConnected() async {
     final result = await _connectivity.checkConnectivity();
-    return !result.contains(ConnectivityResult.none);
+    return result != ConnectivityResult.none;
   }
 
-  Stream<List<ConnectivityResult>> get connectivityStream =>
+  Stream<ConnectivityResult> get connectivityStream =>
       _connectivity.onConnectivityChanged;
 }

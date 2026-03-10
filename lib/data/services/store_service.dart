@@ -28,14 +28,14 @@ class StoreService {
     int limit = 20,
     String? category,
   }) async {
-    final queryParams = {
+    final queryParameters = {
       'page': page,
       'limit': limit,
       if (category != null) 'category': category,
     };
-    final response = await _apiClient.get('/store/products', queryParams: queryParams);
-    final List<dynamic> data = response['data'] ?? [];
-    final pagination = response['pagination'] ?? {};
+    final response = await _apiClient.get('/store/products', queryParameters: queryParameters);
+    final List<dynamic> data = response.data['data'] ?? [];
+    final pagination = response.data['pagination'] ?? {};
     
     final products = List<Map<String, dynamic>>.from(data);
     
@@ -61,17 +61,17 @@ class StoreService {
 
   Future<Map<String, dynamic>> getProductById(String id) async {
     final response = await _apiClient.get('/store/products/$id');
-    return response['data'] ?? {};
+    return response.data['data'] ?? {};
   }
 
   Future<Map<String, dynamic>> createProduct(Map<String, dynamic> productData) async {
-    final response = await _apiClient.post('/store/products', productData);
-    return response['data'] ?? {};
+    final response = await _apiClient.post('/store/products', data: productData);
+    return response.data['data'] ?? {};
   }
 
   Future<Map<String, dynamic>> updateProduct(String id, Map<String, dynamic> productData) async {
-    final response = await _apiClient.put('/store/products/$id', productData);
-    return response['data'] ?? {};
+    final response = await _apiClient.put('/store/products/$id', data: productData);
+    return response.data['data'] ?? {};
   }
 
   Future<void> deleteProduct(String id) async {
@@ -80,29 +80,29 @@ class StoreService {
 
   Future<List<Map<String, dynamic>>> getCategories() async {
     final response = await _apiClient.get('/store/categories');
-    final List<dynamic> data = response['data'] ?? [];
+    final List<dynamic> data = response.data['data'] ?? [];
     return List<Map<String, dynamic>>.from(data);
   }
 
   // Cart operations
   Future<Map<String, dynamic>> getCart() async {
     final response = await _apiClient.get('/store/cart');
-    return response['data'] ?? {};
+    return response.data['data'] ?? {};
   }
 
   Future<Map<String, dynamic>> addToCart(String productId, int quantity) async {
-    final response = await _apiClient.post('/store/cart/add', {
+    final response = await _apiClient.post('/store/cart/add', data: {
       'productId': productId,
       'quantity': quantity,
     });
-    return response['data'] ?? {};
+    return response.data['data'] ?? {};
   }
 
   Future<Map<String, dynamic>> updateCartItem(String itemId, int quantity) async {
-    final response = await _apiClient.put('/store/cart/item/$itemId', {
+    final response = await _apiClient.put('/store/cart/item/$itemId', data: {
       'quantity': quantity,
     });
-    return response['data'] ?? {};
+    return response.data['data'] ?? {};
   }
 
   Future<void> removeFromCart(String itemId) async {
@@ -115,22 +115,22 @@ class StoreService {
 
   // Order operations
   Future<Map<String, dynamic>> checkout(Map<String, dynamic> checkoutData) async {
-    final response = await _apiClient.post('/store/checkout', checkoutData);
-    return response['data'] ?? {};
+    final response = await _apiClient.post('/store/checkout', data: checkoutData);
+    return response.data['data'] ?? {};
   }
 
   Future<List<Map<String, dynamic>>> getOrders({int page = 1, int limit = 20}) async {
-    final response = await _apiClient.get('/store/orders', queryParams: {
+    final response = await _apiClient.get('/store/orders', queryParameters: {
       'page': page.toString(),
       'limit': limit.toString(),
     });
-    final List<dynamic> data = response['data'] ?? [];
+    final List<dynamic> data = response.data['data'] ?? [];
     return List<Map<String, dynamic>>.from(data);
   }
 
   Future<Map<String, dynamic>> getOrderById(String id) async {
     final response = await _apiClient.get('/store/orders/$id');
-    return response['data'] ?? {};
+    return response.data['data'] ?? {};
   }
 
   Future<void> cancelOrder(String id) async {

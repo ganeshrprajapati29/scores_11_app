@@ -70,6 +70,7 @@ class TournamentService {
     return result.tournaments;
   }
 
+  /// Get tournament by ID
   Future<Tournament> getTournamentById(String id) async {
     try {
       final response = await _apiClient.get('${ApiConfig.tournaments}/$id');
@@ -82,6 +83,68 @@ class TournamentService {
     }
   }
 
+  /// Get public tournament info (less details)
+  Future<Tournament> getTournamentByIdPublic(String id) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.tournaments}/public/$id');
+      if (response.statusCode == 200) {
+        return Tournament.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get public tournament');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get ongoing tournaments
+  Future<List<Tournament>> getOngoingTournaments({int limit = 10}) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.tournaments}/ongoing',
+        queryParameters: {'limit': limit.toString()},
+      );
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data.map((json) => Tournament.fromJson(json)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get ongoing tournaments');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get upcoming tournaments
+  Future<List<Tournament>> getUpcomingTournaments({int limit = 10}) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.tournaments}/upcoming',
+        queryParameters: {'limit': limit.toString()},
+      );
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data.map((json) => Tournament.fromJson(json)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get upcoming tournaments');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get live tournaments
+  Future<List<Tournament>> getLiveTournaments() async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.tournaments}/ongoing');
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data.map((json) => Tournament.fromJson(json)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get live tournaments');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Create a new tournament
   Future<Tournament> createTournament({
     required String name,
     String? shortName,
@@ -127,6 +190,7 @@ class TournamentService {
     }
   }
 
+  /// Update tournament
   Future<Tournament> updateTournament(String id, Map<String, dynamic> data) async {
     try {
       final response = await _apiClient.put(
@@ -142,6 +206,7 @@ class TournamentService {
     }
   }
 
+  /// Delete tournament
   Future<void> deleteTournament(String id) async {
     try {
       final response = await _apiClient.delete('${ApiConfig.tournaments}/$id');
@@ -153,13 +218,62 @@ class TournamentService {
     }
   }
 
+  /// Register team for tournament
+  Future<Tournament> registerTeam(String tournamentId, String teamId) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.tournaments}/$tournamentId/register',
+        data: {'teamId': teamId},
+      );
+      if (response.statusCode == 200) {
+        return Tournament.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to register team');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Unregister team from tournament
+  Future<Tournament> unregisterTeam(String tournamentId, String teamId) async {
+    try {
+      final response = await _apiClient.delete(
+        '${ApiConfig.tournaments}/$tournamentId/register',
+        data: {'teamId': teamId},
+      );
+      if (response.statusCode == 200) {
+        return Tournament.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to unregister team');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Update tournament status
+  Future<Tournament> updateStatus(String tournamentId, String status) async {
+    try {
+      final response = await _apiClient.patch(
+        '${ApiConfig.tournaments}/$tournamentId/status',
+        data: {'status': status},
+      );
+      if (response.statusCode == 200) {
+        return Tournament.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update status');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get points table
   Future<List<PointsTable>> getPointsTable(String tournamentId) async {
     try {
       final response = await _apiClient.get(
         '${ApiConfig.tournaments}/$tournamentId/points-table',
       );
       if (response.statusCode == 200) {
-        final List data = response.data['data'];
+        final List data = response.data['data'] ?? [];
         return data.map((json) => PointsTable.fromJson(json)).toList();
       }
       throw Exception(response.data['message'] ?? 'Failed to get points table');
@@ -168,6 +282,7 @@ class TournamentService {
     }
   }
 
+  /// Add team to tournament
   Future<Tournament> addTeam(String tournamentId, String teamId) async {
     try {
       final response = await _apiClient.post(
@@ -183,13 +298,48 @@ class TournamentService {
     }
   }
 
-  Future<List<Tournament>> getLiveTournaments() async {
-    final result = await getTournaments(status: 'LIVE');
-    return result.tournaments;
+  /// Generate league matches
+  Future<Map<String, dynamic>> generateLeagueMatches(String tournamentId) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.tournaments}/$tournamentId/generate/league',
+      );
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to generate league matches');
+    } catch (e) {
+      rethrow;
+    }
   }
 
-  Future<List<Tournament>> getUpcomingTournaments({int limit = 10}) async {
-    final result = await getTournaments(status: 'UPCOMING', limit: limit);
-    return result.tournaments;
+  /// Generate knockout matches
+  Future<Map<String, dynamic>> generateKnockoutMatches(String tournamentId) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.tournaments}/$tournamentId/generate/knockout',
+      );
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to generate knockout matches');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get tournament stats
+  Future<Map<String, dynamic>> getTournamentStats(String tournamentId) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.tournaments}/$tournamentId/stats',
+      );
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get tournament stats');
+    } catch (e) {
+      rethrow;
+    }
   }
 }

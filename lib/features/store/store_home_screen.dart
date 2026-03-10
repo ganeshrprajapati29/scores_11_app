@@ -91,7 +91,7 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppbar(
+      appBar: CustomAppBar(
         title: 'Cric11 Store',
         actions: [
           Stack(

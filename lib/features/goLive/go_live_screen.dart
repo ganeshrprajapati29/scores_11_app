@@ -864,7 +864,7 @@ class _LiveStreamPlayerScreenState extends State<LiveStreamPlayerScreen> {
                                 Text(widget.stream.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                                 Row(
                                   children: [
-                                    Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(4)), child: const Row(children: [Icon(Icons.circle, color: Colors.white, size: 6), SizedBox(width: 4), Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10)])),
+                                    Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(4)), child: const Row(children: [Icon(Icons.circle, color: Colors.white, size: 6), SizedBox(width: 4), Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10))])),
                                     const SizedBox(width: 8),
                                     Text('${widget.stream.viewerCount} watching', style: const TextStyle(color: Colors.white70, fontSize: 12)),
                                   ],
@@ -1012,8 +1012,20 @@ class _LiveStreamPlayerScreenState extends State<LiveStreamPlayerScreen> {
           Text('($overs)', style: TextStyle(color: Colors.grey[600])),
           if (isWinner) ...[
             const SizedBox(width: 8),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.success, borderRadius: BorderRadius.circular(4)), child: const Text('Ahead', style: TextStyle(color: Colors.white, fontSize: 10))),
-          ],
+Container(
+  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+  decoration: BoxDecoration(
+    color: AppColors.error,
+    borderRadius: BorderRadius.circular(4),
+  ),
+  child: const Row(
+    children: [
+      Icon(Icons.circle, color: Colors.white, size: 6),
+      SizedBox(width: 4),
+      Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10)),
+    ],
+  ),
+)          ],
         ],
       ),
     );

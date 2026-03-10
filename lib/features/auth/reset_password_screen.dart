@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_textfield.dart';
+import '../../providers/auth_provider.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
-  final String? email;
-  
-  const ResetPasswordScreen({super.key, this.email});
+  const ResetPasswordScreen({super.key});
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
@@ -15,37 +15,68 @@ class ResetPasswordScreen extends StatefulWidget {
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  bool _otpVerified = false;
+  String? _passedEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    // Get email from route arguments
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null && args['email'] != null) {
+        setState(() {
+          _passedEmail = args['email'];
+          _emailController.text = _passedEmail!;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _emailController.dispose();
+    _otpController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _resetPassword() async {
+  Future<void> _verifyOTP() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+      final authProvider = context.read<AuthProvider>();
+      final success = await authProvider.resetPassword(
+        _emailController.text.trim(),
+        _otpController.text.trim(),
+        _passwordController.text,
+      );
       
-      if (mounted) {
-        setState(() => _isLoading = false);
-        
+      setState(() => _isLoading = false);
+      
+      if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Password reset successfully!'),
             backgroundColor: AppColors.success,
           ),
         );
-        
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.errorMessage ?? 'Failed to reset password'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -90,7 +121,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   ).animate().fadeIn().scale(),
                   const SizedBox(height: 24),
                   Text(
-                    'Set New Password',
+                    'Reset Your Password',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.white,
@@ -99,7 +130,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   ).animate().fadeIn(delay: 200.ms),
                   const SizedBox(height: 8),
                   Text(
-                    'Enter your new password below',
+                    'Enter the OTP sent to your email',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.white70,
@@ -115,6 +146,44 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     ),
                     child: Column(
                       children: [
+                        // Email Field
+                        CustomTextField(
+                          controller: _emailController,
+                          labelText: 'Email Address',
+                          hintText: 'Enter your email',
+                          prefixIcon: Icons.email,
+                          keyboardType: TextInputType.emailAddress,
+                          enabled: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your email';
+                            }
+                            if (!value.contains('@')) {
+                              return 'Please enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // OTP Field
+                        CustomTextField(
+                          controller: _otpController,
+                          labelText: 'OTP Code',
+                          hintText: 'Enter the OTP from your email',
+                          prefixIcon: Icons.pin,
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter the OTP';
+                            }
+                            if (value.length != 6) {
+                              return 'OTP must be 6 digits';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        // New Password Field
                         CustomTextField(
                           controller: _passwordController,
                           labelText: 'New Password',
@@ -140,6 +209,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
+                        // Confirm Password Field
                         CustomTextField(
                           controller: _confirmPasswordController,
                           labelText: 'Confirm Password',
@@ -167,7 +237,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         const SizedBox(height: 24),
                         CustomButton(
                           text: 'Reset Password',
-                          onPressed: _resetPassword,
+                          onPressed: _verifyOTP,
                           isLoading: _isLoading,
                           width: double.infinity,
                         ),

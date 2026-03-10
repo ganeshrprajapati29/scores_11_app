@@ -45,6 +45,12 @@ class ApiClient {
     ));
   }
 
+  // Static method to get token (for backward compatibility)
+  static Future<String?> getToken() async {
+    final instance = ApiClient();
+    return await instance.getAccessToken();
+  }
+
   Future<bool> _refreshToken() async {
     try {
       final refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);

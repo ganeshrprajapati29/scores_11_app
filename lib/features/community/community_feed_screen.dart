@@ -93,7 +93,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppbar(
+      appBar: CustomAppBar(
         title: 'Community',
         actions: [
           IconButton(
@@ -197,7 +197,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        topic['tag'],
+                        topic['tag'] ?? '',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,

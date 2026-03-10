@@ -1,9 +1,9 @@
 class ApiConfig {
   // Change this to your backend URL
-  static const String baseUrl = 'http://localhost:3000/api';
+  static const String baseUrl = 'http://68.178.171.95:3000/api/v1';
   
   // Socket URL
-  static const String socketUrl = 'http://localhost:3000';
+  static const String socketUrl = 'http://68.178.171.95:3000';
   
   // Endpoints
   static const String auth = '/auth';
@@ -30,8 +30,16 @@ class ApiConfig {
   static const String awards = '/awards';
   static const String subscriptions = '/subscriptions';
   static const String settings = '/settings';
+  static const String upload = '/upload';
+  static const String discovery = '/discovery';
+  static const String liveStreams = '/live-streams';
+  static const String search = '/search';
+  static const String banners = '/banners';
+  static const String featureToggles = '/feature-toggles';
+  static const String admin = '/admin';
   
   // Timeouts
   static const int connectionTimeout = 30000;
   static const int receiveTimeout = 30000;
 }
+

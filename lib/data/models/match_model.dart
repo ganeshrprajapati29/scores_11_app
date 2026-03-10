@@ -91,9 +91,9 @@ class Match extends Equatable {
           : [],
       currentInnings: json['currentInnings'] ?? 1,
       battingOrder: json['battingOrder'] != null 
-          ? (json['battingOrder'] as List).map((e) => BattingOrder.fromJson(e)).toList()
+          ? (json['battingOrder'] as List).map((e) => e is BattingOrder ? e : BattingOrder.fromJson(e as Map<String, dynamic>)).toList()
           : [],
-      score: json['score'] != null ? MatchScore.fromJson(json['score']) : MatchScore(),
+      score: json['score'] != null ? MatchScore.fromJson(json['score']) : MatchScore.empty(),
       result: json['result'] != null ? MatchResult.fromJson(json['result']) : null,
       officials: json['officials'] != null ? MatchOfficials.fromJson(json['officials']) : null,
       weather: json['weather'] != null ? Weather.fromJson(json['weather']) : null,
@@ -110,6 +110,39 @@ class Match extends Equatable {
       team1Data: json['team1Data'],
       team2Data: json['team2Data'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'tournament': tournament,
+      'team1': team1,
+      'team2': team2,
+      'matchNumber': matchNumber,
+      'format': format,
+      'matchType': matchType,
+      'venue': venue?.toJson(),
+      'scheduledDate': scheduledDate.toIso8601String(),
+      'startTime': startTime,
+      'overs': overs,
+      'status': status,
+      'toss': toss?.toJson(),
+      'innings': innings.map((e) => e.toJson()).toList(),
+      'currentInnings': currentInnings,
+      'battingOrder': battingOrder.map((e) => e.toJson()).toList(),
+      'score': score.toJson(),
+      'result': result?.toJson(),
+      'officials': officials?.toJson(),
+      'weather': weather?.toJson(),
+      'pitch': pitch?.toJson(),
+      'commentary': commentary.map((e) => e.toJson()).toList(),
+      'powerplay': powerplay?.toJson(),
+      'stats': stats?.toJson(),
+      'createdBy': createdBy,
+      'isActive': isActive,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
   }
 
   bool get isLive => status == 'LIVE';
@@ -166,6 +199,15 @@ class Venue extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'city': city,
+      'state': state,
+      'country': country,
+    };
+  }
+
   @override
   List<Object?> get props => [name, city, state, country];
 }
@@ -183,6 +225,14 @@ class Toss extends Equatable {
       decision: json['decision'],
       decidedAt: json['decidedAt'] != null ? DateTime.parse(json['decidedAt']) : null,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'winner': winner,
+      'decision': decision,
+      'decidedAt': decidedAt?.toIso8601String(),
+    };
   }
 
   @override
@@ -224,6 +274,20 @@ class Innings extends Equatable {
       extras: json['extras'] != null ? Extras.fromJson(json['extras']) : const Extras(),
       isCompleted: json['isCompleted'] ?? false,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'inningsNumber': inningsNumber,
+      'battingTeam': battingTeam,
+      'bowlingTeam': bowlingTeam,
+      'totalRuns': totalRuns,
+      'totalWickets': totalWickets,
+      'totalOvers': totalOvers,
+      'totalBalls': totalBalls,
+      'extras': extras.toJson(),
+      'isCompleted': isCompleted,
+    };
   }
 
   String get oversDisplay {
@@ -271,6 +335,16 @@ class Extras extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'wides': wides,
+      'noBalls': noBalls,
+      'byes': byes,
+      'legByes': legByes,
+      'total': total,
+    };
+  }
+
   @override
   List<Object?> get props => [wides, noBalls, byes, legByes, total];
 }
@@ -285,9 +359,16 @@ class BattingOrder extends Equatable {
     return BattingOrder(
       team: json['team'] is String ? json['team'] : json['team']?['_id'],
       players: json['players'] != null 
-          ? (json['players'] as List).map((e) => e is String ? e : e['_id']).toList()
+          ? (json['players'] as List).map((e) => e is String ? e : e['_id'] as String).toList()
           : [],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'team': team,
+      'players': players,
+    };
   }
 
   @override
@@ -307,11 +388,18 @@ class MatchScore extends Equatable {
     );
   }
 
-  factory MatchScore() {
+  factory MatchScore.empty() {
     return const MatchScore(
       team1: TeamScore(),
       team2: TeamScore(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'team1': team1.toJson(),
+      'team2': team2.toJson(),
+    };
   }
 
   @override
@@ -338,6 +426,15 @@ class TeamScore extends Equatable {
       overs: json['overs'] ?? '0.0',
       innings: json['innings'] ?? 1,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'runs': runs,
+      'wickets': wickets,
+      'overs': overs,
+      'innings': innings,
+    };
   }
 
   @override
@@ -375,6 +472,18 @@ class MatchResult extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'winner': winner,
+      'margin': margin,
+      'method': method,
+      'playerOfMatch': playerOfMatch,
+      'target': target,
+      'requiredRuns': requiredRuns,
+      'requiredBalls': requiredBalls,
+    };
+  }
+
   @override
   List<Object?> get props => [winner, margin, method, playerOfMatch, target, requiredRuns, requiredBalls];
 }
@@ -392,6 +501,14 @@ class MatchOfficials extends Equatable {
       umpire2: json['umpire2'] is String ? json['umpire2'] : json['umpire2']?['_id'],
       referee: json['referee'] is String ? json['referee'] : json['referee']?['_id'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'umpire1': umpire1,
+      'umpire2': umpire2,
+      'referee': referee,
+    };
   }
 
   @override
@@ -413,6 +530,14 @@ class Weather extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'condition': condition,
+      'temperature': temperature,
+      'humidity': humidity,
+    };
+  }
+
   @override
   List<Object?> get props => [condition, temperature, humidity];
 }
@@ -430,6 +555,14 @@ class Pitch extends Equatable {
       batting: json['batting'],
       dew: json['dew'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type,
+      'batting': batting,
+      'dew': dew,
+    };
   }
 
   @override
@@ -467,6 +600,18 @@ class Commentary extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'over': over,
+      'ball': ball,
+      'text': text,
+      'batsmanRuns': batsmanRuns,
+      'totalRuns': totalRuns,
+      'isWicket': isWicket,
+      'timestamp': timestamp?.toIso8601String(),
+    };
+  }
+
   @override
   List<Object?> get props => [over, ball, text, batsmanRuns, totalRuns, isWicket, timestamp];
 }
@@ -482,6 +627,13 @@ class Powerplay extends Equatable {
       firstInnings: json['firstInnings'] != null ? PowerplayInnings.fromJson(json['firstInnings']) : null,
       secondInnings: json['secondInnings'] != null ? PowerplayInnings.fromJson(json['secondInnings']) : null,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'firstInnings': firstInnings?.toJson(),
+      'secondInnings': secondInnings?.toJson(),
+    };
   }
 
   @override
@@ -508,6 +660,15 @@ class PowerplayInnings extends Equatable {
       runs: json['runs'] ?? 0,
       wickets: json['wickets'] ?? 0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'startOver': startOver,
+      'endOver': endOver,
+      'runs': runs,
+      'wickets': wickets,
+    };
   }
 
   @override
@@ -543,6 +704,16 @@ class MatchStats extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'highestIndividualScore': highestIndividualScore?.toJson(),
+      'bestBowling': bestBowling?.toJson(),
+      'highestPartnership': highestPartnership?.toJson(),
+      'mostSixes': mostSixes?.toJson(),
+      'mostFours': mostFours?.toJson(),
+    };
+  }
+
   @override
   List<Object?> get props => [highestIndividualScore, bestBowling, highestPartnership, mostSixes, mostFours];
 }
@@ -558,6 +729,13 @@ class HighestScore extends Equatable {
       runs: json['runs'] ?? 0,
       player: json['player'] is String ? json['player'] : json['player']?['_id'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'runs': runs,
+      'player': player,
+    };
   }
 
   @override
@@ -579,6 +757,14 @@ class BestBowling extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'wickets': wickets,
+      'runs': runs,
+      'player': player,
+    };
+  }
+
   @override
   List<Object?> get props => [wickets, runs, player];
 }
@@ -593,9 +779,16 @@ class HighestPartnership extends Equatable {
     return HighestPartnership(
       runs: json['runs'] ?? 0,
       players: json['players'] != null 
-          ? (json['players'] as List).map((e) => e is String ? e : e['_id']).toList()
+          ? (json['players'] as List).map((e) => e is String ? e : e['_id'] as String).toList()
           : [],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'runs': runs,
+      'players': players,
+    };
   }
 
   @override
@@ -615,6 +808,13 @@ class MostSixes extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'count': count,
+      'player': player,
+    };
+  }
+
   @override
   List<Object?> get props => [count, player];
 }
@@ -630,6 +830,13 @@ class MostFours extends Equatable {
       count: json['count'] ?? 0,
       player: json['player'] is String ? json['player'] : json['player']?['_id'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'count': count,
+      'player': player,
+    };
   }
 
   @override

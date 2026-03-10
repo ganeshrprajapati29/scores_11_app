@@ -14,6 +14,9 @@ class Tournament extends Equatable {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? venue;
+  final String? city;
+  final String? state;
+  final String? country;
   final int totalTeams;
   final int totalMatches;
   final int overs;
@@ -27,6 +30,10 @@ class Tournament extends Equatable {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? bannerUrl;
+  final String? logoUrl;
+  final int? registeredTeams;
+  final int? maxTeams;
 
   const Tournament({
     required this.id,
@@ -42,6 +49,9 @@ class Tournament extends Equatable {
     this.startDate,
     this.endDate,
     this.venue,
+    this.city,
+    this.state,
+    this.country,
     this.totalTeams = 0,
     this.totalMatches = 0,
     this.overs = 20,
@@ -55,6 +65,10 @@ class Tournament extends Equatable {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.bannerUrl,
+    this.logoUrl,
+    this.registeredTeams,
+    this.maxTeams,
   });
 
   factory Tournament.fromJson(Map<String, dynamic> json) {
@@ -80,10 +94,10 @@ class Tournament extends Equatable {
       prizeMoney: json['prizeMoney']?.toDouble(),
       rules: json['rules'],
       teams: json['teams'] != null 
-          ? (json['teams'] as List).map((e) => e is String ? e : e['_id']).toList()
+          ? (json['teams'] as List).map((e) => e is String ? e : e['_id'] as String).toList()
           : [],
       matches: json['matches'] != null 
-          ? (json['matches'] as List).map((e) => e is String ? e : e['_id']).toList()
+          ? (json['matches'] as List).map((e) => e is String ? e : e['_id'] as String).toList()
           : [],
       stats: json['stats'] != null ? TournamentStats.fromJson(json['stats']) : null,
       isActive: json['isActive'] ?? true,

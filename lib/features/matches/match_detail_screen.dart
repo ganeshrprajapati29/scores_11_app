@@ -322,7 +322,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> with SingleTicker
   }
 
   Widget _buildCommentaryTab() {
-    final commentaries = [
+    final List<Map<String, dynamic>> commentaries = [
       {'over': '19.5', 'text': 'OUT! Caught at long on', 'runs': 2},
       {'over': '19.4', 'text': 'Four! Straight down the ground', 'runs': 4},
       {'over': '19.3', 'text': 'Single to cover', 'runs': 1},
@@ -426,7 +426,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> with SingleTicker
   }
 
   Widget _buildScorecardTeam(String teamName) {
-    final players = [
+    final List<Map<String, dynamic>> players = [
       {'name': 'Rohit Sharma', 'runs': 72, 'balls': 45, 'fours': 8, 'sixes': 3, 'status': 'out'},
       {'name': 'Ishan Kishan', 'runs': 45, 'balls': 30, 'fours': 6, 'sixes': 2, 'status': 'out'},
       {'name': 'Hardik Pandya', 'runs': 35, 'balls': 20, 'fours': 3, 'sixes': 3, 'status': 'not out'},

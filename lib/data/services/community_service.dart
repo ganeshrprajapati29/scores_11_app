@@ -27,12 +27,12 @@ class CommunityService {
     int page = 1,
     int limit = 20,
   }) async {
-    final response = await _apiClient.get('/community/posts', queryParams: {
+    final response = await _apiClient.get('/community/posts', queryParameters: {
       'page': page,
       'limit': limit,
     });
-    final List<dynamic> data = response['data'] ?? [];
-    final pagination = response['pagination'] ?? {};
+    final List<dynamic> data = response.data['data'] ?? [];
+    final pagination = response.data['pagination'] ?? {};
     
     final posts = List<Map<String, dynamic>>.from(data);
     
@@ -57,17 +57,17 @@ class CommunityService {
 
   Future<Map<String, dynamic>> getPostById(String id) async {
     final response = await _apiClient.get('/community/posts/$id');
-    return response['data'] ?? {};
+    return response.data['data'] ?? {};
   }
 
   Future<Map<String, dynamic>> createPost(Map<String, dynamic> postData) async {
-    final response = await _apiClient.post('/community/posts', postData);
-    return response['data'] ?? {};
+    final response = await _apiClient.post('/community/posts', data: postData);
+    return response.data['data'] ?? {};
   }
 
   Future<Map<String, dynamic>> updatePost(String id, Map<String, dynamic> postData) async {
-    final response = await _apiClient.put('/community/posts/$id', postData);
-    return response['data'] ?? {};
+    final response = await _apiClient.put('/community/posts/$id', data: postData);
+    return response.data['data'] ?? {};
   }
 
   Future<void> deletePost(String id) async {
@@ -83,17 +83,17 @@ class CommunityService {
   }
 
   Future<List<Map<String, dynamic>>> getComments(String postId, {int page = 1, int limit = 20}) async {
-    final response = await _apiClient.get('/community/posts/$postId/comments', queryParams: {
+    final response = await _apiClient.get('/community/posts/$postId/comments', queryParameters: {
       'page': page.toString(),
       'limit': limit.toString(),
     });
-    final List<dynamic> data = response['data'] ?? [];
+    final List<dynamic> data = response.data['data'] ?? [];
     return List<Map<String, dynamic>>.from(data);
   }
 
   Future<Map<String, dynamic>> addComment(String postId, Map<String, dynamic> commentData) async {
-    final response = await _apiClient.post('/community/posts/$postId/comments', commentData);
-    return response['data'] ?? {};
+    final response = await _apiClient.post('/community/posts/$postId/comments', data: commentData);
+    return response.data['data'] ?? {};
   }
 
   Future<void> deleteComment(String postId, String commentId) async {
@@ -101,7 +101,7 @@ class CommunityService {
   }
 
   Future<void> reportPost(String postId, Map<String, dynamic> reportData) async {
-    await _apiClient.post('/community/posts/$postId/report', reportData);
+    await _apiClient.post('/community/posts/$postId/report', data: reportData);
   }
 
   Future<void> sharePost(String postId) async {
@@ -109,16 +109,15 @@ class CommunityService {
   }
 
   Future<List<Map<String, dynamic>>> getReportedPosts({int page = 1, int limit = 20}) async {
-    final response = await _apiClient.get('/community/reported', queryParams: {
+    final response = await _apiClient.get('/community/reported', queryParameters: {
       'page': page.toString(),
       'limit': limit.toString(),
     });
-    final List<dynamic> data = response['data'] ?? [];
+    final List<dynamic> data = response.data['data'] ?? [];
     return List<Map<String, dynamic>>.from(data);
   }
 
   Future<void> moderatePost(String postId, String action) async {
-    await _apiClient.post('/community/moderate/$postId', {'action': action});
+    await _apiClient.post('/community/moderate/$postId', data: {'action': action});
   }
 }
-

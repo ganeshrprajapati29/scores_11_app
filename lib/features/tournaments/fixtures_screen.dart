@@ -100,7 +100,7 @@ class FixturesScreen extends StatelessWidget {
   }
 
   Widget _buildMatchList(String filter) {
-    final matches = [
+    final List<Map<String, dynamic>> matches = [
       {
         'id': '1',
         'team1': {'name': 'Mumbai Indians', 'short': 'MI', 'logo': 'https://picsum.photos/40/40', 'score': '185/4'},

@@ -1,6 +1,7 @@
-import '../models/player_model.dart';
+import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/cache_service.dart';
+import '../models/player_model.dart';
 
 /// Pagination response wrapper for players
 class PaginatedPlayers {
@@ -30,6 +31,8 @@ class PlayerService {
     int page = 1,
     int limit = 20,
     String? search,
+    String? role,
+    String? team,
     bool forceRefresh = false,
   }) async {
     // For first page without search, try cache first
@@ -48,16 +51,18 @@ class PlayerService {
       }
     }
 
-    final queryParams = {
+    final queryParams = <String, dynamic>{
       'page': page,
       'limit': limit,
       if (search != null) 'search': search,
+      if (role != null) 'role': role,
+      if (team != null) 'team': team,
     };
     
     try {
-      final response = await _apiClient.get('/players', queryParams: queryParams);
-      final List<dynamic> data = response['data'] ?? [];
-      final pagination = response['pagination'] ?? {};
+      final response = await _apiClient.get('${ApiConfig.players}', queryParameters: queryParams);
+      final List<dynamic> data = response.data['data'] ?? [];
+      final pagination = response.data['pagination'] ?? {};
       
       final players = data.map((json) => Player.fromJson(json)).toList();
       
@@ -107,24 +112,23 @@ class PlayerService {
 
   /// Get player by ID
   Future<Player> getPlayerById(String id) async {
-    final response = await _apiClient.get('/players/$id');
-    return Player.fromJson(response['data']);
+    final response = await _apiClient.get('${ApiConfig.players}/$id');
+    return Player.fromJson(response.data['data']);
   }
 
   /// Get player by ID with caching
   Future<Player> getPlayerByIdWithCache(String id, {bool forceRefresh = false}) async {
     if (!forceRefresh) {
-      final cachedData = _cacheService.getCachedTeamDetail(id); // Reuse team cache for player
+      final cachedData = _cacheService.getCachedTeamDetail(id);
       if (cachedData != null) {
         return Player.fromJson(cachedData);
       }
     }
 
     try {
-      final response = await _apiClient.get('/players/$id');
-      final player = Player.fromJson(response['data']);
+      final response = await _apiClient.get('${ApiConfig.players}/$id');
+      final player = Player.fromJson(response.data['data']);
       
-      // Cache the result
       _cacheService.cacheTeamDetail(id, player.toJson());
       
       return player;
@@ -133,33 +137,49 @@ class PlayerService {
     }
   }
 
-  Future<Player> createPlayer(Map<String, dynamic> playerData) async {
-    final response = await _apiClient.post('/players', playerData);
-    // Clear players cache after creating new player
-    _cacheService.clearPlayerStatsCache();
-    return Player.fromJson(response['data']);
+  /// Get players by team
+  Future<List<Player>> getPlayersByTeam(String teamId) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.players}/team/$teamId');
+      final List<dynamic> data = response.data['data'] ?? [];
+      return data.map((json) => Player.fromJson(json)).toList();
+    } catch (e) {
+      rethrow;
+    }
   }
 
-  Future<Player> updatePlayer(String id, Map<String, dynamic> playerData) async {
-    final response = await _apiClient.put('/players/$id', playerData);
-    // Clear cache after update
-    _cacheService.clearPlayerStatsCache();
-    return Player.fromJson(response['data']);
+  /// Get trending players
+  Future<List<Player>> getTrendingPlayers({int limit = 10}) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.players}/trending', 
+        queryParameters: {'limit': limit.toString()},
+      );
+      final List<dynamic> data = response.data['data'] ?? [];
+      return data.map((json) => Player.fromJson(json)).toList();
+    } catch (e) {
+      rethrow;
+    }
   }
 
-  Future<void> deletePlayer(String id) async {
-    await _apiClient.delete('/players/$id');
-    _cacheService.clearPlayerStatsCache();
+  /// Compare players
+  Future<List<Player>> comparePlayers(String player1Id, String player2Id) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.players}/compare', 
+        queryParameters: {
+          'player1': player1Id,
+          'player2': player2Id,
+        },
+      );
+      final List<dynamic> data = response.data['data'] ?? [];
+      return data.map((json) => Player.fromJson(json)).toList();
+    } catch (e) {
+      rethrow;
+    }
   }
 
-  /// Search players with debounce - caching handled in UI with debounce
-  Future<List<Player>> searchPlayers(String query) async {
-    final response = await _apiClient.get('/players', queryParams: {'search': query});
-    final List<dynamic> data = response['data'] ?? [];
-    return data.map((json) => Player.fromJson(json)).toList();
-  }
-
-  /// Get player stats with caching (longer TTL for stats)
+  /// Get player stats
   Future<Map<String, dynamic>> getPlayerStats(String playerId, {bool forceRefresh = false}) async {
     if (!forceRefresh) {
       final cachedStats = _cacheService.getCachedPlayerStats(playerId, ttlMinutes: 30);
@@ -169,15 +189,13 @@ class PlayerService {
     }
 
     try {
-      final response = await _apiClient.get('/players/$playerId/stats');
-      final stats = response['data'] ?? {};
+      final response = await _apiClient.get('${ApiConfig.players}/$playerId/stats');
+      final stats = response.data['data'] ?? {};
       
-      // Cache stats with longer TTL (30 mins)
       _cacheService.cachePlayerStats(playerId, stats);
       
       return stats;
     } catch (e) {
-      // Try cache on error
       final cachedStats = _cacheService.getCachedPlayerStats(playerId, ttlMinutes: 60);
       if (cachedStats != null) {
         return cachedStats;
@@ -186,18 +204,33 @@ class PlayerService {
     }
   }
 
-  Future<List<Player>> getTrendingPlayers({int limit = 10}) async {
-    final response = await _apiClient.get('/players/trending', queryParams: {'limit': limit.toString()});
-    final List<dynamic> data = response['data'] ?? [];
-    return data.map((json) => Player.fromJson(json)).toList();
+  /// Create a new player
+  Future<Player> createPlayer(Map<String, dynamic> playerData) async {
+    final response = await _apiClient.post('${ApiConfig.players}', data: playerData);
+    _cacheService.clearPlayerStatsCache();
+    return Player.fromJson(response.data['data']);
   }
 
-  Future<List<Player>> comparePlayers(String player1Id, String player2Id) async {
-    final response = await _apiClient.get('/players/compare', queryParams: {
-      'player1': player1Id,
-      'player2': player2Id,
-    });
-    final List<dynamic> data = response['data'] ?? [];
+  /// Update a player
+  Future<Player> updatePlayer(String id, Map<String, dynamic> playerData) async {
+    final response = await _apiClient.put('${ApiConfig.players}/$id', data: playerData);
+    _cacheService.clearPlayerStatsCache();
+    return Player.fromJson(response.data['data']);
+  }
+
+  /// Delete a player
+  Future<void> deletePlayer(String id) async {
+    await _apiClient.delete('${ApiConfig.players}/$id');
+    _cacheService.clearPlayerStatsCache();
+  }
+
+  /// Search players with debounce
+  Future<List<Player>> searchPlayers(String query) async {
+    final response = await _apiClient.get(
+      '${ApiConfig.players}', 
+      queryParameters: {'search': query},
+    );
+    final List<dynamic> data = response.data['data'] ?? [];
     return data.map((json) => Player.fromJson(json)).toList();
   }
 }

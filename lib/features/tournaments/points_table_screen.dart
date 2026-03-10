@@ -10,7 +10,7 @@ class PointsTableScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final teams = [
+    final List<Map<String, dynamic>> teams = [
       {'name': 'Mumbai Indians', 'matches': 10, 'won': 7, 'lost': 3, 'tied': 0, 'nr': 0, 'points': 14, 'nrRate': 1.245, 'logo': 'https://picsum.photos/40/40'},
       {'name': 'Chennai Super Kings', 'matches': 10, 'won': 6, 'lost': 4, 'tied': 0, 'nr': 0, 'points': 12, 'nrRate': 1.123, 'logo': 'https://picsum.photos/40/40'},
       {'name': 'Delhi Capitals', 'matches': 10, 'won': 6, 'lost': 4, 'tied': 0, 'nr': 0, 'points': 12, 'nrRate': 0.987, 'logo': 'https://picsum.photos/40/40'},

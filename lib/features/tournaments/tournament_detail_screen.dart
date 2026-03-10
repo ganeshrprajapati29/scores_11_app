@@ -71,6 +71,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
         maxTeams: 16,
         registeredTeams: 12,
         isPaid: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
       
       setState(() {
@@ -468,7 +470,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
 
   Widget _buildTeamsTab() {
     // Mock registered teams
-    final teams = [
+    final List<Map<String, dynamic>> teams = [
       {'name': 'Mumbai Indians', 'players': 15, 'captain': 'Rohit Sharma'},
       {'name': 'Chennai Super Kings', 'players': 14, 'captain': 'MS Dhoni'},
       {'name': 'Royal Challengers Bangalore', 'players': 15, 'captain': 'Virat Kohli'},
@@ -588,11 +590,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
 
   Widget _buildPointsTab() {
     // Mock points table
-    final teams = [
-      {'team': 'Mumbai Indians', 'played': 3, 'won': 3, 'lost': 0, 'points': 6, 'nrr': '+1.250'},
-      {'team': 'Chennai Super Kings', 'played': 3, 'won': 2, 'lost': 1, 'points': 4, 'nrr': '+0.850'},
-      {'team': 'Royal Challengers Bangalore', 'played': 3, 'won': 1, 'lost': 2, 'points': 2, 'nrr': '-0.450'},
-      {'team': 'Kolkata Knight Riders', 'played': 3, 'won': 0, 'lost': 3, 'points': 0, 'nrr': '-1.150'},
+    final List<Map<String, dynamic>> teams = [
+      {'team': 'Mumbai Indians', 'played': 3, 'won': 3, 'lost': 0, 'points': 6, 'nrr': '+1.250', 'nrRate': 1.245},
+      {'team': 'Chennai Super Kings', 'played': 3, 'won': 2, 'lost': 1, 'points': 4, 'nrr': '+0.850', 'nrRate': 1.123},
+      {'team': 'Royal Challengers Bangalore', 'played': 3, 'won': 1, 'lost': 2, 'points': 2, 'nrr': '-0.450', 'nrRate': 0.945},
+      {'team': 'Kolkata Knight Riders', 'played': 3, 'won': 0, 'lost': 3, 'points': 0, 'nrr': '-1.150', 'nrRate': 1.056},
     ];
     
     return SingleChildScrollView(

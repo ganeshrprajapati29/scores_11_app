@@ -31,10 +31,7 @@ class LocationService {
       if (!hasPermission) return null;
 
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
+        desiredAccuracy: LocationAccuracy.high,
       );
     } catch (e) {
       print('Error getting current position: $e');

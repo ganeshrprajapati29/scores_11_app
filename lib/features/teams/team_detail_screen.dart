@@ -49,9 +49,8 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppbar(
+      appBar: CustomAppBar(
         title: _team?.name ?? 'Team Details',
-        showBackButton: true,
       ),
       body: _isLoading
           ? const CustomLoader()
@@ -63,7 +62,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
                       Text(_error!, style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 16),
                       CustomButton(
-                        label: 'Retry',
+                        text: 'Retry',
                         onPressed: _loadTeam,
                       ),
                     ],
@@ -238,7 +237,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: _team!.players!.length,
             itemBuilder: (context, index) {
-              final player = _team!.players![index];
+              final player = _team!.players![index] as Map<String, dynamic>;
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
@@ -258,7 +257,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
                     CircleAvatar(
                       backgroundColor: AppColors.primary.withOpacity(0.1),
                       child: Text(
-                        player['name']?.substring(0, 1).toUpperCase() ?? 'P',
+                        (player['name'] as String?)?.substring(0, 1).toUpperCase() ?? 'P',
                         style: const TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.bold,
@@ -271,13 +270,13 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            player['name'] ?? 'Unknown',
+                            player['name'] as String? ?? 'Unknown',
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           Text(
-                            player['role'] ?? 'Player',
+                            player['role'] as String? ?? 'Player',
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 12,
@@ -383,7 +382,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
           children: [
             Expanded(
               child: CustomButton(
-                label: 'Edit Team',
+                text: 'Edit Team',
                 onPressed: () {
                   // Navigate to edit team
                 },
@@ -393,12 +392,12 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: CustomButton(
-                label: 'Invite',
+                text: 'Invite',
                 onPressed: () {
                   // Show invite dialog
                 },
                 icon: Icons.person_add,
-                variant: ButtonVariant.outlined,
+                isOutlined: true,
               ),
             ),
           ],

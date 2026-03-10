@@ -16,6 +16,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   bool _isLoading = false;
   bool _emailSent = false;
+  String? _sentEmail;
 
   @override
   void dispose() {
@@ -27,21 +28,37 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        _sentEmail = _emailController.text.trim();
       });
 
-      // Simulate API call - in real app, call auth service
-      await Future.delayed(const Duration(seconds: 2));
+      final authProvider = context.read<AuthProvider>();
+      final success = await authProvider.forgotPassword(_emailController.text.trim());
 
       setState(() {
         _isLoading = false;
-        _emailSent = true;
       });
 
-      if (mounted) {
+      if (success && mounted) {
+        setState(() {
+          _emailSent = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Password reset link sent to your email!'),
+            content: Text('OTP sent! Check console/email for OTP (development mode).'),
             backgroundColor: AppColors.success,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      } else if (mounted) {
+        // Show error but also allow proceeding for security reasons (don't reveal if email exists)
+        setState(() {
+          _emailSent = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('If account exists, OTP has been sent. Check console for OTP in development.'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 5),
           ),
         );
       }
@@ -114,7 +131,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 const SizedBox(height: 12),
                 if (!_emailSent) ...[
                   Text(
-                    'Enter your email address and we\'ll send you a link to reset your password.',
+                    'Enter your email address and we\'ll send you an OTP to reset your password.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: 0.8),
@@ -222,7 +239,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       ),
                     )
                   : const Text(
-                      'Send Reset Link',
+                      'Send OTP',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -253,7 +270,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 20),
         Text(
-          'Email Sent!',
+          'OTP Sent!',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary,
@@ -261,7 +278,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'We have sent a password reset link to ${_emailController.text}',
+          'We have sent an OTP to $_sentEmail',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppColors.textSecondary,
@@ -269,13 +286,42 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Please check your email and follow the instructions.',
+          'Check your email and enter the OTP to reset your password.',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppColors.textHint,
               ),
         ),
         const SizedBox(height: 24),
+        // Proceed to Reset Password Button
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.pushNamed(
+                context,
+                '/reset-password',
+                arguments: {'email': _sentEmail},
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Proceed to Reset Password',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           height: 50,

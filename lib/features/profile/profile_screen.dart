@@ -9,7 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/config/theme_config.dart';
-import '../../core/constants/app_colors.dart';
+// import '../../core/constants/app_colors.dart';
 import '../../data/services/user_service.dart';
 import '../../providers/auth_provider.dart';
 

@@ -4,11 +4,13 @@ import '../constants/app_colors.dart';
 class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
   final String? label;
+  final String? labelText;
   final String? hint;
+  final String? hintText;
   final String? errorText;
   final bool obscureText;
   final TextInputType? keyboardType;
-  final Widget? prefixIcon;
+  final dynamic prefixIcon; // Changed to accept both IconData and Widget
   final Widget? suffixIcon;
   final int maxLines;
   final bool enabled;
@@ -19,7 +21,9 @@ class CustomTextField extends StatelessWidget {
     super.key,
     this.controller,
     this.label,
+    this.labelText,
     this.hint,
+    this.hintText,
     this.errorText,
     this.obscureText = false,
     this.keyboardType,
@@ -33,12 +37,25 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String displayLabel = label ?? labelText ?? '';
+    final String displayHint = hint ?? hintText ?? '';
+    
+    // Convert IconData to Widget if needed
+    Widget? prefixWidget;
+    if (prefixIcon != null) {
+      if (prefixIcon is IconData) {
+        prefixWidget = Icon(prefixIcon as IconData);
+      } else if (prefixIcon is Widget) {
+        prefixWidget = prefixIcon as Widget;
+      }
+    }
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (label != null) ...[
+        if (displayLabel.isNotEmpty) ...[
           Text(
-            label!,
+            displayLabel,
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -56,9 +73,9 @@ class CustomTextField extends StatelessWidget {
           onChanged: onChanged,
           validator: validator,
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: displayHint,
             errorText: errorText,
-            prefixIcon: prefixIcon,
+            prefixIcon: prefixWidget,
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: enabled ? AppColors.surface : AppColors.background,
@@ -85,3 +102,4 @@ class CustomTextField extends StatelessWidget {
     );
   }
 }
+

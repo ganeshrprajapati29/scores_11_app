@@ -71,9 +71,9 @@ class Cric11App extends StatelessWidget {
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
           '/forgot-password': (context) => const ForgotPasswordScreen(),
-          '/otp-verification': (context) => const OTPVerificationScreen(
+          '/otp-verification': (context) => OTPVerificationScreen(
             identifier: '',
-            onVerify: (_) {},
+            onVerify: (code) {},
             onResend: () {},
           ),
           '/reset-password': (context) => const ResetPasswordScreen(),

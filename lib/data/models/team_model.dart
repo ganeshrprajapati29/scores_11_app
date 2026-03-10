@@ -21,6 +21,9 @@ class Team extends Equatable {
   final bool isVerified;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? teamType;
+  final String? captainName;
+  final String? viceCaptainName;
 
   const Team({
     required this.id,
@@ -42,7 +45,16 @@ class Team extends Equatable {
     this.isVerified = false,
     required this.createdAt,
     required this.updatedAt,
+    this.teamType,
+    this.captainName,
+    this.viceCaptainName,
   });
+
+  // Convenience getters for stats
+  int get matchesPlayed => stats?.matchesPlayed ?? 0;
+  int get wins => stats?.matchesWon ?? 0;
+  int get losses => stats?.matchesLost ?? 0;
+  int get ties => stats?.matchesTied ?? 0;
 
   factory Team.fromJson(Map<String, dynamic> json) {
     return Team(
@@ -60,7 +72,7 @@ class Team extends Equatable {
       country: json['country'] ?? 'India',
       description: json['description'],
       players: json['players'] != null 
-          ? (json['players'] as List).map((e) => e is String ? e : e['_id']).toList()
+          ? (json['players'] as List).map((e) => e is String ? e : e['_id'] as String).toList()
           : [],
       stats: json['stats'] != null ? TeamStats.fromJson(json['stats']) : null,
       isActive: json['isActive'] ?? true,

@@ -132,7 +132,11 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
                     label: 'Batsman',
                     value: _selectedBatsman,
                     items: _batsmen,
-                    onChanged: (value) => setState(() => _selectedBatsman = value!),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedBatsman = value);
+                    }
+                  },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -141,7 +145,11 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
                     label: 'Bowler',
                     value: _selectedBowler,
                     items: _bowlers,
-                    onChanged: (value) => setState(() => _selectedBowler = value!),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedBowler = value);
+                    }
+                  },
                   ),
                 ),
               ],
@@ -324,11 +332,11 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildWicketOption('caught', 'Caught', selectedWicketType, (v) => setDialogState(() => selectedWicketType = v)),
-              _buildWicketOption('bowled', 'Bowled', selectedWicketType, (v) => setDialogState(() => selectedWicketType = v)),
-              _buildWicketOption('lbw', 'LBW', selectedWicketType, (v) => setDialogState(() => selectedWicketType = v)),
-              _buildWicketOption('stumped', 'Stumped', selectedWicketType, (v) => setDialogState(() => selectedWicketType = v)),
-              _buildWicketOption('runOut', 'Run Out', selectedWicketType, (v) => setDialogState(() => selectedWicketType = v)),
+              _buildWicketOption('caught', 'Caught', selectedWicketType, (v) { if (v != null) setDialogState(() => selectedWicketType = v); }),
+              _buildWicketOption('bowled', 'Bowled', selectedWicketType, (v) { if (v != null) setDialogState(() => selectedWicketType = v); }),
+              _buildWicketOption('lbw', 'LBW', selectedWicketType, (v) { if (v != null) setDialogState(() => selectedWicketType = v); }),
+              _buildWicketOption('stumped', 'Stumped', selectedWicketType, (v) { if (v != null) setDialogState(() => selectedWicketType = v); }),
+              _buildWicketOption('runOut', 'Run Out', selectedWicketType, (v) { if (v != null) setDialogState(() => selectedWicketType = v); }),
             ],
           ),
           actions: [
@@ -350,7 +358,7 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
     );
   }
 
-  Widget _buildWicketOption(String value, String label, String selected, ValueChanged<String> onChanged) {
+  Widget _buildWicketOption(String value, String label, String selected, ValueChanged<String?> onChanged) {
     return RadioListTile<String>(
       title: Text(label),
       value: value,

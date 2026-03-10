@@ -27,17 +27,6 @@ class MatchService {
   final CacheService _cacheService = CacheService();
 
   /// Get matches with pagination support and caching
-  /// 
-  /// Algorithm:
-  /// int page = 1;
-  /// loadMore(){
-  ///   page++;
-  ///   fetchMatches(page);
-  /// }
-  /// 
-  /// Cache Strategy:
-  /// - First page requests: Check cache first, then API if cache expired
-  /// - Subsequent pages: Always fetch from API (no pagination cache)
   Future<PaginatedMatches> getMatches({
     int page = 1,
     int limit = 20,
@@ -79,7 +68,7 @@ class MatchService {
         
         // Cache first page results
         if (page == 1 && status == null && tournament == null) {
-          final matchesJson = matches.map((m) => m.toJson()).toList();
+          final matchesJson = matches.map((m) => m.toJson()).toList().cast<Map<String, dynamic>>();
           _cacheService.cacheMatches(matchesJson);
         }
         
@@ -96,7 +85,7 @@ class MatchService {
     } catch (e) {
       // If API fails and we have cache, return cached data
       if (page == 1 && status == null && tournament == null) {
-        final cachedData = _cacheService.getCachedMatches(ttlMinutes: 60); // Longer TTL for offline
+        final cachedData = _cacheService.getCachedMatches(ttlMinutes: 60);
         if (cachedData != null) {
           final matches = cachedData.map((json) => Match.fromJson(json)).toList();
           return PaginatedMatches(
@@ -160,7 +149,20 @@ class MatchService {
     }
   }
 
-  /// Get live matches with short cache duration
+  /// Get public match info (less details)
+  Future<Match> getMatchByIdPublic(String id) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.matches}/public/$id');
+      if (response.statusCode == 200) {
+        return Match.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get public match');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get live matches - uses dedicated endpoint
   Future<List<Match>> getLiveMatches({bool forceRefresh = false}) async {
     if (!forceRefresh) {
       final cachedData = _cacheService.getCachedLiveMatches(ttlMinutes: 1);
@@ -170,13 +172,18 @@ class MatchService {
     }
 
     try {
-      final result = await getMatches(status: 'LIVE');
-      
-      // Cache live matches with shorter TTL
-      final matchesJson = result.matches.map((m) => m.toJson()).toList();
-      _cacheService.cacheLiveMatches(matchesJson);
-      
-      return result.matches;
+      final response = await _apiClient.get('${ApiConfig.matches}/live');
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        final matches = data.map((json) => Match.fromJson(json)).toList();
+        
+        // Cache live matches with shorter TTL
+        final matchesJson = matches.map((m) => m.toJson()).toList();
+        _cacheService.cacheLiveMatches(matchesJson);
+        
+        return matches;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get live matches');
     } catch (e) {
       final cachedData = _cacheService.getCachedLiveMatches(ttlMinutes: 5);
       if (cachedData != null) {
@@ -186,16 +193,99 @@ class MatchService {
     }
   }
 
+  /// Get upcoming matches - uses dedicated endpoint
   Future<List<Match>> getUpcomingMatches({int limit = 10}) async {
-    final result = await getMatches(status: 'SCHEDULED', limit: limit);
-    return result.matches;
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.matches}/upcoming',
+        queryParameters: {'limit': limit.toString()},
+      );
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data.map((json) => Match.fromJson(json)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get upcoming matches');
+    } catch (e) {
+      rethrow;
+    }
   }
 
+  /// Get completed matches - uses dedicated endpoint
   Future<List<Match>> getCompletedMatches({int limit = 10}) async {
-    final result = await getMatches(status: 'COMPLETED', limit: limit);
-    return result.matches;
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.matches}/completed',
+        queryParameters: {'limit': limit.toString()},
+      );
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data.map((json) => Match.fromJson(json)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get completed matches');
+    } catch (e) {
+      rethrow;
+    }
   }
 
+  /// Search matches
+  Future<List<Match>> searchMatches(String query) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.matches}/search',
+        queryParameters: {'q': query},
+      );
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data.map((json) => Match.fromJson(json)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to search matches');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get matches by tournament
+  Future<List<Match>> getTournamentMatches(String tournamentId) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.matches}/tournament/$tournamentId');
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data.map((json) => Match.fromJson(json)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get tournament matches');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get matches by team
+  Future<List<Match>> getTeamMatches(String teamId) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.matches}/team/$teamId');
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data.map((json) => Match.fromJson(json)).toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get team matches');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get match timeline
+  Future<Map<String, dynamic>> getMatchTimeline(String matchId) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.matches}/$matchId/timeline');
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get match timeline');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Create a new match
   Future<Match> createMatch({
     required String team1,
     required String team2,
@@ -225,7 +315,6 @@ class MatchService {
         },
       );
       if (response.statusCode == 201 || response.statusCode == 200) {
-        // Clear matches cache after creating new match
         _cacheService.clearMatchesCache();
         return Match.fromJson(response.data['data']);
       }
@@ -235,6 +324,7 @@ class MatchService {
     }
   }
 
+  /// Update match
   Future<Match> updateMatch(String id, Map<String, dynamic> data) async {
     try {
       final response = await _apiClient.put(
@@ -242,7 +332,6 @@ class MatchService {
         data: data,
       );
       if (response.statusCode == 200) {
-        // Clear cache after update
         _cacheService.clearMatchesCache();
         _cacheService.cacheMatchDetail(id, response.data['data']);
         return Match.fromJson(response.data['data']);
@@ -253,19 +342,20 @@ class MatchService {
     }
   }
 
+  /// Delete match
   Future<void> deleteMatch(String id) async {
     try {
       final response = await _apiClient.delete('${ApiConfig.matches}/$id');
       if (response.statusCode != 200 && response.statusCode != 204) {
         throw Exception(response.data['message'] ?? 'Failed to delete match');
       }
-      // Clear cache after delete
       _cacheService.clearMatchesCache();
     } catch (e) {
       rethrow;
     }
   }
 
+  /// Update match status
   Future<Match> updateMatchStatus(String id, String status) async {
     try {
       final response = await _apiClient.patch(
@@ -273,12 +363,79 @@ class MatchService {
         data: {'status': status},
       );
       if (response.statusCode == 200) {
-        // Clear cache after status update
         _cacheService.clearMatchesCache();
         _cacheService.cacheMatchDetail(id, response.data['data']);
         return Match.fromJson(response.data['data']);
       }
       throw Exception(response.data['message'] ?? 'Failed to update status');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Schedule match
+  Future<Match> scheduleMatch(String id, DateTime scheduledDate) async {
+    try {
+      final response = await _apiClient.patch(
+        '${ApiConfig.matches}/$id/schedule',
+        data: {'scheduledDate': scheduledDate.toIso8601String()},
+      );
+      if (response.statusCode == 200) {
+        _cacheService.clearMatchesCache();
+        return Match.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to schedule match');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Update toss result
+  Future<Match> updateToss(String id, String winner, String decision) async {
+    try {
+      final response = await _apiClient.patch(
+        '${ApiConfig.matches}/$id/toss',
+        data: {'tossWinner': winner, 'tossDecision': decision},
+      );
+      if (response.statusCode == 200) {
+        _cacheService.clearMatchesCache();
+        return Match.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update toss');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Update match result
+  Future<Match> updateResult(String id, Map<String, dynamic> result) async {
+    try {
+      final response = await _apiClient.patch(
+        '${ApiConfig.matches}/$id/result',
+        data: result,
+      );
+      if (response.statusCode == 200) {
+        _cacheService.clearMatchesCache();
+        return Match.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update result');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Set match officials
+  Future<Match> setOfficials(String id, Map<String, dynamic> officials) async {
+    try {
+      final response = await _apiClient.patch(
+        '${ApiConfig.matches}/$id/officials',
+        data: officials,
+      );
+      if (response.statusCode == 200) {
+        _cacheService.clearMatchesCache();
+        return Match.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to set officials');
     } catch (e) {
       rethrow;
     }

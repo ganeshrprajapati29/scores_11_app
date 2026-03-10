@@ -5,7 +5,11 @@ class AppColors {
   static const Color primary = Color(0xFF1E88E5);
   static const Color primaryLight = Color(0xFF6AB7FF);
   static const Color primaryDark = Color(0xFF005CB2);
-  static const Color primaryGradient = [Color(0xFF1E88E5), Color(0xFF1565C0)];
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [Color(0xFF1E88E5), Color(0xFF1565C0)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
   
   // Secondary Colors
   static const Color secondary = Color(0xFFFF6F00);
@@ -21,6 +25,7 @@ class AppColors {
   static const Color textPrimary = Color(0xFF212121);
   static const Color textSecondary = Color(0xFF757575);
   static const Color textHint = Color(0xFFBDBDBD);
+  static const Color textDisabled = Color(0xFFE0E0E0);
   static const Color textOnPrimary = Color(0xFFFFFFFF);
   
   // Status Colors

@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildFilterOption('Players', Icons.person),
             _buildFilterOption('Teams', Icons.group),
             _buildFilterOption('Tournaments', Icons.emoji_events),
-            _buildFilterOption('Clubs', Icons.club),
+            _buildFilterOption('Clubs', Icons.groups),
             const SizedBox(height: 20),
           ],
         ),

@@ -6,6 +6,7 @@ class Player extends Equatable {
   final String? email;
   final String? phone;
   final String? photo;
+  final String? profileImage;
   final String? dateOfBirth;
   final String? gender;
   final String? nationality;
@@ -15,6 +16,7 @@ class Player extends Equatable {
   final String? playerRole;
   final int? jerseyNumber;
   final String? team;
+  final String? teamName;
   final String? country;
   final PlayerStats? stats;
   final bool isActive;
@@ -27,6 +29,7 @@ class Player extends Equatable {
     this.email,
     this.phone,
     this.photo,
+    this.profileImage,
     this.dateOfBirth,
     this.gender,
     this.nationality,
@@ -36,6 +39,7 @@ class Player extends Equatable {
     this.playerRole,
     this.jerseyNumber,
     this.team,
+    this.teamName,
     this.country,
     this.stats,
     this.isActive = true,

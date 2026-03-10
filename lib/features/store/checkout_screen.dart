@@ -27,8 +27,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   };
 
   double get _subtotal => _cartItems.fold(0, (sum, item) => sum + (item['price'] * item['quantity']));
-  double _shipping = 99;
-  double _tax = (_subtotal * 0.18).roundToDouble();
+  double get _shipping => 99;
+  double get _tax => (_subtotal * 0.18).roundToDouble();
   double get _total => _subtotal + _shipping + _tax;
 
   @override

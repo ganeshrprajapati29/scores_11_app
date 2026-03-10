@@ -510,7 +510,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
         }
         
         // Mock achievements for demo
-        final mockAchievements = [
+        final List<Map<String, dynamic>> mockAchievements = [
           {'icon': Icons.star, 'color': Colors.blue, 'title': 'First Match'},
           {'icon': Icons.local_fire_department, 'color': Colors.red, 'title': 'Hot Streak'},
           {'icon': Icons.military_tech, 'color': Colors.purple, 'title': 'Champion'},
@@ -519,7 +519,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
         ];
         final mock = mockAchievements[index - _achievements.length];
         return _AchievementCard(
-          icon: mock['icon'],
+          icon: mock['icon'] as IconData,
           color: mock['color'] as Color,
           title: mock['title'] as String,
           description: '',
