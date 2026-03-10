@@ -179,7 +179,7 @@ class PlayerService {
     }
   }
 
-  /// Get player stats
+/// Get player stats
   Future<Map<String, dynamic>> getPlayerStats(String playerId, {bool forceRefresh = false}) async {
     if (!forceRefresh) {
       final cachedStats = _cacheService.getCachedPlayerStats(playerId, ttlMinutes: 30);
@@ -200,6 +200,19 @@ class PlayerService {
       if (cachedStats != null) {
         return cachedStats;
       }
+      rethrow;
+    }
+  }
+
+  /// Get player performance (stats + performances)
+  Future<Map<String, dynamic>> getPlayerPerformance(String playerId, {Map<String, dynamic>? queryParams}) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.players}/$playerId/performance',
+        queryParameters: queryParams,
+      );
+      return response.data['data'] ?? {};
+    } catch (e) {
       rethrow;
     }
   }

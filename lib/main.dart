@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'core/config/theme_config.dart';
 import 'core/services/cache_service.dart';
 import 'providers/auth_provider.dart';
+import 'providers/dashboard_provider.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
@@ -38,6 +39,10 @@ import 'features/community/community_feed_screen.dart';
 import 'features/community/create_post_screen.dart';
 import 'features/community/post_detail_screen.dart';
 import 'features/settings/app_settings_screen.dart';
+import 'features/wallet/wallet_screen.dart';
+import 'features/subscription/subscription_screen.dart';
+import 'features/notifications/notifications_screen.dart';
+import 'features/discovery/discovery_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +62,7 @@ class Cric11App extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
       child: MaterialApp(
         title: 'Scores11',
@@ -134,23 +140,36 @@ class Cric11App extends StatelessWidget {
           '/orders': (context) => const OrdersScreen(),
           
           // Wallet & Subscription
-          '/wallet': (context) => const DashboardScreen(),
-          '/subscription': (context) => const DashboardScreen(),
-          '/subscription-plans': (context) => const DashboardScreen(),
-          '/payment': (context) => const DashboardScreen(),
+          '/wallet': (context) => const WalletScreen(),
+          '/subscription': (context) => const SubscriptionScreen(),
+          '/subscription-plans': (context) => const SubscriptionScreen(),
+          '/payment': (context) => const CheckoutScreen(),
           
           // Other Routes
           '/go-live': (context) => const GoLiveScreen(),
-          '/discover': (context) => const DashboardScreen(),
-          '/stats': (context) => const DashboardScreen(),
-          '/history': (context) => const DashboardScreen(),
-          '/activity': (context) => const DashboardScreen(),
-          '/edit-profile': (context) => const DashboardScreen(),
-          '/my-performance': (context) => const DashboardScreen(),
+          '/discover': (context) => const DiscoveryScreen(),
+          '/stats': (context) => const HomeScreen(),
+          '/history': (context) => const HomeScreen(),
+          '/activity': (context) => const HomeScreen(),
+          '/edit-profile': (context) => const ProfileScreen(),
+          '/my-performance': (context) => const CricketProfileScreen(),
           '/settings': (context) => const AppSettingsScreen(),
           '/change-password': (context) => const AppSettingsScreen(),
           '/support': (context) => const AppSettingsScreen(),
-          '/notifications': (context) => const DashboardScreen(),
+          '/notifications': (context) => const NotificationsScreen(),
+          '/my-cricket': (context) => const HomeScreen(),
+          
+          // Additional Routes from Drawer/Shortcuts
+          '/my-teams': (context) => const TeamListScreen(),
+          '/my-tournaments': (context) => const TournamentListScreen(),
+          '/create-team': (context) => const CreateTeamScreen(),
+          '/create-match': (context) => const MatchListScreen(),
+          '/match-detail': (context) => const MatchDetailScreen(),
+          '/player-profile': (context) => const PlayerSearchScreen(),
+          '/community': (context) => const CommunityFeedScreen(),
+          '/store': (context) => const StoreHomeScreen(),
+          '/messages': (context) => const HomeScreen(),
+          '/chat': (context) => const HomeScreen(),
         },
       ),
     );

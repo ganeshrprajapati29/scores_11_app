@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../models/user_model.dart';
@@ -25,30 +26,64 @@ class AuthService {
           'email': email,
           'password': password,
           'name': name,
-          if (phone != null) 'phone': phone,
+          if (phone != null && phone.isNotEmpty) 'phone': phone,
           'role': role,
         },
       );
       
       if (response.statusCode == 201 || response.statusCode == 200) {
-        final data = response.data['data'];
-        await _apiClient.setTokens(
-          data['accessToken'],
-          data['refreshToken'],
-        );
+        // Safely extract data from response
+        final responseData = response.data;
+        final data = responseData is Map ? _convertToMap(responseData['data']) : <String, dynamic>{};
+        
+        // Safely extract user data - handle nested objects properly
+        Map<String, dynamic> userData = {};
+        final userRaw = data['user'];
+        if (userRaw != null) {
+          userData = _convertToMap(userRaw);
+        }
+        
+        // Handle both cases: when refreshToken is in data or nested
+        final accessToken = data['accessToken'] ?? data['token'];
+        final refreshToken = data['refreshToken'] ?? data['refreshToken'];
+        
+        if (accessToken != null && refreshToken != null) {
+          await _apiClient.setTokens(accessToken.toString(), refreshToken.toString());
+        }
+        
+        // Create UserModel from the map
+        final userModel = UserModel.fromJson(userData);
+        
         return {
           'success': true,
           'data': {
-            'user': UserModel.fromJson(data['user']),
-            'accessToken': data['accessToken'],
-            'refreshToken': data['refreshToken'],
+            'user': userModel,
+            'accessToken': accessToken,
+            'refreshToken': refreshToken,
           }
         };
       }
       return {'success': false, 'message': response.data['message'] ?? 'Registration failed'};
+    } on DioException catch (e) {
+      final message = _handleDioError(e);
+      return {'success': false, 'message': message};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
+  }
+
+  // Helper method to convert any type to Map<String, dynamic>
+  Map<String, dynamic> _convertToMap(dynamic data) {
+    if (data == null) return {};
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    // Handle case where data might be from Dio response
+    if (data is Map<dynamic, dynamic>) {
+      return Map<String, dynamic>.from(data);
+    }
+    return {};
   }
 
   Future<Map<String, dynamic>> login(String identifier, String password) async {
@@ -62,23 +97,70 @@ class AuthService {
       );
       
       if (response.statusCode == 200) {
-        final data = response.data['data'];
-        await _apiClient.setTokens(
-          data['accessToken'],
-          data['refreshToken'],
-        );
+        // Safely extract data from response
+        final responseData = response.data;
+        final data = responseData is Map ? _convertToMap(responseData['data']) : <String, dynamic>{};
+        
+        // Safely extract user data - handle nested objects properly
+        Map<String, dynamic> userData = {};
+        final userRaw = data['user'];
+        if (userRaw != null) {
+          userData = _convertToMap(userRaw);
+        }
+        
+        // Handle both cases: when refreshToken is in data or nested
+        final accessToken = data['accessToken'] ?? data['token'];
+        final refreshToken = data['refreshToken'] ?? data['refreshToken'];
+        
+        if (accessToken != null && refreshToken != null) {
+          await _apiClient.setTokens(accessToken.toString(), refreshToken.toString());
+        }
+        
+        // Create UserModel from the map
+        final userModel = UserModel.fromJson(userData);
+        
         return {
           'success': true,
           'data': {
-            'user': UserModel.fromJson(data['user']),
-            'accessToken': data['accessToken'],
-            'refreshToken': data['refreshToken'],
+            'user': userModel,
+            'accessToken': accessToken,
+            'refreshToken': refreshToken,
           }
         };
       }
       return {'success': false, 'message': response.data['message'] ?? 'Login failed'};
+    } on DioException catch (e) {
+      final message = _handleDioError(e);
+      return {'success': false, 'message': message};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
+    }
+  }
+  
+  // Helper method to handle Dio errors
+  String _handleDioError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Connection timeout. Please check your internet connection.';
+      case DioExceptionType.badResponse:
+        final statusCode = e.response?.statusCode;
+        final data = e.response?.data;
+        if (statusCode == 401) {
+          return 'Invalid credentials. Please check your email and password.';
+        } else if (statusCode == 404) {
+          return 'Server not found. Please try again later.';
+        } else if (statusCode == 500) {
+          return 'Server error. Please try again later.';
+        }
+        return data?['message'] ?? 'An error occurred';
+      case DioExceptionType.cancel:
+        return 'Request cancelled';
+      case DioExceptionType.connectionError:
+        return 'No internet connection. Please check your network.';
+      default:
+        return e.message ?? 'An unexpected error occurred';
     }
   }
 
@@ -163,7 +245,9 @@ class AuthService {
     try {
       final response = await _apiClient.get('${ApiConfig.auth}/me');
       if (response.statusCode == 200) {
-        return UserModel.fromJson(response.data['data']);
+        // Safely convert response data to Map
+        final userData = _convertToMap(response.data['data']);
+        return UserModel.fromJson(userData);
       }
       throw Exception(response.data['message'] ?? 'Failed to get user');
     } catch (e) {

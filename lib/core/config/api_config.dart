@@ -37,6 +37,7 @@ class ApiConfig {
   static const String banners = '/banners';
   static const String featureToggles = '/feature-toggles';
   static const String admin = '/admin';
+  static const String dashboard = '/dashboard';
   
   // Timeouts
   static const int connectionTimeout = 30000;

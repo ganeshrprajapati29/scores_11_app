@@ -26,7 +26,9 @@ class AuthProvider extends ChangeNotifier {
       final response = await _authService.login(email, password);
       
       if (response['success'] == true) {
-        _user = UserModel.fromJson(response['data']['user']);
+        // Handle user data - ensure it's a proper Map
+        final userData = response['data']['user'];
+        _user = UserModel.fromJson(userData);
         _status = AuthStatus.authenticated;
         notifyListeners();
         return true;

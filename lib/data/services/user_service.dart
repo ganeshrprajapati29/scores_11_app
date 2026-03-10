@@ -7,10 +7,10 @@ import 'auth_service.dart';
 class UserService {
   final String baseUrl = ApiConfig.baseUrl;
   
-  Future<Map<String, dynamic>> getProfile() async {
+Future<Map<String, dynamic>> getProfile() async {
     final token = await AuthService.getToken();
     final response = await http.get(
-      Uri.parse('$baseUrl/users/profile'),
+      Uri.parse('$baseUrl/users/me'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -27,7 +27,7 @@ class UserService {
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
     final token = await AuthService.getToken();
     final response = await http.put(
-      Uri.parse('$baseUrl/users/profile'),
+      Uri.parse('$baseUrl/users/me'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -46,7 +46,7 @@ class UserService {
     final token = await AuthService.getToken();
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$baseUrl/users/upload-avatar'),
+      Uri.parse('$baseUrl/users/avatar'),
     );
     request.headers['Authorization'] = 'Bearer $token';
     request.files.add(await http.MultipartFile.fromPath('avatar', file.path));

@@ -35,30 +35,107 @@ class UserModel extends Equatable {
     this.cricketProfile,
   });
 
-  factory UserModel.fromJson(Map<String, dynamic> json) {
+  factory UserModel.fromJson(dynamic json) {
+    // Handle null or missing fields safely - accept any type for json parameter
+    if (json == null) {
+      return UserModel(
+        id: '',
+        name: '',
+        email: '',
+        role: 'USER',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
+    
+    // Convert to Map<String, dynamic> if it's not already
+    Map<String, dynamic> data;
+    if (json is Map<String, dynamic>) {
+      data = json;
+    } else if (json is Map) {
+      data = Map<String, dynamic>.from(json);
+    } else {
+      return UserModel(
+        id: '',
+        name: '',
+        email: '',
+        role: 'USER',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
+    
+    final idValue = data['_id'] ?? data['id'];
+    final nameValue = data['fullName'] ?? data['name'] ?? data['name'] ?? '';
+    final emailValue = data['email'] ?? '';
+    final roleValue = (data['role'] ?? 'USER').toString().toUpperCase();
+    
+    DateTime? parsedCreatedAt;
+    DateTime? parsedUpdatedAt;
+    
+    try {
+      if (data['createdAt'] != null) {
+        parsedCreatedAt = data['createdAt'] is DateTime 
+            ? data['createdAt'] 
+            : DateTime.tryParse(data['createdAt'].toString());
+      }
+    } catch (e) {
+      parsedCreatedAt = DateTime.now();
+    }
+    
+    try {
+      if (data['updatedAt'] != null) {
+        parsedUpdatedAt = data['updatedAt'] is DateTime 
+            ? data['updatedAt'] 
+            : DateTime.tryParse(data['updatedAt'].toString());
+      }
+    } catch (e) {
+      parsedUpdatedAt = DateTime.now();
+    }
+
+    // Safely parse avatar
+    Avatar? avatar;
+    try {
+      if (data['avatar'] != null) {
+        if (data['avatar'] is Map) {
+          avatar = Avatar.fromJson(Map<String, dynamic>.from(data['avatar']));
+        }
+      }
+    } catch (e) {
+      avatar = null;
+    }
+
+    // Safely parse address
+    Address? address;
+    try {
+      if (data['address'] != null) {
+        if (data['address'] is Map) {
+          address = Address.fromJson(Map<String, dynamic>.from(data['address']));
+        }
+      }
+    } catch (e) {
+      address = null;
+    }
+
     return UserModel(
-      id: json['_id'] ?? json['id'] ?? '',
-      email: json['email'] ?? '',
-      name: json['name'] ?? '',
-      phone: json['phone'],
-      role: json['role'] ?? 'USER',
-      avatar: json['avatar'] != null ? Avatar.fromJson(json['avatar']) : null,
-      dateOfBirth: json['dateOfBirth'] != null 
-          ? DateTime.tryParse(json['dateOfBirth']) 
+      id: idValue?.toString() ?? '',
+      name: nameValue?.toString() ?? '',
+      email: emailValue?.toString() ?? '',
+      phone: data['phone']?.toString(),
+      role: roleValue,
+      avatar: avatar,
+      dateOfBirth: data['dateOfBirth'] != null 
+          ? DateTime.tryParse(data['dateOfBirth'].toString()) 
           : null,
-      gender: json['gender'],
-      address: json['address'] != null ? Address.fromJson(json['address']) : null,
-      isEmailVerified: json['isEmailVerified'] ?? false,
-      isActive: json['isActive'] ?? true,
-      lastLogin: json['lastLogin'] != null 
-          ? DateTime.tryParse(json['lastLogin']) 
+      gender: data['gender']?.toString(),
+      address: address,
+      isEmailVerified: data['isEmailVerified'] == true || data['isEmailVerified'] == 'true',
+      isActive: data['isActive'] != false && data['isActive'] != 'false',
+      lastLogin: data['lastLogin'] != null 
+          ? DateTime.tryParse(data['lastLogin'].toString()) 
           : null,
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
-          : DateTime.now(),
-      updatedAt: json['updatedAt'] != null 
-          ? DateTime.parse(json['updatedAt']) 
-          : DateTime.now(),
+      createdAt: parsedCreatedAt ?? DateTime.now(),
+      updatedAt: parsedUpdatedAt ?? DateTime.now(),
     );
   }
 
