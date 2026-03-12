@@ -1,5 +1,5 @@
 <!-- ============================================================================== -->
-<!--                    CRICK11 - COMPLETE FLUTTER MOBILE APP README                 -->
+<!--                    Scores11 - COMPLETE FLUTTER MOBILE APP README                 -->
 <!--                    ALL 50+ SCREENS WITH VISUAL DESCRIPTIONS                     -->
 <!-- ============================================================================== -->
 
@@ -19,7 +19,7 @@
 
 ---
 
-# 🏏 **CRICK11** - Complete Cricket Fantasy App
+# 🏏 **Scores11** - Complete Cricket Fantasy App
 
 **🏆 Complete Cricket Ecosystem | 50+ Screens | Real-time Updates | Wallet System | Production Ready**
 
@@ -35,7 +35,7 @@ A **full-featured cricket fantasy and management app** built with Flutter connec
 ```
 ┌─────────────────────────────────────┐
 │                                     │
-│            🏏 CRICK11               │
+│            🏏 Scores11               │
 │        Play Cricket. Win Glory.     │
 │                                     │
 │        [Animated Cricket Ball]      │
@@ -51,7 +51,7 @@ A **full-featured cricket fantasy and management app** built with Flutter connec
 ┌─────────────────────────────────────┐
 │              LOGIN                  │
 ├─────────────────────────────────────┤
-│  📧 Email     [user@crick11.com]   │
+│  📧 Email     [user@Scores11.com]   │
 │  🔒 Password  [••••••••••••]       │
 │                                     │
 │        [  LOGIN WITH EMAIL  ]       │
@@ -70,7 +70,7 @@ A **full-featured cricket fantasy and management app** built with Flutter connec
 │             REGISTER                │
 ├─────────────────────────────────────┤
 │  👤 Full Name  [John Doe]          │
-│  📧 Email      [john@crick11.com]  │
+│  📧 Email      [john@Scores11.com]  │
 │  📱 Phone      [+91 9876543210]    │
 │  🔒 Password   [••••••••••••]      │
 │                                     │
@@ -128,7 +128,7 @@ A **full-featured cricket fantasy and management app** built with Flutter connec
 │         FORGOT PASSWORD             │
 ├─────────────────────────────────────┤
 │  📧 Enter Email                     │
-│  [user@crick11.com]                 │
+│  [user@Scores11.com]                 │
 │                                     │
 │        [  SEND RESET LINK  ]        │
 │                                     │
@@ -153,7 +153,7 @@ A **full-featured cricket fantasy and management app** built with Flutter connec
 #### **2.1 Home Screen (Bottom Nav)**
 ```
 ┌─────────────────── AppBar ───────────────┐
-│ 🏏 Crick11  [Profile Icon] [Notif Bell]  │
+│ 🏏 Scores11  [Profile Icon] [Notif Bell]  │
 ├───────────────────────────────────────────┤
 │ [🏠Home] [🏟️Matches] [🏆Tournaments] [🎮Contests] │
 ├───────────────────────────────────────────┤
@@ -531,7 +531,7 @@ A **full-featured cricket fantasy and management app** built with Flutter connec
 │             PROFILE                 │
 ├─────────────────────────────────────┤
 │  [Avatar] John Doe                 │
-│  john@crick11.com | +91 9876543210 │
+│  john@Scores11.com | +91 9876543210 │
 ├─────────────────────────────────────┤
 │  Cricket Profile                    │
 │  🏏 Batsman | Right Hand | 25yo    │
@@ -595,7 +595,7 @@ A **full-featured cricket fantasy and management app** built with Flutter connec
 │  [Like][Comment][Share]             │
 ├─────────────────────────────────────┤
 │  #IPL2026 starts tomorrow!         │
-│  👤 OfficialCrick11  🔥1.2k 💬89   │
+│  👤 OfficialScores11  🔥1.2k 💬89   │
 │  [Image Carousel]                   │
 └─────────────────────────────────────┘
 ```
