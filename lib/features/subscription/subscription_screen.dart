@@ -75,7 +75,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppbar(
+      appBar: CustomAppBar(
         title: 'Subscription Plans',
         showBackButton: true,
       ),
@@ -88,7 +88,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     children: [
                       Text(_error!, style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 16),
-                      CustomButton(label: 'Retry', onPressed: _loadData),
+                      CustomButton(text: 'Retry', onPressed: _loadData),
                     ],
                   ),
                 )
@@ -254,7 +254,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           SizedBox(
             width: double.infinity,
             child: CustomButton(
-              label: isActive ? 'Current Plan' : 'Subscribe',
+              text: isActive ? 'Current Plan' : 'Subscribe',
               onPressed: isActive ? null : () => _subscribe(plan['id']),
             ),
           ),

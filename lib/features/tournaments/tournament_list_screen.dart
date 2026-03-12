@@ -34,13 +34,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   bool _isCompletedLoadingMore = false;
   
   bool _isLoading = true;
-
-  /// Pagination Algorithm:
-  /// int page = 1;
-  /// loadMore(){
-  ///   page++;
-  ///   fetchTournaments(page);
-  /// }
+  String? _error;
 
   @override
   void initState() {
@@ -58,8 +52,8 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   Future<void> _loadTournaments() async {
     setState(() => _isLoading = true);
     try {
-      final liveResult = await _tournamentService.getTournaments(status: 'LIVE', page: 1);
-      final upcomingResult = await _tournamentService.getTournaments(status: 'UPCOMING', page: 1);
+      final liveResult = await _tournamentService.getTournaments(status: 'IN_PROGRESS', page: 1);
+      final upcomingResult = await _tournamentService.getTournaments(status: 'PUBLISHED', page: 1);
       final completedResult = await _tournamentService.getTournaments(status: 'COMPLETED', page: 1);
       
       setState(() {
@@ -72,9 +66,13 @@ class _TournamentListScreenState extends State<TournamentListScreen>
         _completedHasMore = completedResult.hasMore;
         
         _isLoading = false;
+        _error = null;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _error = e.toString();
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),

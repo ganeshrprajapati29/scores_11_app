@@ -29,9 +29,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _isLoading = true;
         _error = null;
       });
-      final notifications = await _notificationService.getNotifications(limit: 50);
+      final result = await _notificationService.getNotifications(limit: 50);
       setState(() {
-        _notifications = notifications;
+        _notifications = result.notifications;
         _isLoading = false;
       });
     } catch (e) {
@@ -71,7 +71,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppbar(
+      appBar: CustomAppBar(
         title: 'Notifications',
         showBackButton: true,
         actions: [

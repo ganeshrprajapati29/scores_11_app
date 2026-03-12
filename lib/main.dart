@@ -164,7 +164,6 @@ class Cric11App extends StatelessWidget {
           '/my-tournaments': (context) => const TournamentListScreen(),
           '/create-team': (context) => const CreateTeamScreen(),
           '/create-match': (context) => const MatchListScreen(),
-          '/match-detail': (context) => const MatchDetailScreen(),
           '/player-profile': (context) => const PlayerSearchScreen(),
           '/community': (context) => const CommunityFeedScreen(),
           '/store': (context) => const StoreHomeScreen(),

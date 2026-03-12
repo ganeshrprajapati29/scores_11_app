@@ -235,6 +235,23 @@ class TeamService {
     }
   }
 
+  /// Get team matches
+  Future<List<dynamic>> getTeamMatches(String teamId, {int page = 1, int limit = 20}) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.teams}/$teamId/matches',
+        queryParameters: {'page': page, 'limit': limit},
+      );
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data;
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get team matches');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Set team captain
   Future<Team> setCaptain(String teamId, String playerId) async {
     try {

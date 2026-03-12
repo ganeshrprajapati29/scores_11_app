@@ -846,13 +846,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
       myLocationButtonEnabled: true,
       zoomControlsEnabled: false,
       mapToolbarEnabled: false,
-      onMarkerTap: (marker) {
-        final item = _items.firstWhere(
-          (m) => m.id == marker.markerId.value,
-          orElse: () => _items.first,
-        );
-        _showItemDetails(item);
-      },
     );
   }
 

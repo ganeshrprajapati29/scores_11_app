@@ -50,7 +50,7 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppbar(
+      appBar: CustomAppBar(
         title: 'Wallet',
         showBackButton: true,
       ),
@@ -63,7 +63,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     children: [
                       Text(_error!, style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 16),
-                      CustomButton(label: 'Retry', onPressed: _loadWalletData),
+                      CustomButton(text: 'Retry', onPressed: _loadWalletData),
                     ],
                   ),
                 )
@@ -409,7 +409,7 @@ class _WalletScreenState extends State<WalletScreen> {
               SizedBox(
                 width: double.infinity,
                 child: CustomButton(
-                  label: 'Add Funds',
+                  text: 'Add Funds',
                   onPressed: () async {
                     final amount = double.tryParse(amountController.text);
                     if (amount != null && amount > 0) {
@@ -498,7 +498,7 @@ class _WalletScreenState extends State<WalletScreen> {
               SizedBox(
                 width: double.infinity,
                 child: CustomButton(
-                  label: 'Withdraw',
+                  text: 'Withdraw',
                   onPressed: () async {
                     final amount = double.tryParse(amountController.text);
                     if (amount != null && amount > 0) {
