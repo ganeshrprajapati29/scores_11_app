@@ -162,6 +162,32 @@ class MatchService {
     }
   }
 
+  /// Get live match score data
+  Future<Map<String, dynamic>> getLiveScore(String matchId) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.baseUrl}/scoring/match/$matchId/live');
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get live score');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get full scorecard
+  Future<Map<String, dynamic>> getFullScorecard(String matchId) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.baseUrl}/scoring/match/$matchId/scorecard');
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get scorecard');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Get live matches - uses dedicated endpoint
   Future<List<Match>> getLiveMatches({bool forceRefresh = false}) async {
     if (!forceRefresh) {

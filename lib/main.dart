@@ -39,6 +39,10 @@ import 'features/community/community_feed_screen.dart';
 import 'features/community/create_post_screen.dart';
 import 'features/community/post_detail_screen.dart';
 import 'features/settings/app_settings_screen.dart';
+import 'features/settings/notification_settings_screen.dart';
+import 'features/settings/privacy_settings_screen.dart';
+import 'features/settings/preferences_screen.dart';
+import 'features/settings/security_screen.dart';
 import 'features/wallet/wallet_screen.dart';
 import 'features/subscription/subscription_screen.dart';
 import 'features/notifications/notifications_screen.dart';
@@ -154,6 +158,10 @@ class Cric11App extends StatelessWidget {
           '/edit-profile': (context) => const ProfileScreen(),
           '/my-performance': (context) => const CricketProfileScreen(),
           '/settings': (context) => const AppSettingsScreen(),
+          '/settings/notifications': (context) => const NotificationSettingsScreen(),
+          '/settings/privacy': (context) => const PrivacySettingsScreen(),
+          '/settings/preferences': (context) => const PreferencesScreen(),
+          '/settings/security': (context) => const SecurityScreen(),
           '/change-password': (context) => const AppSettingsScreen(),
           '/support': (context) => const AppSettingsScreen(),
           '/notifications': (context) => const NotificationsScreen(),

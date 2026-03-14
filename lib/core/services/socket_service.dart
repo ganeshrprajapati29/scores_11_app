@@ -63,12 +63,21 @@ class SocketService {
   }
 
   // Match events
-  void joinMatchRoom(String matchId) {
-    emit('join_match', {'matchId': matchId});
+  void joinMatch(String matchId) {
+    emit('joinMatch', matchId);
   }
 
-  void leaveMatchRoom(String matchId) {
-    emit('leave_match', {'matchId': matchId});
+  void leaveMatch(String matchId) {
+    emit('leaveMatch', matchId);
+  }
+
+  // Live score listeners
+  void onLiveScoreUpdate(Function(dynamic) callback) {
+    on('liveScoreUpdate', callback);
+  }
+
+  void offLiveScoreUpdate() {
+    off('liveScoreUpdate');
   }
 
   // Tournament events

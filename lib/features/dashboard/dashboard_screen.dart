@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
 import '../../core/config/theme_config.dart';
 import '../../providers/auth_provider.dart';
+import '../../data/services/user_service.dart';
 import '../matches/match_list_screen.dart';
 import '../tournaments/tournament_list_screen.dart';
 import '../teams/team_list_screen.dart';
 import '../profile/profile_screen.dart';
+import '../../core/constants/app_routes.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,6 +19,13 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final UserService _userService = UserService();
+
+  int _followers = 0;
+  int _following = 0;
+  int _profileViews = 0;
+  bool _isLoadingStats = false;
 
   final List<Widget> _screens = [
     const HomeTab(),
@@ -26,11 +36,175 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadUserStats();
+  }
+
+  Future<void> _loadUserStats() async {
+    setState(() => _isLoadingStats = true);
+    try {
+      final followersResult = await _userService.getFollowers();
+      if (followersResult['success']) {
+        final data = jsonDecode(followersResult['data']);
+        setState(() => _followers = (data['followers'] as List?)?.length ?? 0);
+      }
+
+      final followingResult = await _userService.getFollowing();
+      if (followingResult['success']) {
+        final data = jsonDecode(followingResult['data']);
+        setState(() => _following = (data['following'] as List?)?.length ?? 0);
+      }
+
+      final viewsResult = await _userService.getProfileViews();
+      if (viewsResult['success']) {
+        final data = jsonDecode(viewsResult['data']);
+        setState(() => _profileViews = data['views'] ?? 0);
+      }
+    } catch (e) {
+      debugPrint('Error loading user stats: $e');
+    }
+    setState(() => _isLoadingStats = false);
+  }
+
+  Widget _buildUserProfileSection() {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final user = authProvider.user;
+        if (user == null) return const SizedBox(height: 120);
+
+        return Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary.withOpacity(0.1), Colors.white],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(35),
+                    child: user.avatar?.url != null
+                        ? Image.network(
+                            user.avatar!.url!,
+                            width: 70,
+                            height: 70,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 70,
+                              height: 70,
+                              decoration: BoxDecoration(
+                                gradient: AppColors.primaryGradient,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.person, size: 35, color: Colors.white),
+                            ),
+                          )
+                        : Container(
+                            width: 70,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.person, size: 35, color: Colors.white),
+                          ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.name ?? 'Cricketer',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          user.email ?? '',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          'Playing Style: ${_getPlayingStyle(user)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pushNamed(context, AppRoutes.profile),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    ),
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Edit'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(child: _UserStatCard(label: 'Profile Views', value: '$_profileViews', icon: Icons.visibility)),
+                  Expanded(child: _UserStatCard(label: 'Followers', value: '$_followers', icon: Icons.people)),
+                  Expanded(child: _UserStatCard(label: 'Following', value: '$_following', icon: Icons.person_add_alt_1)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _getPlayingStyle(user) {
+    // Extract from user data or default
+    return user.playingStyle ?? 'All Rounder';
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      key: _scaffoldKey,
+      drawer: _buildDrawer(),
+      body: RefreshIndicator(
+        onRefresh: _loadUserStats,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildUserProfileSection(),
+              _screens[_currentIndex],
+            ],
+          ),
+        ),
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),
@@ -77,6 +251,137 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          Consumer<AuthProvider>(
+            builder: (context, auth, _) => DrawerHeader(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.primaryDark],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Row(
+                    children: [
+                      Consumer<AuthProvider>(
+                        builder: (context, authProvider, child) {
+                          final user = authProvider.user;
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(35),
+                            child: user?.avatar?.url != null
+                                ? Image.network(
+                                    user!.avatar!.url!,
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => const CircleAvatar(
+                                      radius: 25,
+                                      backgroundColor: Colors.white,
+                                      child: Icon(Icons.person, size: 30, color: AppColors.primary),
+                                    ),
+                                  )
+                                : const CircleAvatar(
+                                    radius: 25,
+                                    backgroundColor: Colors.white,
+                                    child: Icon(Icons.person, size: 30, color: AppColors.primary),
+                                  ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Consumer<AuthProvider>(
+                              builder: (context, auth, child) => Text(
+                                auth.user?.name ?? 'Cric11 User',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              'crick11.com/profile',
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dashboard, color: AppColors.primary),
+            title: const Text('Dashboard'),
+            onTap: () {
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.emoji_events, color: AppColors.primary),
+            title: const Text('Tournaments'),
+            onTap: () => Navigator.pushNamed(context, '/tournaments'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.sports_cricket, color: AppColors.primary),
+            title: const Text('Matches'),
+            onTap: () => Navigator.pushNamed(context, '/matches'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.groups, color: AppColors.primary),
+            title: const Text('Teams'),
+            onTap: () => Navigator.pushNamed(context, '/teams'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.wallet, color: AppColors.primary),
+            title: const Text('Wallet'),
+            onTap: () => Navigator.pushNamed(context, '/wallet'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.person, color: AppColors.primary),
+            title: const Text('Profile'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings, color: AppColors.primary),
+            title: const Text('Settings'),
+            onTap: () => Navigator.pushNamed(context, '/settings'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.help, color: AppColors.primary),
+            title: const Text('Help'),
+            onTap: () => Navigator.pushNamed(context, '/support'),
+          ),
+          const Divider(),
+          Consumer<AuthProvider>(
+            builder: (context, auth, _) => ListTile(
+              leading: const Icon(Icons.logout, color: AppColors.error),
+              title: const Text('Logout', style: TextStyle(color: AppColors.error)),
+              onTap: () {
+                Navigator.pop(context);
+                auth.logout();
+                Navigator.pushReplacementNamed(context, AppRoutes.login);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class HomeTab extends StatelessWidget {
@@ -84,159 +389,137 @@ class HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final user = authProvider.user;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cric11'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              Navigator.pushNamed(context, '/notifications');
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Consumer<AuthProvider>(
+            builder: (context, auth, child) {
+              final user = auth.user;
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: AppColors.primaryGradient,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome, ${user?.name ?? 'Cricketer'}!',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ready to play some cricket?',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {},
+                            icon: const Icon(Icons.add, color: Colors.white),
+                            label: const Text('Create Match'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: () => Navigator.pushNamed(context, '/tournaments'),
+                          icon: const Icon(Icons.emoji_events, color: Colors.white),
+                          label: const Text('Tournaments'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.pushNamed(context, '/settings');
-            },
+          const SizedBox(height: 24),
+          const Text(
+            'Quick Actions',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _QuickActionCard(
+                  icon: Icons.add_circle_outline,
+                  title: 'Create Team',
+                  color: AppColors.primary,
+                  onTap: () => Navigator.pushNamed(context, '/create-team'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _QuickActionCard(
+                  icon: Icons.emoji_events_outlined,
+                  title: 'Join Tournament',
+                  color: AppColors.secondary,
+                  onTap: () => Navigator.pushNamed(context, '/tournaments'),
+                ),
+              ),
+            ],
+          ),
+          // Add more sections as needed
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: AppColors.primaryGradient,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome, ${user?.name ?? 'Cricketer'}!',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Ready to play some cricket?',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.primary,
-                    ),
-                    child: const Text('Create Match'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Quick Actions',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.add_circle_outline,
-                    title: 'Create Team',
-                    color: AppColors.primary,
-                    onTap: () => Navigator.pushNamed(context, '/create-team'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.emoji_events_outlined,
-                    title: 'Join Tournament',
-                    color: AppColors.secondary,
-                    onTap: () {},
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Live Matches',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('See All'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _LiveMatchCard(
-              team1: 'India',
-              team2: 'Australia',
-              score1: '145/2',
-              score2: '142/3',
-              overs: '14.2',
-              status: 'India need 8 runs',
-            ),
-            const SizedBox(height: 12),
-            _LiveMatchCard(
-              team1: 'England',
-              team2: 'Pakistan',
-              score1: '89/1',
-              score2: '-',
-              overs: '10',
-              status: 'England batting',
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Upcoming Matches',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('See All'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _UpcomingMatchCard(
-              team1: 'Mumbai Indians',
-              team2: 'Chennai Super Kings',
-              date: 'Tomorrow, 7:30 PM',
-              venue: 'Wankhede Stadium',
-            ),
-            const SizedBox(height: 12),
-            _UpcomingMatchCard(
-              team1: 'Royal Challengers',
-              team2: 'Kolkata Knight Riders',
-              date: '25 Jan, 7:30 PM',
-              venue: 'Chinnaswamy Stadium',
-            ),
-          ],
-        ),
+    );
+  }
+}
+
+class _UserStatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _UserStatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: AppColors.primary, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          ),
+        ],
       ),
     );
   }
@@ -256,7 +539,7 @@ class _QuickActionCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(Context context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -284,208 +567,3 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
-class _LiveMatchCard extends StatelessWidget {
-  final String team1;
-  final String team2;
-  final String score1;
-  final String score2;
-  final String overs;
-  final String status;
-
-  const _LiveMatchCard({
-    required this.team1,
-    required this.team2,
-    required this.score1,
-    required this.score2,
-    required this.overs,
-    required this.status,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.live,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.circle, color: Colors.white, size: 8),
-                      SizedBox(width: 4),
-                      Text(
-                        'LIVE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  status,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        team1,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      Text(
-                        score1,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Text(
-                  'vs',
-                  style: TextStyle(color: AppColors.textHint),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        team2,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      Text(
-                        score2,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Overs: $overs',
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _UpcomingMatchCard extends StatelessWidget {
-  final String team1;
-  final String team2;
-  final String date;
-  final String venue;
-
-  const _UpcomingMatchCard({
-    required this.team1,
-    required this.team2,
-    required this.date,
-    required this.venue,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$team1 vs $team2',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today,
-                          size: 14, color: AppColors.textSecondary),
-                      const SizedBox(width: 4),
-                      Text(
-                        date,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on,
-                          size: 14, color: AppColors.textSecondary),
-                      const SizedBox(width: 4),
-                      Text(
-                        venue,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'Notify',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

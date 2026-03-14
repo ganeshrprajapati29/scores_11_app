@@ -1,13 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
 import '../../data/services/auth_service.dart';
+import '../../data/services/user_service.dart';
 import '../../data/models/user_model.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
+  final UserService _userService = UserService();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   
   AuthStatus _status = AuthStatus.initial;
   String? _errorMessage;
@@ -17,18 +21,52 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   UserModel? get user => _user;
 
-  Future<bool> login(String email, String password) async {
+  /// Check if user is already authenticated (call on app start)
+  Future<void> checkAuth() async {
+    try {
+      _status = AuthStatus.loading;
+      notifyListeners();
+
+      final token = await _storage.read(key: 'auth_token');
+      if (token != null) {
+        // Verify token and fetch user profile
+        final profileResult = await _userService.getProfile();
+        if (profileResult['success']) {
+          final data = jsonDecode(profileResult['data']);
+          _user = UserModel.fromJson(data);
+          _status = AuthStatus.authenticated;
+        } else {
+          await _logout();
+        }
+      } else {
+        _status = AuthStatus.unauthenticated;
+      }
+    } catch (e) {
+      _status = AuthStatus.unauthenticated;
+    }
+    notifyListeners();
+  }
+
+  Future<bool> login(String identifier, String password) async {
     try {
       _status = AuthStatus.loading;
       _errorMessage = null;
       notifyListeners();
 
-      final response = await _authService.login(email, password);
+      final response = await _authService.login(identifier, password);
       
       if (response['success'] == true) {
-        // Handle user data - ensure it's a proper Map
-        final userData = response['data']['user'];
-        _user = UserModel.fromJson(userData);
+        // Store token
+        await _storage.write(key: 'auth_token', value: response['data']['token']);
+        
+        // Fetch complete user profile
+        final profileResult = await _userService.getProfile();
+        if (profileResult['success']) {
+          final data = jsonDecode(profileResult['data']);
+          _user = UserModel.fromJson(data);
+        } else {
+          _user = UserModel.fromJson(response['data']['user']);
+        }
         _status = AuthStatus.authenticated;
         notifyListeners();
         return true;
@@ -69,7 +107,17 @@ class AuthProvider extends ChangeNotifier {
       );
       
       if (response['success'] == true) {
-        _user = UserModel.fromJson(response['data']['user']);
+        // Store token
+        await _storage.write(key: 'auth_token', value: response['data']['token']);
+        
+        // Fetch complete user profile
+        final profileResult = await _userService.getProfile();
+        if (profileResult['success']) {
+          final data = jsonDecode(profileResult['data']);
+          _user = UserModel.fromJson(data);
+        } else {
+          _user = UserModel.fromJson(response['data']['user']);
+        }
         _status = AuthStatus.authenticated;
         notifyListeners();
         return true;
@@ -124,7 +172,14 @@ class AuthProvider extends ChangeNotifier {
       final response = await _authService.verifyOTP(identifier, otp);
       
       if (response['success'] == true) {
-        _status = AuthStatus.unauthenticated;
+        // Store token and fetch profile
+        await _storage.write(key: 'auth_token', value: response['data']['token']);
+        final profileResult = await _userService.getProfile();
+        if (profileResult['success']) {
+          final data = jsonDecode(profileResult['data']);
+          _user = UserModel.fromJson(data);
+        }
+        _status = AuthStatus.authenticated;
         notifyListeners();
         return true;
       } else {
@@ -199,6 +254,7 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       // Ignore logout errors
     } finally {
+      await _storage.delete(key: 'auth_token');
       _user = null;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
@@ -210,3 +266,4 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
+
