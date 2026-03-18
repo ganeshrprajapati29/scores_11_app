@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/config/theme_config.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 
 class TopBatsmanScreen extends StatefulWidget {
@@ -304,4 +304,5 @@ class _TopBatsmanScreenState extends State<TopBatsmanScreen> with SingleTickerPr
     }
   }
 }
+
 

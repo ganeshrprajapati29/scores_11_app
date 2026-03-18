@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -92,7 +93,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: Icon(Icons.arrow_back, color: Colors.white),
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -112,7 +113,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.lock_reset,
                       size: 45,
                       color: AppColors.primary,
@@ -170,7 +171,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       onPressed: () {
                         Navigator.pop(context);
                       },
-                      child: const Text(
+                      child: Text(
                         'Sign In',
                         style: TextStyle(
                           color: Colors.white,
@@ -200,7 +201,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             decoration: InputDecoration(
               labelText: 'Email Address',
               hintText: 'Enter your registered email',
-              prefixIcon: const Icon(Icons.email_outlined),
+              prefixIcon: Icon(Icons.email_outlined),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -238,7 +239,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         valueColor: AlwaysStoppedAnimation(Colors.white),
                       ),
                     )
-                  : const Text(
+                  : Text(
                       'Send OTP',
                       style: TextStyle(
                         fontSize: 16,
@@ -262,7 +263,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             color: AppColors.success.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.check_circle,
             size: 50,
             color: AppColors.success,
@@ -312,7 +313,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text(
+            child: Text(
               'Proceed to Reset Password',
               style: TextStyle(
                 fontSize: 16,
@@ -339,7 +340,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text(
+            child: Text(
               'Send Again',
               style: TextStyle(
                 fontSize: 16,
@@ -352,3 +353,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 }
+
+
+

@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../core/config/theme_config.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../data/models/match_model.dart';
 import '../../data/services/match_service.dart';
 
@@ -182,7 +183,7 @@ class _MatchListScreenState extends State<MatchListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Matches'),
+        title: Text('Matches'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -193,7 +194,7 @@ class _MatchListScreenState extends State<MatchListScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : TabBarView(
               controller: _tabController,
               children: [
@@ -224,8 +225,8 @@ class _MatchListScreenState extends State<MatchListScreen>
         onPressed: () {
           Navigator.pushNamed(context, '/create-match');
         },
-        icon: const Icon(Icons.add),
-        label: const Text('Create Match'),
+        icon: Icon(Icons.add),
+        label: Text('Create Match'),
         backgroundColor: AppColors.primary,
       ),
     );
@@ -312,7 +313,7 @@ class _MatchListState extends State<_MatchList> {
           // Show loading indicator at bottom when loading more
           if (index == widget.matches.length) {
             return widget.isLoadingMore
-                ? const Padding(
+                ? Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(child: CircularProgressIndicator()),
                   )
@@ -361,7 +362,7 @@ class _MatchCard extends StatelessWidget {
                         color: AppColors.live,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.circle, color: Colors.white, size: 8),
@@ -434,7 +435,7 @@ class _MatchCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Text(
+                  Text(
                     'VS',
                     style: TextStyle(
                       color: AppColors.textHint,
@@ -475,7 +476,7 @@ class _MatchCard extends StatelessWidget {
               else
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.calendar_today,
                       size: 14,
                       color: AppColors.textSecondary,
@@ -490,7 +491,7 @@ class _MatchCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     if (match.startTime != null) ...[
-                      const Icon(
+                      Icon(
                         Icons.access_time,
                         size: 14,
                         color: AppColors.textSecondary,
@@ -513,3 +514,4 @@ class _MatchCard extends StatelessWidget {
     );
   }
 }
+

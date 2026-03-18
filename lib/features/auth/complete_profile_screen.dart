@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -59,7 +60,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Complete Your Profile'),
+        title: Text('Complete Your Profile'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -106,7 +107,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Personal Information', 
+                        Text('Personal Information', 
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
                         CustomTextField(
@@ -158,7 +159,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        const Text('Gender', style: TextStyle(fontSize: 14)),
+                        Text('Gender', style: TextStyle(fontSize: 14)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -172,10 +173,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 16),
-                        const Text('Cricket Information', 
+                        Text('Cricket Information', 
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
-                        const Text('Player Type', style: TextStyle(fontSize: 14)),
+                        Text('Player Type', style: TextStyle(fontSize: 14)),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
@@ -188,7 +189,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        const Text('Batting Style', style: TextStyle(fontSize: 14)),
+                        Text('Batting Style', style: TextStyle(fontSize: 14)),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -198,7 +199,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        const Text('Bowling Style', style: TextStyle(fontSize: 14)),
+                        Text('Bowling Style', style: TextStyle(fontSize: 14)),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
@@ -291,4 +292,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 }
+
+
+
 

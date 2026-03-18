@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/config/theme_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/constants/app_routes.dart';
@@ -13,35 +15,38 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-
   @override
   void initState() {
     super.initState();
-    // Check auth status and navigate accordingly
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthProvider>().checkAuth();
-    });
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    await Future.delayed(const Duration(seconds: 2));
+    
+    final authProvider = context.read<AuthProvider>();
+    
+    try {
+      await authProvider.checkAuth();
+    } catch (e) {
+      debugPrint('Splash init error: $e');
+    }
+    
+    if (mounted) {
+      final status = authProvider.status;
+      String route = status == AuthStatus.authenticated ? '/dashboard' : '/login';
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, route);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Consumer<AuthProvider>(
-        builder: (context, authProvider, child) {
-          // Auto-navigate after auth check
-          if (authProvider.status != AuthStatus.initial) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                if (authProvider.status == AuthStatus.authenticated && authProvider.user != null) {
-                  Navigator.pushReplacementNamed(context, '/home');
-                } else {
-                  Navigator.pushReplacementNamed(context, AppRoutes.login);
-                }
-              }
-            });
-          }
-
-          return Container(
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        return Scaffold(
+          body: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -49,10 +54,8 @@ class _SplashScreenState extends State<SplashScreen> {
                 colors: AppColors.primaryGradient,
               ),
             ),
-
             child: Stack(
               children: [
-
                 /// Background glow
                 Positioned(
                   top: -120,
@@ -66,7 +69,6 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ).animate().scale(duration: 4.seconds),
                 ),
-
                 Positioned(
                   bottom: -100,
                   right: -80,
@@ -79,13 +81,11 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ).animate().scale(duration: 4.seconds),
                 ),
-
                 /// Main Content
                 Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-
                       /// Logo Card
                       Container(
                         height: 140,
@@ -101,14 +101,13 @@ class _SplashScreenState extends State<SplashScreen> {
                             )
                           ],
                         ),
-
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(35),
                           child: Image.asset(
                             'assets/images/logo.png',
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
+                              return Icon(
                                 Icons.sports_cricket,
                                 size: 80,
                                 color: AppColors.primary,
@@ -122,9 +121,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           .scale(begin: const Offset(0.6, 0.6))
                           .then()
                           .shake(duration: 600.ms),
-
                       const SizedBox(height: 28),
-
                       /// App Name
                       Text(
                         "Scores11",
@@ -140,9 +137,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           .animate()
                           .fadeIn(delay: 400.ms)
                           .slideY(begin: 0.4),
-
                       const SizedBox(height: 10),
-
                       /// Tagline
                       Text(
                         "Play • Compete • Win",
@@ -156,34 +151,27 @@ class _SplashScreenState extends State<SplashScreen> {
                       )
                           .animate()
                           .fadeIn(delay: 700.ms),
-
                       const SizedBox(height: 50),
-
                       /// Loader
-                      if (authProvider.status == AuthStatus.loading)
-                        const CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
-                        )
-                            .animate()
-                            .fadeIn(delay: 900.ms)
-                      else if (authProvider.status == AuthStatus.authenticated)
-                        Icon(Icons.check_circle, color: Colors.green, size: 40)
-                            .animate().fadeIn(delay: 900.ms)
-                      else
-                        const CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
-                        )
-                            .animate()
-                            .fadeIn(delay: 900.ms),
-
-                    ],
+                      authProvider.status == AuthStatus.loading
+                          ? const CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            )
+                          : authProvider.status == AuthStatus.authenticated
+                              ? Icon(Icons.check_circle, 
+                                 color: Colors.green, size: 40)
+                              : const CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                    ].animate(
+                      onPlay: (controller) => controller.forward(),
+                    ),
                   ),
                 ),
-
                 /// Bottom Text
                 Positioned(
                   bottom: 40,
@@ -200,13 +188,11 @@ class _SplashScreenState extends State<SplashScreen> {
                     ).animate().fadeIn(delay: 1.seconds),
                   ),
                 ),
-
               ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
-

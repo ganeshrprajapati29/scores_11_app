@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_appbar.dart';
+import '../../core/theme/app_colors.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -39,7 +40,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
         title: 'My Orders',
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: Icon(Icons.search),
             onPressed: () {},
           ),
         ],
@@ -193,7 +194,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '₹${order['total']}',
+                          'â‚¹${order['total']}',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -284,7 +285,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   ],
                 ),
                 const SizedBox(height: 24),
-                const Text('Order Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Order Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 _buildStatusStepper('Order Placed', '15 Mar, 10:30 AM', true),
                 _buildStatusStepper('Processing', '15 Mar, 02:00 PM', true),
@@ -292,7 +293,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                 _buildStatusStepper('Out for Delivery', 'Today, 08:00 AM', order['status'] == 'Out for Delivery'),
                 _buildStatusStepper('Delivered', '', order['status'] == 'Delivered'),
                 const SizedBox(height: 24),
-                const Text('Order Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Order Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -302,15 +303,15 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                       ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(order['image'], width: 60, height: 60, fit: BoxFit.cover)),
                       const SizedBox(width: 12),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Cricket Bat - Pro', style: TextStyle(fontWeight: FontWeight.w500)),
+                        Text('Cricket Bat - Pro', style: TextStyle(fontWeight: FontWeight.w500)),
                         Text('Qty: ${order['items']}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                       ])),
-                      Text('₹${order['total']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('â‚¹${order['total']}', style: const TextStyle(fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text('Delivery Address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Delivery Address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -318,13 +319,13 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('John Doe', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('John Doe', style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text('123, ABC Apartments, Near Metro Station', style: TextStyle(color: Colors.grey[600])),
                       Text('Mumbai - 400001', style: TextStyle(color: Colors.grey[600])),
                       const SizedBox(height: 8),
                       Row(children: [
-                        const Icon(Icons.phone, size: 16, color: Colors.grey),
+                        Icon(Icons.phone, size: 16, color: Colors.grey),
                         const SizedBox(width: 4),
                         Text('+91 9876543210', style: TextStyle(color: Colors.grey[600])),
                       ]),
@@ -332,18 +333,18 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text('Payment Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Payment Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12)),
                   child: Column(
                     children: [
-                      _buildPriceRow('Subtotal', '₹${order['total']}'),
-                      _buildPriceRow('Shipping', '₹99'),
-                      _buildPriceRow('Tax', '₹${(order['total'] * 0.18).round()}'),
+                      _buildPriceRow('Subtotal', 'â‚¹${order['total']}'),
+                      _buildPriceRow('Shipping', 'â‚¹99'),
+                      _buildPriceRow('Tax', 'â‚¹${(order['total'] * 0.18).round()}'),
                       const Divider(),
-                      _buildPriceRow('Total', '₹${(order['total'] + 99 + (order['total'] * 0.18).round())}', isTotal: true),
+                      _buildPriceRow('Total', 'â‚¹${(order['total'] + 99 + (order['total'] * 0.18).round())}', isTotal: true),
                     ],
                   ),
                 ),
@@ -353,7 +354,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Download Invoice'),
+                        child: Text('Download Invoice'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -361,7 +362,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                       child: ElevatedButton(
                         onPressed: () => Navigator.pop(context),
                         style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                        child: const Text('Buy Again'),
+                        child: Text('Buy Again'),
                       ),
                     ),
                   ],
@@ -386,7 +387,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
               color: isCompleted ? AppColors.success : Colors.grey[300],
               shape: BoxShape.circle,
             ),
-            child: isCompleted ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
+            child: isCompleted ? Icon(Icons.check, color: Colors.white, size: 16) : null,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -416,3 +417,5 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     );
   }
 }
+
+

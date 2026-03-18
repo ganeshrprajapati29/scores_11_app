@@ -1,8 +1,10 @@
+﻿import '../../core/theme/app_text_styles.dart';
 import 'package:flutter/material.dart';
+import '../constants/app_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ==================== COLOR CONSTANTS ====================
-class AppColors {
+class ThemeColors {
   // Primary Colors
   static const Color primary = Color(0xFF1E88E5);
   static const Color primaryDark = Color(0xFF1565C0);
@@ -114,7 +116,7 @@ class AppColors {
 }
 
 // ==================== TEXT STYLES ====================
-class AppTextStyles {
+class ThemeTextStyles {
   // Display Styles
   static TextStyle displayLarge({Color? color}) => GoogleFonts.poppins(
     fontSize: 32,
@@ -301,37 +303,37 @@ class AppTextStyles {
 // ==================== GRADIENTS ====================
 class AppGradients {
   static LinearGradient get primary => const LinearGradient(
-    colors: AppColors.primaryGradient,
+          colors: ThemeColors.primaryGradient,
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static LinearGradient get secondary => const LinearGradient(
-    colors: AppColors.secondaryGradient,
+          colors: ThemeColors.secondaryGradient,
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static LinearGradient get success => const LinearGradient(
-    colors: AppColors.successGradient,
+          colors: ThemeColors.successGradient,
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static LinearGradient get error => const LinearGradient(
-    colors: AppColors.errorGradient,
+          colors: ThemeColors.errorGradient,
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static LinearGradient get live => const LinearGradient(
-    colors: AppColors.liveGradient,
+          colors: ThemeColors.liveGradient,
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static LinearGradient get card => LinearGradient(
-    colors: AppColors.cardGradient,
+          colors: AppColors.cardGradient,
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -477,9 +479,9 @@ class CricketThemeData extends ThemeExtension<CricketThemeData> {
   
   // Light theme instance
   static const light = CricketThemeData(
-    pitchColor: AppColors.pitch,
-    boundaryColor: AppColors.boundary,
-    wicketColor: AppColors.wicket,
+    pitchColor: ThemeColors.pitch,
+    boundaryColor: ThemeColors.boundary,
+    wicketColor: ThemeColors.wicket,
     liveMatchColor: AppColors.live,
     scheduledMatchColor: AppColors.scheduled,
     completedMatchColor: AppColors.completed,
@@ -663,7 +665,7 @@ class AppDecorations {
     double size = 40,
   }) {
     return BoxDecoration(
-      color: color ?? AppColors.primarySoft,
+      color: color ?? AppColors.primary.withOpacity(0.1),
       shape: BoxShape.circle,
     );
   }
@@ -961,7 +963,7 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       primaryColor: AppColors.primary,
-      scaffoldBackgroundColor: AppColors.backgroundDark,
+      scaffoldBackgroundColor: AppColors.primary.withOpacity(0.9),
       
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
@@ -1287,3 +1289,5 @@ class ThemeHelper {
   
   static double get iconSizeLarge => 24;
 }
+
+

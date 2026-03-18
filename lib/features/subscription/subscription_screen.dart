@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
@@ -103,7 +103,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           _buildCurrentSubscriptionCard(),
                           const SizedBox(height: 24),
                         ],
-                        const Text(
+                        Text(
                           'Available Plans',
                           style: TextStyle(
                             fontSize: 20,
@@ -132,7 +132,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.check_circle, color: Colors.white),
               SizedBox(width: 8),
@@ -205,7 +205,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Active',
                     style: TextStyle(color: Colors.white, fontSize: 12),
                   ),
@@ -217,7 +217,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '₹${plan['price'] ?? '0'}',
+                'â‚¹${plan['price'] ?? '0'}',
                 style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -235,7 +235,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Features:',
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
@@ -244,7 +244,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(
               children: [
-                const Icon(Icons.check, color: AppColors.success, size: 18),
+                Icon(Icons.check, color: AppColors.success, size: 18),
                 const SizedBox(width: 8),
                 Expanded(child: Text(feature.toString())),
               ],
@@ -263,4 +263,5 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 }
+
 

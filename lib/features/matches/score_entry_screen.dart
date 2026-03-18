@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/config/theme_config.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_button.dart';
 
 class ScoreEntryScreen extends StatefulWidget {
@@ -15,7 +15,7 @@ class ScoreEntryScreen extends StatefulWidget {
 class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
   String _selectedBatsman = 'Rohit Sharma';
   String _selectedBowler = 'Deepak Chahar';
-  int _currentOver = 14;
+  int _currentOver = 14;   
   int _currentBall = 2;
   String _lastShot = '';
   
@@ -63,12 +63,12 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Score Entry'),
+        title: Text('Score Entry'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.history),
+            icon: Icon(Icons.history),
             onPressed: () {},
           ),
         ],
@@ -84,7 +84,7 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
                 Expanded(
                   child: Column(
                     children: [
-                      const Text('MI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text('MI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       Text('145/3', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
                     ],
                   ),
@@ -98,7 +98,7 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
                 Expanded(
                   child: Column(
                     children: [
-                      const Text('CSK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text('CSK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       Text('Yet to bat', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
                     ],
                   ),
@@ -197,16 +197,16 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _showUndoDialog(),
-                          icon: const Icon(Icons.undo),
-                          label: const Text('Undo'),
+                          icon: Icon(Icons.undo),
+                          label: Text('Undo'),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _showWicketDialog(),
-                          icon: const Icon(Icons.sports_cricket, color: AppColors.error),
-                          label: const Text('Wicket', style: TextStyle(color: AppColors.error)),
+                          icon: Icon(Icons.sports_cricket, color: AppColors.error),
+                          label: Text('Wicket', style: TextStyle(color: AppColors.error)),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: AppColors.error),
                           ),
@@ -223,7 +223,7 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
                         backgroundColor: AppColors.secondary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text('Finish Over'),
+                      child: Text('Finish Over'),
                     ),
                   ),
                 ],
@@ -294,12 +294,12 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Undo Last Ball'),
-        content: const Text('Are you sure you want to undo the last ball?'),
+        title: Text('Undo Last Ball'),
+        content: Text('Are you sure you want to undo the last ball?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -314,7 +314,7 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
               });
               Navigator.pop(context);
             },
-            child: const Text('Undo'),
+            child: Text('Undo'),
           ),
         ],
       ),
@@ -328,7 +328,7 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Wicket Type'),
+          title: Text('Wicket Type'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -342,7 +342,7 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -350,7 +350,7 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-              child: const Text('Confirm Wicket'),
+              child: Text('Confirm Wicket'),
             ),
           ],
         ),
@@ -374,4 +374,6 @@ class _ScoreEntryScreenState extends State<ScoreEntryScreen> {
     );
   }
 }
+
+
 

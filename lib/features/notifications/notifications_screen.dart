@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_loader.dart';
@@ -77,7 +77,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         actions: [
           if (_notifications.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.done_all),
+              icon: Icon(Icons.done_all),
               onPressed: _markAllAsRead,
               tooltip: 'Mark all as read',
             ),
@@ -94,7 +94,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _loadNotifications,
-                        child: const Text('Retry'),
+                        child: Text('Retry'),
                       ),
                     ],
                   ),
@@ -266,4 +266,5 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 }
+
 

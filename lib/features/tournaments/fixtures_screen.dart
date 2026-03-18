@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
@@ -15,7 +16,7 @@ class FixturesScreen extends StatelessWidget {
         title: 'Fixtures',
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list),
+            icon: Icon(Icons.filter_list),
             onPressed: () => _showFilterOptions(context),
           ),
         ],
@@ -46,7 +47,7 @@ class FixturesScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'IPL 2024',
                           style: TextStyle(
                             color: Colors.white,
@@ -55,7 +56,7 @@ class FixturesScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '14 Matches • League Stage',
+                          '14 Matches â€¢ League Stage',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 12,
@@ -197,10 +198,10 @@ class FixturesScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                            Icon(Icons.calendar_today, size: 14, color: Colors.grey),
                             const SizedBox(width: 4),
                             Text(
-                              '${match['date']} • ${match['time']}',
+                              '${match['date']} â€¢ ${match['time']}',
                               style: TextStyle(color: Colors.grey[600], fontSize: 12),
                             ),
                           ],
@@ -284,7 +285,7 @@ class FixturesScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                          Icon(Icons.location_on, size: 14, color: Colors.grey),
                           const SizedBox(width: 4),
                           Text(
                             match['venue'],
@@ -357,27 +358,27 @@ class FixturesScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Filter Matches',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('By Date'),
-              trailing: const Icon(Icons.chevron_right),
+              leading: Icon(Icons.calendar_today),
+              title: Text('By Date'),
+              trailing: Icon(Icons.chevron_right),
               onTap: () => Navigator.pop(context),
             ),
             ListTile(
-              leading: const Icon(Icons.stadium),
-              title: const Text('By Venue'),
-              trailing: const Icon(Icons.chevron_right),
+              leading: Icon(Icons.stadium),
+              title: Text('By Venue'),
+              trailing: Icon(Icons.chevron_right),
               onTap: () => Navigator.pop(context),
             ),
             ListTile(
-              leading: const Icon(Icons.group),
-              title: const Text('By Team'),
-              trailing: const Icon(Icons.chevron_right),
+              leading: Icon(Icons.group),
+              title: Text('By Team'),
+              trailing: Icon(Icons.chevron_right),
               onTap: () => Navigator.pop(context),
             ),
           ],
@@ -386,4 +387,7 @@ class FixturesScreen extends StatelessWidget {
     );
   }
 }
+
+
+
 

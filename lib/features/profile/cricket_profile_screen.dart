@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
@@ -67,8 +67,8 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
 
       // Mock teams data (in real app, fetch from API)
       _teams = [
-        {'name': 'Delhi Strikers', 'role': 'Captain', 'logo': '🏏'},
-        {'name': 'Mumbai Kings', 'role': 'Player', 'logo': '👑'},
+        {'name': 'Delhi Strikers', 'role': 'Captain', 'logo': 'ðŸ'},
+        {'name': 'Mumbai Kings', 'role': 'Player', 'logo': 'ðŸ‘‘'},
       ];
 
       // Mock matches data
@@ -131,16 +131,16 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cricket Profile'),
+        title: Text('Cricket Profile'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.share),
+            icon: Icon(Icons.share),
             onPressed: () {
               // Share functionality
             },
           ),
           IconButton(
-            icon: const Icon(Icons.qr_code),
+            icon: Icon(Icons.qr_code),
             onPressed: () {
               Navigator.pushNamed(context, '/qr-code');
             },
@@ -160,7 +160,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 // Profile Header
@@ -285,7 +285,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Performance Summary
-          const Text(
+          Text(
             'Performance Summary',
             style: TextStyle(
               fontSize: 18,
@@ -325,7 +325,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Recent Matches',
                 style: TextStyle(
                   fontSize: 18,
@@ -334,7 +334,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
               ),
               TextButton(
                 onPressed: () => _tabController.animateTo(1),
-                child: const Text('See All'),
+                child: Text('See All'),
               ),
             ],
           ),
@@ -344,7 +344,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
           const SizedBox(height: 24),
           
           // Trophies
-          const Text(
+          Text(
             'Trophies & Awards',
             style: TextStyle(
               fontSize: 18,
@@ -371,7 +371,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
                           color: Colors.amber.withOpacity(0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.emoji_events, color: Colors.amber, size: 32),
+                        child: Icon(Icons.emoji_events, color: Colors.amber, size: 32),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -409,7 +409,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Batting Stats
-          const Text(
+          Text(
             'Batting Statistics',
             style: TextStyle(
               fontSize: 18,
@@ -435,7 +435,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
           const SizedBox(height: 24),
           
           // Bowling Stats
-          const Text(
+          Text(
             'Bowling Statistics',
             style: TextStyle(
               fontSize: 18,
@@ -469,7 +469,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
             leading: CircleAvatar(
               backgroundColor: AppColors.primary.withOpacity(0.1),
               child: Text(
-                team['logo'] ?? '🏏',
+                team['logo'] ?? 'ðŸ',
                 style: const TextStyle(fontSize: 24),
               ),
             ),
@@ -478,7 +478,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(team['role'] ?? 'Player'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: Icon(Icons.chevron_right),
             onTap: () {
               // Navigate to team detail
             },
@@ -541,7 +541,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Center(
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -559,7 +559,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
           const SizedBox(height: 24),
           
           // Insights
-          const Text(
+          Text(
             'Insights',
             style: TextStyle(
               fontSize: 18,
@@ -589,7 +589,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
           const SizedBox(height: 24),
           
           // Reports Section
-          const Text(
+          Text(
             'Reports',
             style: TextStyle(
               fontSize: 18,
@@ -599,10 +599,10 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
           const SizedBox(height: 16),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-              title: const Text('Download Performance Report'),
-              subtitle: const Text('Get detailed PDF report'),
-              trailing: const Icon(Icons.download),
+              leading: Icon(Icons.picture_as_pdf, color: Colors.red),
+              title: Text('Download Performance Report'),
+              subtitle: Text('Get detailed PDF report'),
+              trailing: Icon(Icons.download),
               onTap: () {
                 // Download report
               },
@@ -610,10 +610,10 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
           ),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.share, color: AppColors.primary),
-              title: const Text('Share Profile'),
-              subtitle: const Text('Share your cricket profile'),
-              trailing: const Icon(Icons.share),
+              leading: Icon(Icons.share, color: AppColors.primary),
+              title: Text('Share Profile'),
+              subtitle: Text('Share your cricket profile'),
+              trailing: Icon(Icons.share),
               onTap: () {
                 // Share profile
               },
@@ -909,3 +909,4 @@ class _InsightCard extends StatelessWidget {
     );
   }
 }
+

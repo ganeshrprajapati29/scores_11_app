@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../core/config/theme_config.dart';
@@ -7,6 +7,7 @@ import '../../core/utils/debounce.dart';
 import '../../data/models/discovery_model.dart';
 import '../../data/services/discovery_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/theme/app_colors.dart';
 
 class DiscoveryScreen extends StatefulWidget {
   const DiscoveryScreen({super.key});
@@ -244,7 +245,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                             ),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Text(
+                          child: Text(
                             'PRO',
                             style: TextStyle(
                               color: Colors.white,
@@ -254,7 +255,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                           ),
                         ),
                       if (item.isVerified)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(left: 8),
                           child: Icon(
                             Icons.verified,
@@ -287,7 +288,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                   // Location
                   Row(
                     children: [
-                      const Icon(Icons.location_on,
+                      Icon(Icons.location_on,
                           color: AppColors.textSecondary, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
@@ -312,7 +313,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                   // Rating
                   Row(
                     children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 20),
+                      Icon(Icons.star, color: Colors.amber, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         item.rating.toStringAsFixed(1),
@@ -351,8 +352,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                             onPressed: () {
                               // Call phone
                             },
-                            icon: const Icon(Icons.phone),
-                            label: const Text('Call'),
+                            icon: Icon(Icons.phone),
+                            label: Text('Call'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
@@ -367,8 +368,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                             onPressed: () {
                               // Send email
                             },
-                            icon: const Icon(Icons.email),
-                            label: const Text('Email'),
+                            icon: Icon(Icons.email),
+                            label: Text('Email'),
                           ),
                         ),
                     ],
@@ -388,8 +389,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                           );
                         }
                       },
-                      icon: const Icon(Icons.map),
-                      label: const Text('View on Map'),
+                      icon: Icon(Icons.map),
+                      label: Text('View on Map'),
                     ),
                   ),
                 ],
@@ -433,7 +434,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                     ),
                   ),
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? Center(child: CircularProgressIndicator())
                       : _tabController.index == 0
                           ? _buildListView()
                           : _buildMapView(),
@@ -456,7 +457,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Discover',
                 style: TextStyle(
                   color: Colors.white,
@@ -510,7 +511,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.my_location, color: Colors.white, size: 18),
+                    Icon(Icons.my_location, color: Colors.white, size: 18),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
@@ -520,7 +521,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.keyboard_arrow_down,
+                    Icon(Icons.keyboard_arrow_down,
                         color: Colors.white, size: 18),
                   ],
                 ),
@@ -537,7 +538,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
             },
             decoration: InputDecoration(
               hintText: 'Search players, umpires, grounds...',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: Icon(Icons.search),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -737,7 +738,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                             ),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
+                          child: Text(
                             'PRO',
                             style: TextStyle(
                               color: Colors.white,
@@ -747,7 +748,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                           ),
                         ),
                       if (item.isVerified)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(left: 4),
                           child: Icon(
                             Icons.verified,
@@ -768,7 +769,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.location_on,
+                      Icon(Icons.location_on,
                           size: 14, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
                       Expanded(
@@ -811,7 +812,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 16),
+                    Icon(Icons.star, color: Colors.amber, size: 16),
                     const SizedBox(width: 4),
                     Text(
                       item.rating.toStringAsFixed(1),
@@ -879,7 +880,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Select Location',
               style: TextStyle(
                 fontSize: 18,
@@ -889,8 +890,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
             const SizedBox(height: 16),
             // Current location option
             ListTile(
-              leading: const Icon(Icons.my_location, color: AppColors.primary),
-              title: const Text('Use Current Location'),
+              leading: Icon(Icons.my_location, color: AppColors.primary),
+              title: Text('Use Current Location'),
               subtitle: Text(_currentAddress.isNotEmpty ? _currentAddress : 'Tap to get location'),
               onTap: () async {
                 Navigator.pop(context);
@@ -899,7 +900,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
             ),
             const Divider(),
             // Location list
-            const Text(
+            Text(
               'Popular Locations',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
@@ -913,10 +914,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                 itemBuilder: (context, index) {
                   final location = _locations[index];
                   return ListTile(
-                    leading: const Icon(Icons.location_city),
+                    leading: Icon(Icons.location_city),
                     title: Text(location),
                     trailing: _selectedLocation == location
-                        ? const Icon(Icons.check, color: AppColors.primary)
+                        ? Icon(Icons.check, color: AppColors.primary)
                         : null,
                     onTap: () {
                       setState(() => _selectedLocation = location);
@@ -933,3 +934,5 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
     );
   }
 }
+
+

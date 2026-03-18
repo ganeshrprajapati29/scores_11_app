@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/theme/app_colors.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -40,12 +41,12 @@ class _CartScreenState extends State<CartScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Item'),
-        content: const Text('Are you sure you want to remove this item from cart?'),
+        title: Text('Remove Item'),
+        content: Text('Are you sure you want to remove this item from cart?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
@@ -57,7 +58,7 @@ class _CartScreenState extends State<CartScreen> {
                 const SnackBar(content: Text('Item removed from cart')),
               );
             },
-            child: const Text('Remove', style: TextStyle(color: AppColors.error)),
+            child: Text('Remove', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -68,7 +69,7 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Cart'),
+        title: Text('My Cart'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
@@ -78,25 +79,25 @@ class _CartScreenState extends State<CartScreen> {
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text('Clear Cart'),
-                    content: const Text('Are you sure you want to clear all items from cart?'),
+                    title: Text('Clear Cart'),
+                    content: Text('Are you sure you want to clear all items from cart?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
+                        child: Text('Cancel'),
                       ),
                       TextButton(
                         onPressed: () {
                           setState(() => _cartItems.clear());
                           Navigator.pop(context);
                         },
-                        child: const Text('Clear', style: TextStyle(color: AppColors.error)),
+                        child: Text('Clear', style: TextStyle(color: AppColors.error)),
                       ),
                     ],
                   ),
                 );
               },
-              child: const Text('Clear All', style: TextStyle(color: Colors.white)),
+              child: Text('Clear All', style: TextStyle(color: Colors.white)),
             ),
         ],
       ),
@@ -127,14 +128,14 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.local_offer, color: AppColors.primary),
+                      Icon(Icons.local_offer, color: AppColors.primary),
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text('Apply Coupon Code', style: TextStyle(fontWeight: FontWeight.w500)),
                       ),
                       TextButton(
                         onPressed: () => _showCouponDialog(),
-                        child: const Text('Apply'),
+                        child: Text('Apply'),
                       ),
                     ],
                   ),
@@ -157,11 +158,11 @@ class _CartScreenState extends State<CartScreen> {
                   child: SafeArea(
                     child: Column(
                       children: [
-                        _buildSummaryRow('Subtotal', '₹${_subtotal.toStringAsFixed(2)}'),
-                        _buildSummaryRow('Discount', '₹-${_discount.toStringAsFixed(2)}', isDiscount: true),
-                        _buildSummaryRow('Shipping', _shipping == 0 ? 'FREE' : '₹${_shipping.toStringAsFixed(2)}', isDiscount: _shipping == 0),
+                        _buildSummaryRow('Subtotal', 'â‚¹${_subtotal.toStringAsFixed(2)}'),
+                        _buildSummaryRow('Discount', 'â‚¹-${_discount.toStringAsFixed(2)}', isDiscount: true),
+                        _buildSummaryRow('Shipping', _shipping == 0 ? 'FREE' : 'â‚¹${_shipping.toStringAsFixed(2)}', isDiscount: _shipping == 0),
                         const Divider(),
-                        _buildSummaryRow('Total', '₹${_total.toStringAsFixed(2)}', isTotal: true),
+                        _buildSummaryRow('Total', 'â‚¹${_total.toStringAsFixed(2)}', isTotal: true),
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
@@ -174,7 +175,7 @@ class _CartScreenState extends State<CartScreen> {
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
-                            child: const Text('Proceed to Checkout'),
+                            child: Text('Proceed to Checkout'),
                           ),
                         ),
                       ],
@@ -219,7 +220,7 @@ class _CartScreenState extends State<CartScreen> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Start Shopping'),
+            child: Text('Start Shopping'),
           ),
         ],
       ),
@@ -274,7 +275,7 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 20),
+                      icon: Icon(Icons.close, size: 20),
                       onPressed: () => _showRemoveDialog(item['id']),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -285,7 +286,7 @@ class _CartScreenState extends State<CartScreen> {
                 Row(
                   children: [
                     Text(
-                      '₹${item['price']}',
+                      'â‚¹${item['price']}',
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.bold,
@@ -293,7 +294,7 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '₹${item['originalPrice']}',
+                      'â‚¹${item['originalPrice']}',
                       style: TextStyle(
                         decoration: TextDecoration.lineThrough,
                         color: Colors.grey[400],
@@ -352,7 +353,7 @@ class _CartScreenState extends State<CartScreen> {
                             onTap: () => _updateQuantity(item['id'], 1),
                             child: Container(
                               padding: const EdgeInsets.all(8),
-                              child: const Icon(Icons.add, size: 16),
+                              child: Icon(Icons.add, size: 16),
                             ),
                           ),
                         ],
@@ -360,7 +361,7 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      '₹${(item['price'] * item['quantity']).toString()}',
+                      'â‚¹${(item['price'] * item['quantity']).toString()}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -407,7 +408,7 @@ class _CartScreenState extends State<CartScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Apply Coupon'),
+        title: Text('Apply Coupon'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
@@ -418,7 +419,7 @@ class _CartScreenState extends State<CartScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -430,11 +431,13 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               );
             },
-            child: const Text('Apply'),
+            child: Text('Apply'),
           ),
         ],
       ),
     );
   }
 }
+
+
 

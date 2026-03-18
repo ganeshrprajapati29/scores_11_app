@@ -1,11 +1,14 @@
+﻿import '../../core/widgets/custom_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../core/constants/enums.dart';
 import '../../../core/config/theme_config.dart';
 import '../../../core/widgets/custom_appbar.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../data/services/settings_service.dart';
 import '../../../core/constants/app_routes.dart';
+import '../../core/theme/app_colors.dart';
 
 class SecurityScreen extends StatefulWidget {
   const SecurityScreen({super.key});
@@ -51,7 +54,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
     return Scaffold(
       appBar: CustomAppBar(title: 'Security'),
       body: _isLoading
-        ? const Center(child: CustomLoader())
+        ? Center(
+            child: Builder(
+builder: (context) => CustomLoader(),
+            ),
+          )
         : Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -66,9 +73,9 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                     child: Icon(Icons.lock, color: AppColors.error),
                   ),
-                  title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Update your account password'),
-                  trailing: const Icon(Icons.chevron_right),
+                  title: Text('Change Password', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('Update your account password'),
+                  trailing: Icon(Icons.chevron_right),
                   onTap: () => Navigator.pushNamed(context, AppRoutes.changePassword),
                 ),
                 const SizedBox(height: 24),
@@ -127,13 +134,13 @@ class _SecurityScreenState extends State<SecurityScreen> {
     return await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Reset Settings'),
-            content: const Text('This will reset all your settings to defaults. This action cannot be undone.'),
+            title: Text('Reset Settings'),
+            content: Text('This will reset all your settings to defaults. This action cannot be undone.'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Reset', style: TextStyle(color: Colors.red)),
+                child: Text('Reset', style: TextStyle(color: Colors.red)),
               ),
             ],
           ),
@@ -141,3 +148,6 @@ class _SecurityScreenState extends State<SecurityScreen> {
         false;
   }
 }
+
+
+

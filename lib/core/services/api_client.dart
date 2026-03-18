@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/api_config.dart';
@@ -150,5 +152,57 @@ class ApiClient {
 
   Future<String?> getAccessToken() async {
     return await _storage.read(key: AppConstants.accessTokenKey);
+  }
+
+  String parseDioError(
+    DioException e, {
+    String defaultMessage = 'Something went wrong. Please try again.',
+  }) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Connection timeout. Please check your internet connection.';
+      case DioExceptionType.connectionError:
+        return 'No internet connection. Please check your network.';
+      case DioExceptionType.cancel:
+        return 'Request cancelled.';
+      case DioExceptionType.badCertificate:
+        return 'Secure connection failed.';
+      case DioExceptionType.badResponse:
+        final statusCode = e.response?.statusCode;
+        final data = e.response?.data;
+
+        String? extractedMessage;
+        if (data is Map<String, dynamic>) {
+          extractedMessage = data['message']?.toString() ??
+              (data['error'] is Map<String, dynamic>
+                  ? data['error']['message']?.toString()
+                  : null);
+        } else if (data is Map) {
+          final mapped = Map<String, dynamic>.from(data);
+          extractedMessage = mapped['message']?.toString();
+        }
+
+        if (extractedMessage != null && extractedMessage.trim().isNotEmpty) {
+          return extractedMessage;
+        }
+
+        if (statusCode == 400) return 'Invalid request.';
+        if (statusCode == 401) return 'Unauthorized. Please login again.';
+        if (statusCode == 403) return 'You do not have permission for this action.';
+        if (statusCode == 404) return 'Requested resource not found.';
+        if (statusCode == 409) return 'Conflict occurred. Please retry.';
+        if (statusCode == 422) return 'Validation failed. Please check input.';
+        if (statusCode != null && statusCode >= 500) {
+          return 'Server error. Please try again later.';
+        }
+        return defaultMessage;
+      case DioExceptionType.unknown:
+        if (e.error is SocketException) {
+          return 'No internet connection. Please check your network.';
+        }
+        return e.message ?? defaultMessage;
+    }
   }
 }

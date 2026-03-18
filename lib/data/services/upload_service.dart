@@ -1,9 +1,11 @@
 import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/config/api_config.dart';
+import '../../core/services/api_client.dart';
 
 class UploadService {
+  final ApiClient _apiClient = ApiClient();
   final ImagePicker _picker = ImagePicker();
 
   /// Pick image from gallery
@@ -15,10 +17,7 @@ class UploadService {
         maxHeight: 1200,
         imageQuality: 85,
       );
-      if (image != null) {
-        return File(image.path);
-      }
-      return null;
+      return image != null ? File(image.path) : null;
     } catch (e) {
       print('Error picking image: $e');
       return null;
@@ -34,10 +33,7 @@ class UploadService {
         maxHeight: 1200,
         imageQuality: 85,
       );
-      if (image != null) {
-        return File(image.path);
-      }
-      return null;
+      return image != null ? File(image.path) : null;
     } catch (e) {
       print('Error capturing image: $e');
       return null;
@@ -51,10 +47,7 @@ class UploadService {
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 10),
       );
-      if (video != null) {
-        return File(video.path);
-      }
-      return null;
+      return video != null ? File(video.path) : null;
     } catch (e) {
       print('Error picking video: $e');
       return null;
@@ -68,10 +61,7 @@ class UploadService {
         source: ImageSource.camera,
         maxDuration: const Duration(minutes: 10),
       );
-      if (video != null) {
-        return File(video.path);
-      }
-      return null;
+      return video != null ? File(video.path) : null;
     } catch (e) {
       print('Error capturing video: $e');
       return null;
@@ -81,27 +71,29 @@ class UploadService {
   /// Upload image to server
   Future<Map<String, dynamic>?> uploadImage(File imageFile, {String folder = 'crick11'}) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/upload/image');
+      final formData = FormData.fromMap({
+        'folder': folder,
+        'image': await MultipartFile.fromFile(imageFile.path),
+      });
+
+      final response = await _apiClient.uploadFile('${ApiConfig.upload}/image', formData: formData);
       
-      final request = http.MultipartRequest('POST', uri);
-      request.fields['folder'] = folder;
-      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
       if (response.statusCode == 200) {
-        final data = response.body;
         return {
           'success': true,
-          'data': data,
+          'data': response.data['data'],
         };
       } else {
         return {
           'success': false,
-          'message': 'Upload failed: ${response.statusCode}',
+          'message': response.data['message'] ?? 'Upload failed: ${response.statusCode}',
         };
       }
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': _handleDioError(e),
+      };
     } catch (e) {
       return {
         'success': false,
@@ -111,28 +103,31 @@ class UploadService {
   }
 
   /// Upload video to server
-  Future<Map<String, dynamic>?> uploadVideo(File videoFile, {String folder = 'cric11/videos'}) async {
+  Future<Map<String, dynamic>?> uploadVideo(File videoFile, {String folder = 'crick11/videos'}) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/upload/video');
+      final formData = FormData.fromMap({
+        'folder': folder,
+        'video': await MultipartFile.fromFile(videoFile.path),
+      });
+
+      final response = await _apiClient.uploadFile('${ApiConfig.upload}/video', formData: formData);
       
-      final request = http.MultipartRequest('POST', uri);
-      request.fields['folder'] = folder;
-      request.files.add(await http.MultipartFile.fromPath('video', videoFile.path));
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'data': response.body,
+          'data': response.data['data'],
         };
       } else {
         return {
           'success': false,
-          'message': 'Upload failed: ${response.statusCode}',
+          'message': response.data['message'] ?? 'Upload failed: ${response.statusCode}',
         };
       }
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': _handleDioError(e),
+      };
     } catch (e) {
       return {
         'success': false,
@@ -144,29 +139,32 @@ class UploadService {
   /// Upload multiple images
   Future<Map<String, dynamic>?> uploadMultipleImages(List<File> imageFiles, {String folder = 'crick11'}) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/upload/images');
+      final formData = FormData.fromMap({
+        'folder': folder,
+      });
       
-      final request = http.MultipartRequest('POST', uri);
-      request.fields['folder'] = folder;
-
       for (var file in imageFiles) {
-        request.files.add(await http.MultipartFile.fromPath('images', file.path));
+        formData.files.add(MapEntry('images', await MultipartFile.fromFile(file.path)));
       }
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
+      final response = await _apiClient.uploadFile('${ApiConfig.upload}/images', formData: formData);
+      
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'data': response.body,
+          'data': response.data['data'],
         };
       } else {
         return {
           'success': false,
-          'message': 'Upload failed: ${response.statusCode}',
+          'message': response.data['message'] ?? 'Upload failed: ${response.statusCode}',
         };
       }
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': _handleDioError(e),
+      };
     } catch (e) {
       return {
         'success': false,
@@ -178,21 +176,34 @@ class UploadService {
   /// Delete file from server
   Future<Map<String, dynamic>?> deleteFile(String publicId) async {
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/upload/delete');
+      final response = await _apiClient.post('${ApiConfig.upload}/delete', data: {'publicId': publicId});
       
-      final response = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: {'publicId': publicId},
-      );
-
       if (response.statusCode == 200) {
-        return {'success': true};
+        return {'success': true, 'data': response.data};
       } else {
         return {'success': false, 'message': 'Delete failed'};
       }
+    } on DioException catch (e) {
+      return {'success': false, 'message': _handleDioError(e)};
     } catch (e) {
       return {'success': false, 'message': 'Error deleting file: $e'};
+    }
+  }
+
+  String _handleDioError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Connection timeout. Please check your internet.';
+      case DioExceptionType.badResponse:
+        return e.response?.data['message'] ?? 'Server error (${e.response?.statusCode})';
+      case DioExceptionType.cancel:
+        return 'Upload cancelled';
+      case DioExceptionType.connectionError:
+        return 'No internet connection';
+      default:
+        return e.message ?? 'Upload failed';
     }
   }
 }

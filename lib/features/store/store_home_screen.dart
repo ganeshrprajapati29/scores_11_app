@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/store_service.dart';
-
+import '../../core/theme/app_colors.dart';
 class StoreHomeScreen extends StatefulWidget {
   const StoreHomeScreen({super.key});
 
@@ -97,7 +97,7 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.shopping_cart),
+                icon: Icon(Icons.shopping_cart),
                 onPressed: () {
                   Navigator.pushNamed(context, '/cart');
                 },
@@ -144,7 +144,7 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
           // Products Grid
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator())
                 : _products.isEmpty
                     ? Center(
                         child: Column(
@@ -271,7 +271,7 @@ class _ProductGridState extends State<_ProductGrid> {
         itemBuilder: (context, index) {
           if (index == widget.products.length) {
             return widget.isLoadingMore
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator())
                 : const SizedBox.shrink();
           }
           return _ProductCard(
@@ -334,7 +334,7 @@ class _ProductCard extends StatelessWidget {
                       errorBuilder: (context, error, stackTrace) => Container(
                         height: 120,
                         color: Colors.grey[200],
-                        child: const Icon(Icons.image, size: 50),
+                        child: Icon(Icons.image, size: 50),
                       ),
                     ),
                   ),
@@ -379,7 +379,7 @@ class _ProductCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 14),
+                          Icon(Icons.star, color: Colors.amber, size: 14),
                           const SizedBox(width: 2),
                           Text(
                             (product['rating'] ?? 0).toString(),
@@ -402,7 +402,7 @@ class _ProductCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '₹${product['originalPrice']}',
+                                'â‚¹${product['originalPrice']}',
                                 style: TextStyle(
                                   decoration: TextDecoration.lineThrough,
                                   color: Colors.grey[400],
@@ -410,7 +410,7 @@ class _ProductCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                '₹${product['price']}',
+                                'â‚¹${product['price']}',
                                 style: const TextStyle(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
@@ -427,7 +427,7 @@ class _ProductCard extends StatelessWidget {
                                 color: AppColors.primary,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.add_shopping_cart,
                                 color: Colors.white,
                                 size: 18,
@@ -447,4 +447,6 @@ class _ProductCard extends StatelessWidget {
     ).animate().fadeIn(delay: Duration(milliseconds: index * 50)).scale(begin: const Offset(0.95, 0.95));
   }
 }
+
+
 

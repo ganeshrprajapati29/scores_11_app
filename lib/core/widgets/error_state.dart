@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
+﻿import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 class ErrorState extends StatelessWidget {
   final String message;
@@ -15,7 +15,7 @@ class ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+Icon(Icons.error_outline, size: 64, color: AppColors.error),
             const SizedBox(height: 16),
             Text(
               message,
@@ -26,8 +26,8 @@ class ErrorState extends StatelessWidget {
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                icon: Icon(Icons.refresh),
+                label: Text('Retry'),
               ),
             ],
           ],
@@ -36,3 +36,4 @@ class ErrorState extends StatelessWidget {
     );
   }
 }
+

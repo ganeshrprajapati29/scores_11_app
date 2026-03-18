@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/custom_appbar.dart';
+import '../../core/widgets/custom_button.dart';
+import '../../core/constants/enums.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_loader.dart';
@@ -146,7 +149,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Team Information',
           style: TextStyle(
             fontSize: 18,
@@ -214,7 +217,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Players',
               style: TextStyle(
                 fontSize: 18,
@@ -297,7 +300,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Center(
+            child: Center(
               child: Text('No players in this team'),
             ),
           ),
@@ -313,7 +316,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Statistics',
           style: TextStyle(
             fontSize: 18,
@@ -370,7 +373,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Actions',
           style: TextStyle(
             fontSize: 18,
@@ -397,7 +400,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
                   // Show invite dialog
                 },
                 icon: Icons.person_add,
-                isOutlined: true,
+                variant: ButtonVariant.outlined,
               ),
             ),
           ],
@@ -406,4 +409,5 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     );
   }
 }
+
 

@@ -1,38 +1,12 @@
-import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
+﻿import 'package:flutter/material.dart';
 
 class CustomLoader extends StatelessWidget {
-  final String? message;
-  final double size;
-
-  const CustomLoader({super.key, this.message, this.size = 40});
+  const CustomLoader({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: size,
-            height: size,
-            child: const CircularProgressIndicator(
-              color: AppColors.primary,
-              strokeWidth: 3,
-            ),
-          ),
-          if (message != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              message!,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ],
-      ),
+    return const Center(
+      child: CircularProgressIndicator(),
     );
   }
 }

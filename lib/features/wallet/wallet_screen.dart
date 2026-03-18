@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
@@ -109,7 +109,7 @@ class _WalletScreenState extends State<WalletScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Total Balance',
             style: TextStyle(
               color: Colors.white70,
@@ -118,7 +118,7 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '₹${_wallet?.balance.toStringAsFixed(2) ?? '0.00'}',
+            'â‚¹${_wallet?.balance.toStringAsFixed(2) ?? '0.00'}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 36,
@@ -131,7 +131,7 @@ class _WalletScreenState extends State<WalletScreen> {
               Expanded(
                 child: _buildBalanceItem(
                   'Credits',
-                  '₹${_wallet?.totalCredits.toStringAsFixed(2) ?? '0.00'}',
+                  'â‚¹${_wallet?.totalCredits.toStringAsFixed(2) ?? '0.00'}',
                   Icons.arrow_downward,
                 ),
               ),
@@ -139,7 +139,7 @@ class _WalletScreenState extends State<WalletScreen> {
               Expanded(
                 child: _buildBalanceItem(
                   'Debits',
-                  '₹${_wallet?.totalDebits.toStringAsFixed(2) ?? '0.00'}',
+                  'â‚¹${_wallet?.totalDebits.toStringAsFixed(2) ?? '0.00'}',
                   Icons.arrow_upward,
                 ),
               ),
@@ -188,7 +188,7 @@ class _WalletScreenState extends State<WalletScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Quick Actions',
           style: TextStyle(
             fontSize: 18,
@@ -259,7 +259,7 @@ class _WalletScreenState extends State<WalletScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Recent Transactions',
           style: TextStyle(
             fontSize: 18,
@@ -274,7 +274,7 @@ class _WalletScreenState extends State<WalletScreen> {
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 'No transactions yet',
                 style: TextStyle(color: Colors.grey),
@@ -350,7 +350,7 @@ class _WalletScreenState extends State<WalletScreen> {
             ),
           ),
           Text(
-            '${isCredit ? '+' : '-'}₹${transaction.amount.toStringAsFixed(2)}',
+            '${isCredit ? '+' : '-'}â‚¹${transaction.amount.toStringAsFixed(2)}',
             style: TextStyle(
               color: isCredit ? AppColors.success : AppColors.error,
               fontWeight: FontWeight.bold,
@@ -386,7 +386,7 @@ class _WalletScreenState extends State<WalletScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Add Funds',
                 style: TextStyle(
                   fontSize: 20,
@@ -399,7 +399,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixText: '₹ ',
+                  prefixText: 'â‚¹ ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -470,7 +470,7 @@ class _WalletScreenState extends State<WalletScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Withdraw Funds',
                 style: TextStyle(
                   fontSize: 20,
@@ -479,7 +479,7 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Available balance: ₹${_wallet?.balance.toStringAsFixed(2) ?? '0.00'}',
+                'Available balance: â‚¹${_wallet?.balance.toStringAsFixed(2) ?? '0.00'}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(height: 24),
@@ -488,7 +488,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixText: '₹ ',
+                  prefixText: 'â‚¹ ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -548,4 +548,5 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 }
+
 

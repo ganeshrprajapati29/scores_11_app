@@ -1,14 +1,11 @@
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert';
-import '../../core/config/theme_config.dart';
+import '../../data/models/dashboard_model.dart';
+import '../../core/theme/app_colors.dart';
+import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../data/services/match_service.dart';
-import '../../data/services/tournament_service.dart';
-import '../../data/services/leaderboard_service.dart';
-import '../../data/services/news_service.dart'; // Assume exists or create
-import '../../data/services/community_service.dart'; // Assume exists
-import '../../data/models/match_model.dart';
 import '../../core/constants/app_routes.dart';
 
 class HomeTab extends StatefulWidget {
@@ -19,121 +16,109 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
-  final MatchService _matchService = MatchService();
-  final TournamentService _tournamentService = TournamentService();
-  final LeaderboardService _leaderboardService = LeaderboardService();
-
-  List<Match> _liveMatches = [];
-  List<Match> _upcomingMatches = [];
-  List<Map<String, dynamic>> _trendingPlayers = [];
-  List _activeTournaments = [];
-  List _leaderboard = [];
-  List _news = [];
-  List _communityPosts = [];
-  bool _isLoading = true;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<DashboardProvider>();
+      provider.refreshDashboard();
+    });
+
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) {
+        context.read<DashboardProvider>().refreshDashboard(context);
+      }
+    });
   }
 
-  Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
-    try {
-      // Parallel API calls
-      final liveMatches = _matchService.getLiveMatches();
-      final upcomingMatches = _matchService.getUpcomingMatches(limit: 2);
-      final trendingPlayers = _leaderboardService.getTopBatsmen(limit: 5);
-      final activeTournaments = _tournamentService.getOngoingTournaments(limit: 3);
-      final leaderboard = _leaderboardService.getTopBatsmen(limit: 2);
-      // Add news and community calls when services ready
-
-      await Future.wait([
-        liveMatches.then((matches) => _liveMatches = matches),
-        upcomingMatches.then((matches) => _upcomingMatches = matches),
-        trendingPlayers.then((players) => _trendingPlayers = players.entries),
-        activeTournaments.then((tournaments) => _activeTournaments = tournaments),
-        leaderboard.then((lb) => _leaderboard = lb.entries),
-      ]);
-    } catch (e) {
-      debugPrint('Dashboard load error: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final user = authProvider.user;
-
-    return RefreshIndicator(
-      onRefresh: _loadDashboardData,
-      child: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            floating: true,
-            pinned: true,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            title: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundImage: user?.avatar?.url != null 
-                      ? NetworkImage(user!.avatar!.url!) 
-                      : null,
-                    child: user?.avatar?.url == null 
-                      ? Icon(Icons.person, color: AppColors.primary)
-                      : null,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Hello, ${user?.name ?? 'Cricketer'} 👋', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text(user?.address?.city ?? 'Your City', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              IconButton(icon: const Icon(Icons.notifications), onPressed: () => Navigator.pushNamed(context, '/notifications')),
-              IconButton(icon: const Icon(Icons.search), onPressed: () => Navigator.pushNamed(context, '/search')),
-            ],
-          ),
-          if (_isLoading)
-            const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
-          else ...[
-            // 2. Live Matches
-            _buildLiveMatchesSection(),
-            // 3. Quick Actions
-            _buildQuickActionsSection(),
-            // 4. Upcoming Matches
-            _buildUpcomingMatchesSection(),
-            // 5. Trending Players
-            _buildTrendingPlayersSection(),
-            // 6. Active Tournaments
-            _buildActiveTournamentsSection(),
-            // 9. Leaderboard Preview
-            _buildLeaderboardPreview(),
-            // 8. Community Feed
-            _buildCommunitySection(),
-            // 7. Latest News
-            _buildNewsSection(),
-          ],
-        ],
-      ),
+    return Consumer2<DashboardProvider, AuthProvider>(
+      builder: (context, provider, authProvider, child) {
+        final user = authProvider.user;
+        
+        return RefreshIndicator(
+          onRefresh: () => provider.refreshDashboard(context),
+          child: provider.isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : CustomScrollView(
+                slivers: [
+                  _buildWelcomeSection(context, user),
+                  if ((provider.quickStats?.liveMatches ?? 0) > 0)
+                    _buildLiveMatchesSection(provider),
+                  _buildQuickActionsSection(context),
+                  _buildStatsSection(provider),
+                  _buildUpcomingMatchesSection(provider),
+                  _buildTrendingPlayersSection(provider),
+                  _buildLatestTournamentsSection(provider),
+                  if (provider.error != null || provider.isMockData)
+                    _buildStatusBanner(provider),
+                ],
+              ),
+        );
+      },
     );
   }
 
-  Widget _buildLiveMatchesSection() {
+  SliverAppBar _buildWelcomeSection(BuildContext context, dynamic user) {
+    return SliverAppBar(
+      floating: true,
+      pinned: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      title: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+            child: CircleAvatar(
+              radius: 20,
+              backgroundImage: user?.avatar?.url != null ? NetworkImage(user.avatar.url) : null,
+              child: user?.avatar?.url == null 
+                ? Icon(Icons.person, color: AppColors.primary)
+                : null,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Hello, ${user?.name ?? 'Cricketer'} 👋', 
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  user?.address?.city ?? 'Your City',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined),
+          onPressed: () => Navigator.pushNamed(context, '/notifications'),
+        ),
+        IconButton(
+          icon: const Icon(Icons.search),
+          onPressed: () => Navigator.pushNamed(context, '/players/search'),
+        ),
+      ],
+    );
+  }
+
+  SliverToBoxAdapter _buildLiveMatchesSection(DashboardProvider provider) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -144,27 +129,32 @@ class _HomeTabState extends State<HomeTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('🔴 Live Matches', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                TextButton(onPressed: () => Navigator.pushNamed(context, '/matches'), child: const Text('See All')),
+                TextButton(
+                  onPressed: () => Navigator.pushNamed(context, '/matches/live'),
+                  child: const Text('See All'),
+                ),
               ],
             ),
             const SizedBox(height: 12),
-            ..._liveMatches.take(2).map((match) => _LiveMatchCard(match: match)).toList(),
-            if (_liveMatches.length > 2)
+            ...provider.liveMatches.take(3).map((match) => _LiveMatchCard(match: match)).toList(),
+            if (provider.liveMatches.length > 3)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: TextButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, '/matches'),
+                  onPressed: () => Navigator.pushNamed(context, '/matches/live'),
                   icon: const Icon(Icons.arrow_forward, size: 16),
-                  label: const Text('View All Live Matches'),
+                  label: Text('View ${provider.liveMatches.length} Live Matches'),
                 ),
-              ),
+              )
+            else if (provider.liveMatches.isEmpty)
+              _EmptyLiveSection(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildQuickActionsSection() {
+  SliverToBoxAdapter _buildQuickActionsSection(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -184,22 +174,22 @@ class _HomeTabState extends State<HomeTab> {
                 _QuickActionButton(
                   icon: Icons.sports_cricket,
                   label: 'Create Match',
-                  onTap: () => Navigator.pushNamed(context, '/create-match'),
+                  route: '/create-match',
+                ),
+                _QuickActionButton(
+                  icon: Icons.emoji_events_outlined,
+                  label: 'Join Tournament',
+                  route: '/tournaments/join',
                 ),
                 _QuickActionButton(
                   icon: Icons.group_add,
                   label: 'Create Team',
-                  onTap: () => Navigator.pushNamed(context, '/create-team'),
+                  route: '/create-team',
                 ),
                 _QuickActionButton(
-                  icon: Icons.emoji_events,
-                  label: 'Create Tournament',
-                  onTap: () => Navigator.pushNamed(context, '/create-tournament'),
-                ),
-                _QuickActionButton(
-                  icon: Icons.add_circle,
-                  label: 'Join Match',
-                  onTap: () => Navigator.pushNamed(context, '/join-match'),
+                  icon: Icons.wallet,
+                  label: 'Wallet',
+                  route: '/wallet',
                 ),
               ],
             ),
@@ -209,7 +199,24 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  Widget _buildUpcomingMatchesSection() {
+  SliverToBoxAdapter _buildStatsSection(DashboardProvider provider) {
+    final stats = provider.quickStats;
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(child: _StatCard(label: 'Live', value: '${stats?.liveMatches ?? 0}', icon: Icons.sports_cricket)),
+            Expanded(child: _StatCard(label: 'Today', value: '${stats?.todayMatches ?? 0}', icon: Icons.today)),
+            Expanded(child: _StatCard(label: 'Teams', value: '${stats?.totalTeams ?? 0}', icon: Icons.groups)),
+            Expanded(child: _StatCard(label: 'Players', value: '${stats?.totalPlayers ?? 0}', icon: Icons.people)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  SliverToBoxAdapter _buildUpcomingMatchesSection(DashboardProvider provider) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -219,34 +226,40 @@ class _HomeTabState extends State<HomeTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('📅 Upcoming Matches', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text('📅 Upcoming', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 TextButton(onPressed: () => Navigator.pushNamed(context, '/matches'), child: const Text('See All')),
               ],
             ),
             const SizedBox(height: 12),
-            ..._upcomingMatches.map((match) => _UpcomingMatchCard(match: match)).toList(),
+            ...provider.upcomingMatches.take(2).map((match) => _UpcomingMatchCard(match: match)).toList(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTrendingPlayersSection() {
+  SliverToBoxAdapter _buildTrendingPlayersSection(DashboardProvider provider) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('⭐ Trending Players', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('⭐ Trending Players', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                TextButton(onPressed: () => Navigator.pushNamed(context, '/leaderboard'), child: const Text('Leaderboard')),
+              ],
+            ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 100,
+              height: 110,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _trendingPlayers.length,
+                itemCount: provider.trendingPlayers.length,
                 itemBuilder: (context, index) {
-                  final player = _trendingPlayers[index];
+                  final player = provider.trendingPlayers[index];
                   return Container(
                     width: 140,
                     margin: const EdgeInsets.only(right: 12),
@@ -255,15 +268,16 @@ class _HomeTabState extends State<HomeTab> {
                         padding: const EdgeInsets.all(12),
                         child: Column(
                           children: [
+                            Text('${player.rank}º', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
                             CircleAvatar(
-                              radius: 20,
-                              backgroundImage: NetworkImage(player['avatar'] ?? ''),
-                              child: player['avatar'] == null ? const Icon(Icons.person) : null,
+                              radius: 22,
+                              backgroundColor: AppColors.primary.withOpacity(0.1),
+                              child: Icon(Icons.person, color: AppColors.primary, size: 28),
                             ),
                             const SizedBox(height: 8),
-                            Text(player['name'] ?? 'Player', style: const TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                            Text('${player['runs'] ?? 0} Runs', style: TextStyle(fontSize: 12)),
-                            Text('${player['wickets'] ?? 0} Wkts', style: TextStyle(fontSize: 12, color: Colors.green)),
+                            Text(player.name, style: const TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                            Text('${player.stats.runs}R ${player.stats.wickets}W', style: TextStyle(fontSize: 12, color: Colors.green)),
                           ],
                         ),
                       ),
@@ -278,38 +292,105 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  // Add remaining sections similarly: Active Tournaments, Leaderboard Preview, Community, News
-
-  Widget _LiveMatchCard({required Match match}) {
-    return Card(
-      child: ListTile(
-        title: Text('${match.team1} vs ${match.team2}'),
-        subtitle: Text('${match.score} (${match.currentOvers})'),
-        trailing: const ElevatedButton.icon(
-          icon: Icon(Icons.play_arrow),
-          label: Text('Live'),
-          onPressed: null,
+  SliverToBoxAdapter _buildLatestTournamentsSection(DashboardProvider provider) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('🏆 Tournaments', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ...provider.latestTournaments.take(3).map((tournament) => _TournamentCard(tournament: tournament)).toList(),
+          ],
         ),
       ),
     );
   }
 
-  Widget _UpcomingMatchCard({required Match match}) {
+  SliverToBoxAdapter _buildStatusBanner(DashboardProvider provider) {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: provider.isMockData ? Colors.orange.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: provider.isMockData ? Colors.orange : Colors.red),
+        ),
+        child: Row(
+          children: [
+            Icon(provider.isMockData ? Icons.offline_bolt : Icons.error, color: provider.isMockData ? Colors.orange : Colors.red),
+            const SizedBox(width: 8),
+            Expanded(child: Text(provider.isMockData ? 'Demo Mode (Server offline)' : 'Error: ${provider.error}')),
+            if (provider.isMockData)
+              TextButton(onPressed: () => provider.refreshDashboard(context), child: const Text('Retry'))
+            else
+              IconButton(onPressed: provider.clearError, icon: const Icon(Icons.close)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Widget builders
+  Widget _LiveMatchCard({required DashboardMatch match}) {
     return Card(
+      margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
-        title: Text('${match.team1} vs ${match.team2}'),
-        subtitle: Text('${match.scheduledDate} • ${match.venue}'),
-        trailing: const Icon(Icons.arrow_forward_ios),
+        contentPadding: const EdgeInsets.all(16),
+        title: Text('${match.team1Name ?? match.team1 ?? 'Team 1'} vs ${match.team2Name ?? match.team2 ?? 'Team 2'}'),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${match.scoreString ?? 'Live'} • ${match.format ?? ''}'),
+            Text('IPL 2024', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          ],
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.circle, size: 12, color: Colors.white),
+              const SizedBox(width: 4),
+              const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
         onTap: () => Navigator.pushNamed(context, '/match-detail', arguments: match.id),
       ),
     );
   }
 
-  Widget _QuickActionButton({required IconData icon, required String label, required VoidCallback onTap}) {
+  Widget _UpcomingMatchCard({required DashboardMatch match}) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        title: Text('${match.team1ShortName ?? match.team1 ?? 'Team 1'} vs ${match.team2ShortName ?? match.team2 ?? 'Team 2'}'),
+        subtitle: Text(match.scheduledDate != null 
+          ? '${match.format ?? ''} • ${TimeOfDay.fromDateTime(match.scheduledDate!).format(context)}'
+          : '${match.format ?? ''}'),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () => Navigator.pushNamed(context, '/match-detail', arguments: match.id),
+      ),
+    );
+  }
+
+  Widget _QuickActionButton({
+    required IconData icon,
+    required String label,
+    required String route,
+  }) {
     return Card(
       child: InkWell(
-        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.pushNamed(context, route),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -320,6 +401,51 @@ class _HomeTabState extends State<HomeTab> {
               Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _StatCard({required String label, required String value, required IconData icon}) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(icon, color: AppColors.primary),
+            const SizedBox(height: 8),
+            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _TournamentCard({required DashboardTournament tournament}) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: const Icon(Icons.emoji_events, color: AppColors.secondary),
+        title: Text(tournament.name),
+        subtitle: Text('${tournament.format} • ${tournament.totalTeams} teams'),
+        trailing: Text((tournament.isPaid ?? false) ? '\$${(tournament.entryFee ?? 0)}' : 'Free'),
+        onTap: () => Navigator.pushNamed(context, '/tournament-detail', arguments: tournament.id),
+      ),
+    );
+  }
+
+  Widget _EmptyLiveSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(Icons.sports_cricket_outlined, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            const Text('No Live Matches', style: TextStyle(fontSize: 16)),
+            TextButton(onPressed: () => Navigator.pushNamed(context, '/matches'), child: const Text('Browse Matches')),
+          ],
         ),
       ),
     );

@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
-import '../../core/config/theme_config.dart';
-import '../../data/models/team_model.dart';
-import '../../data/services/team_service.dart';
+﻿import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 
 class TeamListScreen extends StatefulWidget {
   const TeamListScreen({super.key});
@@ -11,340 +9,128 @@ class TeamListScreen extends StatefulWidget {
 }
 
 class _TeamListScreenState extends State<TeamListScreen> {
-  final TeamService _teamService = TeamService();
-  
-  // Pagination state
-  int _currentPage = 1;
-  bool _hasMore = true;
+  List<Map<String, dynamic>> _teams = [];
   bool _isLoading = true;
+  int _page = 1;
+  bool _hasMore = true;
   bool _isLoadingMore = false;
-  
-  List<Team> _teams = [];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadTeams();
+    _scrollController.addListener(_onScroll);
   }
 
-  /// Pagination Algorithm:
-  /// int page = 1;
-  /// loadMore(){
-  ///   page++;
-  ///   fetchTeams(page);
-  /// }
-  
-  Future<void> _loadTeams({bool refresh = false}) async {
-    if (refresh) {
-      _currentPage = 1;
-      _hasMore = true;
-    }
-    
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTeams() async {
     setState(() => _isLoading = true);
-    try {
-      final result = await _teamService.getTeams(page: 1);
-      setState(() {
-        _teams = result.teams;
-        _hasMore = result.hasMore;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+    await Future.delayed(const Duration(milliseconds: 500)); // Mock API delay
+    setState(() {
+      _teams = [
+        {
+          'id': '1',
+          'name': 'Mumbai Indians',
+          'logo': 'https://via.placeholder.com/60x60/ff0000/ffffff?text=MI',
+          'city': 'Mumbai',
+          'wins': 8,
+          'losses': 2,
+        },
+        {
+          'id': '2',
+          'name': 'Chennai Super Kings',
+          'logo': 'https://via.placeholder.com/60x60/yellow/000000?text=CSK',
+          'city': 'Chennai',
+          'wins': 7,
+          'losses': 3,
+        },
+        {
+          'id': '3',
+          'name': 'Royal Challengers Bangalore',
+          'logo': 'https://via.placeholder.com/60x60/0000ff/ffffff?text=RCB',
+          'city': 'Bengaluru',
+          'wins': 6,
+          'losses': 4,
+        },
+      ];
+      _isLoading = false;
+    });
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMore();
     }
   }
 
-  /// Load more teams
-  Future<void> _loadMoreTeams() async {
+  Future<void> _loadMore() async {
     if (_isLoadingMore || !_hasMore) return;
-    
+    setState(() => _isLoadingMore = true);
+    await Future.delayed(const Duration(milliseconds: 800));
     setState(() {
-      _isLoadingMore = true;
-      _currentPage++; // Increment page
+      _isLoadingMore = false;
+      _hasMore = false; // Mock no more data
     });
-    
-    try {
-      final result = await _teamService.getTeams(page: _currentPage);
-      setState(() {
-        _teams.addAll(result.teams);
-        _hasMore = result.hasMore;
-        _isLoadingMore = false;
-      });
-    } catch (e) {
-      setState(() {
-        _currentPage--; // Revert page on error
-        _isLoadingMore = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more: $e')),
-        );
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Teams'),
+        title: const Text('Teams'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _teams.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.groups, size: 64, color: AppColors.textHint),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No teams yet',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/create-team');
-                        },
-                        icon: const Icon(Icons.add),
-                        label: const Text('Create Team'),
-                      ),
-                    ],
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: _loadTeams,
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: _teams.length + (_hasMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _teams.length) {
+                  return _isLoadingMore
+                    ? const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : const SizedBox.shrink();
+                }
+                return Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: NetworkImage(_teams[index]['logo']),
+                      onBackgroundImageError: (_, __) {},
+                      child: const Icon(Icons.sports_cricket),
+                    ),
+                    title: Text(_teams[index]['name']),
+                    subtitle: Text('${_teams[index]['city']} • ${_teams[index]['wins']}W-${_teams[index]['losses']}L'),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () => Navigator.pushNamed(context, '/team-detail', arguments: _teams[index]['id']),
                   ),
-                )
-              : _TeamList(
-                  teams: _teams,
-                  isLoadingMore: _isLoadingMore,
-                  hasMore: _hasMore,
-                  loadMore: _loadMoreTeams,
-                ),
+                );
+              },
+            ),
+          ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.pushNamed(context, '/create-team');
-        },
+        onPressed: () => Navigator.pushNamed(context, '/create-team'),
         icon: const Icon(Icons.add),
         label: const Text('Create Team'),
         backgroundColor: AppColors.primary,
-      ),
-    );
-  }
-}
-
-class _TeamList extends StatefulWidget {
-  final List<Team> teams;
-  final bool isLoadingMore;
-  final bool hasMore;
-  final VoidCallback loadMore;
-
-  const _TeamList({
-    required this.teams,
-    required this.isLoadingMore,
-    required this.hasMore,
-    required this.loadMore,
-  });
-
-  @override
-  State<_TeamList> createState() => _TeamListState();
-}
-
-class _TeamListState extends State<_TeamList> {
-  late ScrollController _scrollController;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  /// Detect when user scrolls to bottom and load more
-  void _onScroll() {
-    if (_scrollController.position.pixels >= 
-        _scrollController.position.maxScrollExtent - 200) {
-      widget.loadMore();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: () async {},
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(16),
-        itemCount: widget.teams.length + (widget.hasMore ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == widget.teams.length) {
-            return widget.isLoadingMore
-                ? const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : const SizedBox.shrink();
-          }
-          return _TeamCard(team: widget.teams[index]);
-        },
-      ),
-    );
-  }
-}
-
-class _TeamCard extends StatelessWidget {
-  final Team team;
-
-  const _TeamCard({required this.team});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {
-          Navigator.pushNamed(context, '/team-detail', arguments: team.id);
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Team Logo
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: team.logo?.url != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          team.logo!.url!,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : const Icon(
-                        Icons.groups,
-                        color: AppColors.primary,
-                        size: 30,
-                      ),
-              ),
-              const SizedBox(width: 16),
-              // Team Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          team.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        if (team.isVerified) ...[
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.verified,
-                            color: AppColors.primary,
-                            size: 16,
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      team.shortName ?? team.name.substring(0, 3).toUpperCase(),
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _StatChip(
-                          label: 'P',
-                          value: '${team.stats?.matchesPlayed ?? 0}',
-                        ),
-                        const SizedBox(width: 8),
-                        _StatChip(
-                          label: 'W',
-                          value: '${team.stats?.matchesWon ?? 0}',
-                        ),
-                        const SizedBox(width: 8),
-                        _StatChip(
-                          label: 'L',
-                          value: '${team.stats?.matchesLost ?? 0}',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.textHint,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _StatChip({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '$label: ',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 10,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 10,
-            ),
-          ),
-        ],
       ),
     );
   }

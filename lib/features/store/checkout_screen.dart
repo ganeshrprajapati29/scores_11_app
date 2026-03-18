@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
+import '../../core/theme/app_colors.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -35,7 +36,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Checkout'),
+        title: Text('Checkout'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -84,11 +85,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               icon: Icons.receipt_long,
               child: Column(
                 children: [
-                  _buildPriceRow('Subtotal', '₹${_subtotal.toStringAsFixed(2)}'),
-                  _buildPriceRow('Shipping', '₹${_shipping.toStringAsFixed(2)}'),
-                  _buildPriceRow('Tax (18% GST)', '₹${_tax.toStringAsFixed(2)}'),
+                  _buildPriceRow('Subtotal', 'â‚¹${_subtotal.toStringAsFixed(2)}'),
+                  _buildPriceRow('Shipping', 'â‚¹${_shipping.toStringAsFixed(2)}'),
+                  _buildPriceRow('Tax (18% GST)', 'â‚¹${_tax.toStringAsFixed(2)}'),
                   const Divider(),
-                  _buildPriceRow('Total', '₹${_total.toStringAsFixed(2)}', isTotal: true),
+                  _buildPriceRow('Total', 'â‚¹${_total.toStringAsFixed(2)}', isTotal: true),
                 ],
               ),
             ).animate().fadeIn(delay: 300.ms),
@@ -116,9 +117,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Total Amount', style: TextStyle(fontSize: 16)),
+                  Text('Total Amount', style: TextStyle(fontSize: 16)),
                   Text(
-                    '₹${_total.toStringAsFixed(2)}',
+                    'â‚¹${_total.toStringAsFixed(2)}',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary),
                   ),
                 ],
@@ -135,7 +136,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   child: _isProcessing
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Place Order'),
+                      : Text('Place Order'),
                 ),
               ),
             ],
@@ -229,7 +230,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(width: 12),
           Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
           const Spacer(),
-          if (isSelected) const Icon(Icons.check_circle, color: AppColors.primary),
+          if (isSelected) Icon(Icons.check_circle, color: AppColors.primary),
         ]),
       ),
     );
@@ -247,7 +248,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Text(item['name'], style: const TextStyle(fontWeight: FontWeight.w500)),
           Text('Qty: ${item['quantity']}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
         ])),
-        Text('₹${(item['price'] * item['quantity']).toString()}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text('â‚¹${(item['price'] * item['quantity']).toString()}', style: const TextStyle(fontWeight: FontWeight.bold)),
       ]),
     ).animate().fadeIn(delay: Duration(milliseconds: index * 50));
   }
@@ -275,9 +276,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         barrierDismissible: false,
         builder: (context) => AlertDialog(
           content: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.check_circle, color: AppColors.success, size: 80),
+            Icon(Icons.check_circle, color: AppColors.success, size: 80),
             const SizedBox(height: 16),
-            const Text('Order Placed!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text('Order Placed!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text('Your order has been placed successfully.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
           ]),
@@ -287,7 +288,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false),
                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                child: const Text('Continue Shopping'),
+                child: Text('Continue Shopping'),
               ),
             ),
           ],
@@ -296,3 +297,5 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 }
+
+

@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/theme/app_colors.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -50,7 +51,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Post'),
+        title: Text('Create Post'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
@@ -65,7 +66,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       color: Colors.white,
                     ),
                   )
-                : const Text(
+                : Text(
                     'Post',
                     style: TextStyle(
                       color: Colors.white,
@@ -90,7 +91,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     child: Icon(Icons.person, color: Colors.white),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -108,7 +109,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ),
                   const Spacer(),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.public),
+                    icon: Icon(Icons.public),
                     onSelected: (value) {},
                     itemBuilder: (context) => [
                       const PopupMenuItem(
@@ -175,7 +176,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               ),
               child: Row(
                 children: [
-                  const Text(
+                  Text(
                     'Add to your post',
                     style: TextStyle(fontWeight: FontWeight.w500),
                   ),
@@ -219,7 +220,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.location_on, color: Colors.blue),
+                    Icon(Icons.location_on, color: Colors.blue),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
@@ -228,7 +229,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.blue),
+                      icon: Icon(Icons.close, color: Colors.blue),
                       onPressed: () => setState(() => _addLocation = false),
                     ),
                   ],
@@ -249,7 +250,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Tag Players or Teams',
                     style: TextStyle(fontWeight: FontWeight.w500),
                   ),
@@ -281,7 +282,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Add Hashtags',
                     style: TextStyle(fontWeight: FontWeight.w500),
                   ),
@@ -355,4 +356,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 }
+
+
 

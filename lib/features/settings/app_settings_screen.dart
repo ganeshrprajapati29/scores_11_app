@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -12,8 +12,11 @@ import '../../data/models/settings_model.dart';
 import '../../providers/auth_provider.dart';
 import 'notification_settings_screen.dart';
 import 'privacy_settings_screen.dart';
+import '../../core/constants/enums.dart';
 import 'preferences_screen.dart';
 import 'security_screen.dart';
+import '../../core/widgets/custom_button.dart';
+import '../../core/theme/app_colors.dart';
 
 class AppSettingsScreen extends StatefulWidget {
   const AppSettingsScreen({super.key});
@@ -48,11 +51,11 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Settings'),
-        content: const Text('Reset all settings to defaults?'),
+        title: Text('Reset Settings'),
+        content: Text('Reset all settings to defaults?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reset')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Reset')),
         ],
       ),
     );
@@ -71,7 +74,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     return Scaffold(
       appBar: CustomAppBar(title: 'Settings'),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
+        ? Center(child: CircularProgressIndicator())
         : RefreshIndicator(
             onRefresh: _loadSettings,
             child: SingleChildScrollView(
@@ -114,7 +117,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.refresh, color: Colors.white),
+                          icon: Icon(Icons.refresh, color: Colors.white),
                           onPressed: _loadSettings,
                         ),
                       ],
@@ -163,7 +166,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-                        CustomButton(
+CustomButton(
                           text: 'Reset All Settings',
                           variant: ButtonVariant.outlined,
                           onPressed: _resetSettings,
@@ -173,8 +176,8 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: _showLogoutDialog,
-                            icon: const Icon(Icons.logout, color: Colors.red),
-                            label: const Text('Logout', style: TextStyle(color: Colors.red)),
+                            icon: Icon(Icons.logout, color: Colors.red),
+                            label: Text('Logout', style: TextStyle(color: Colors.red)),
                             style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
                           ),
                         ),
@@ -221,7 +224,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey[600]),
+        trailing: Icon(Icons.chevron_right, color: Color(0xFF757575)),
         onTap: onTap,
       ),
     ).animate().fadeIn();
@@ -231,16 +234,16 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure?'),
+        title: Text('Logout'),
+        content: Text('Are you sure?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
           TextButton(
             onPressed: () {
               Provider.of<AuthProvider>(context, listen: false).logout();
               Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
             },
-            child: const Text('Logout'),
+            child: Text('Logout'),
           ),
         ],
       ),
@@ -251,14 +254,14 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.sports_cricket, color: AppColors.primary),
             SizedBox(width: 8),
             Text('Cric11'),
           ],
         ),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -267,8 +270,10 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
             Text('Your ultimate cricket companion.'),
           ],
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('Close'))],
       ),
     );
   }
 }
+
+

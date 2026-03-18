@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/config/theme_config.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 
 class MatchDetailScreen extends StatefulWidget {
@@ -250,8 +250,8 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> with SingleTicker
           Navigator.pushNamed(context, '/live-match', arguments: widget.matchId);
         },
         backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.play_arrow),
-        label: const Text('Go Live'),
+        icon: Icon(Icons.play_arrow),
+        label: Text('Go Live'),
       ),
     );
   }
@@ -297,7 +297,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> with SingleTicker
             ),
             child: Row(
               children: [
-                const Icon(Icons.flip, color: AppColors.primary),
+                Icon(Icons.flip, color: AppColors.primary),
                 const SizedBox(width: 12),
                 Text('${_matchData['toss']['winner']} won toss and chose to ${_matchData['toss']['decision']}'),
               ],
@@ -543,4 +543,6 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> with SingleTicker
     );
   }
 }
+
+
 

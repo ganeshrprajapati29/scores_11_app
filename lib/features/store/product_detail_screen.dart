@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/theme/app_colors.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String productId;
@@ -69,11 +70,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             foregroundColor: Colors.white,
             actions: [
               IconButton(
-                icon: const Icon(Icons.share),
+                icon: Icon(Icons.share),
                 onPressed: () {},
               ),
               IconButton(
-                icon: const Icon(Icons.favorite_border),
+                icon: Icon(Icons.favorite_border),
                 onPressed: () {},
               ),
             ],
@@ -164,7 +165,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.star, color: Colors.white, size: 16),
+                            Icon(Icons.star, color: Colors.white, size: 16),
                             const SizedBox(width: 4),
                             Text(
                               _product['rating'].toString(),
@@ -188,12 +189,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       const SizedBox(width: 8),
                       if (_product['inStock'])
-                        const Text(
+                        Text(
                           'In Stock',
                           style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w500),
                         )
                       else
-                        const Text(
+                        Text(
                           'Out of Stock',
                           style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w500),
                         ),
@@ -206,7 +207,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '₹${_product['price']}',
+                        'â‚¹${_product['price']}',
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -215,7 +216,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        '₹${_product['originalPrice']}',
+                        'â‚¹${_product['originalPrice']}',
                         style: TextStyle(
                           fontSize: 18,
                           decoration: TextDecoration.lineThrough,
@@ -235,13 +236,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Text(
+                        Text(
                           'Quantity:',
                           style: TextStyle(fontWeight: FontWeight.w500),
                         ),
                         const Spacer(),
                         IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
+                          icon: Icon(Icons.remove_circle_outline),
                           onPressed: _quantity > 1
                               ? () => setState(() => _quantity--)
                               : null,
@@ -261,7 +262,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.add_circle_outline),
+                          icon: Icon(Icons.add_circle_outline),
                           onPressed: _quantity < (_product['stockCount'] as int)
                               ? () => setState(() => _quantity++)
                               : null,
@@ -272,7 +273,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 20),
                   
                   // Description
-                  const Text(
+                  Text(
                     'Description',
                     style: TextStyle(
                       fontSize: 18,
@@ -290,7 +291,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 20),
                   
                   // Features
-                  const Text(
+                  Text(
                     'Key Features',
                     style: TextStyle(
                       fontSize: 18,
@@ -302,7 +303,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle, color: AppColors.success, size: 20),
+                        Icon(Icons.check_circle, color: AppColors.success, size: 20),
                         const SizedBox(width: 8),
                         Expanded(child: Text(feature)),
                       ],
@@ -311,7 +312,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 20),
                   
                   // Specifications
-                  const Text(
+                  Text(
                     'Specifications',
                     style: TextStyle(
                       fontSize: 18,
@@ -378,7 +379,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               ),
                               Row(
                                 children: [
-                                  const Icon(Icons.star, color: Colors.amber, size: 16),
+                                  Icon(Icons.star, color: Colors.amber, size: 16),
                                   const SizedBox(width: 4),
                                   Text('${_product['seller']['rating']} rating'),
                                   const SizedBox(width: 8),
@@ -393,7 +394,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                         OutlinedButton(
                           onPressed: () {},
-                          child: const Text('View Shop'),
+                          child: Text('View Shop'),
                         ),
                       ],
                     ),
@@ -431,8 +432,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.shopping_cart_outlined),
-                  label: const Text('Add to Cart'),
+                      : Icon(Icons.shopping_cart_outlined),
+                  label: Text('Add to Cart'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -446,8 +447,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   onPressed: () {
                     Navigator.pushNamed(context, '/checkout');
                   },
-                  icon: const Icon(Icons.flash_on),
-                  label: const Text('Buy Now'),
+                  icon: Icon(Icons.flash_on),
+                  label: Text('Buy Now'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -479,4 +480,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 }
+
+
 

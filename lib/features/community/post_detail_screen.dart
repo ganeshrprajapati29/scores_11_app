@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_appbar.dart';
-
+import '../../core/theme/app_colors.dart';
 class PostDetailScreen extends StatefulWidget {
   final String postId;
   
@@ -16,7 +16,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   final Map<String, dynamic> _post = {
     'user': 'Cricket Fan',
     'avatar': 'https://picsum.photos/50/50',
-    'content': 'Amazing match today! 🏏️ The way Rohit Sharma played was phenomenal. Best innings of the season! He truly showed why he is one of the best captains in IPL history.',
+    'content': 'Amazing match today! ðŸï¸ The way Rohit Sharma played was phenomenal. Best innings of the season! He truly showed why he is one of the best captains in IPL history.',
     'time': '2 hours ago',
     'likes': 245,
     'comments': 32,
@@ -27,7 +27,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   final List<Map<String, dynamic>> _comments = [
     {'user': 'Sports Lover', 'avatar': 'https://picsum.photos/50/50', 'content': 'Totally agree! Best knock of the season!', 'time': '1h ago', 'likes': 12},
     {'user': 'Cricket Expert', 'avatar': 'https://picsum.photos/50/50', 'content': 'His strike rate in the last 5 overs was incredible', 'time': '45m ago', 'likes': 8},
-    {'user': 'MI Fan', 'avatar': 'https://picsum.photos/50/50', 'content': 'Captain Fantastic! 🔥', 'time': '30m ago', 'likes': 15},
+    {'user': 'MI Fan', 'avatar': 'https://picsum.photos/50/50', 'content': 'Captain Fantastic! ðŸ”¥', 'time': '30m ago', 'likes': 15},
   ];
 
   final _commentController = TextEditingController();
@@ -45,11 +45,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         title: 'Post',
         actions: [
           IconButton(
-            icon: const Icon(Icons.share),
+            icon: Icon(Icons.share),
             onPressed: () {},
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
+            icon: Icon(Icons.more_vert),
             onSelected: (value) {},
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'save', child: Text('Save Post')),
@@ -99,7 +99,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.more_horiz),
+                          icon: Icon(Icons.more_horiz),
                           onPressed: () {},
                         ),
                       ],
@@ -139,7 +139,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             color: Colors.blue,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.thumb_up, color: Colors.white, size: 12),
+                          child: Icon(Icons.thumb_up, color: Colors.white, size: 12),
                         ),
                         const SizedBox(width: 8),
                         Text('${_post['likes']} likes'),
@@ -239,7 +239,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.send, color: AppColors.primary),
+                    icon: Icon(Icons.send, color: AppColors.primary),
                     onPressed: () {
                       if (_commentController.text.isNotEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -326,7 +326,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     const SizedBox(width: 16),
                     InkWell(
                       onTap: () {},
-                      child: const Text(
+                      child: Text(
                         'Reply',
                         style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
                       ),
@@ -341,4 +341,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     ).animate().fadeIn(delay: Duration(milliseconds: 600 + (index * 100)));
   }
 }
+
+
 

@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../core/config/theme_config.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_textfield.dart';
 import '../../providers/auth_provider.dart';
+import 'dart:convert';
+import '../../data/models/user_model.dart';
+import 'package:flutter/foundation.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../data/services/dashboard_service.dart';
 import '../../data/services/user_service.dart';
+import '../../data/models/user_model.dart';
 import '../../core/constants/app_routes.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -54,9 +59,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Load dashboard and user stats
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DashboardProvider>().loadDashboard();
-      _loadUserStats();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        context.read<DashboardProvider>().loadDashboard();
+        _loadUserStats();
+      }
     });
   }
 
@@ -120,10 +128,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           _isDrawerOpen ? Icons.close : Icons.menu,
                           semanticLabel: _isDrawerOpen ? 'Close menu' : 'Open menu',
                           key: ValueKey<bool>(_isDrawerOpen),
-                          size: 28,
+                        size: 28,
                         ),
                       ),
-                      if (dashboardProvider.quickStats.liveMatches > 0)
+                      if ((dashboardProvider.quickStats?.liveMatches ?? 0) > 0)
                         Positioned(
                           right: 4,
                           top: 4,
@@ -134,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               shape: BoxShape.circle,
                             ),
                             child: Text(
-                              '${dashboardProvider.quickStats.liveMatches}',
+                              '${dashboardProvider.quickStats!.liveMatches}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 9,
@@ -201,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: const Icon(Icons.notifications),
                       onPressed: () => Navigator.pushNamed(context, '/notifications'),
                     ),
-                    if (dashboardProvider.quickStats.liveMatches > 0)
+                    if ((dashboardProvider.quickStats?.liveMatches ?? 0) > 0)
                       Positioned(
                         right: 8,
                         top: 8,
@@ -209,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
                           child: Text(
-                            '${dashboardProvider.quickStats.liveMatches}',
+                            '${dashboardProvider.quickStats!.liveMatches}',
                             style: const TextStyle(color: Colors.white, fontSize: 10),
                           ),
                         ),

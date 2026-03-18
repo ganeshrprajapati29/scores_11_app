@@ -1,13 +1,16 @@
+﻿import '../../core/widgets/custom_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../../core/config/theme_config.dart';
+import '../../core/constants/enums.dart';
 import '../../../core/widgets/custom_appbar.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../data/models/settings_model.dart';
 import '../../../data/services/settings_service.dart';
 import '../../../providers/auth_provider.dart';
+import '../../core/theme/app_colors.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -62,7 +65,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     return Scaffold(
       appBar: CustomAppBar(title: 'Notification Settings'),
       body: _isLoading
-        ? const Center(child: CustomLoader())
+        ? Center(
+            child: Builder(
+builder: (context) => CustomLoader(),
+            ),
+          )
         : SingleChildScrollView(
             child: Column(
               children: [
@@ -113,7 +120,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   onPressed: _updateNotifications,
                 ).animate().fadeIn().slideY(),
                 const SizedBox(height: 20),
-              ].map((child) => child.animate().fadeIn(delay: 100.ms * children.indexOf(child))).toList(),
+              ].asMap().entries.map((entry) => entry.value.animate().fadeIn(delay: 100.ms * entry.key)).toList(),
             ),
           ),
     );
@@ -161,3 +168,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     ).animate().slideX();
   }
 }
+
+
+

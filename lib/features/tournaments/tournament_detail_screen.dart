@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
@@ -93,7 +94,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
     
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Successfully registered for the tournament! 🎉'),
+        content: Text('Successfully registered for the tournament! ðŸŽ‰'),
         backgroundColor: AppColors.success,
       ),
     );
@@ -103,7 +104,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
   Widget build(BuildContext context) {
     return Scaffold(
       body: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text('Error: $_error'))
               : _buildContent(),
@@ -137,7 +138,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
                             colors: [AppColors.primary, AppColors.primaryDark],
                           ),
                         ),
-                        child: const Icon(Icons.emoji_events, size: 80, color: Colors.white30),
+                        child: Icon(Icons.emoji_events, size: 80, color: Colors.white30),
                       ),
                 Container(
                   decoration: BoxDecoration(
@@ -152,8 +153,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
             ),
           ),
           actions: [
-            IconButton(icon: const Icon(Icons.share), onPressed: () {}),
-            IconButton(icon: const Icon(Icons.bookmark_border), onPressed: () {}),
+            IconButton(icon: Icon(Icons.share), onPressed: () {}),
+            IconButton(icon: Icon(Icons.bookmark_border), onPressed: () {}),
           ],
         ),
         
@@ -188,8 +189,8 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
                 // Quick Info Cards
                 Row(
                   children: [
-                    Expanded(child: _buildInfoCard('📅', 'Start Date', _formatDate(_tournament!.startDate))),
-                    Expanded(child: _buildInfoCard('🏟️', 'Venue', _tournament!.venue ?? 'TBD')),
+                    Expanded(child: _buildInfoCard('ðŸ“…', 'Start Date', _formatDate(_tournament!.startDate))),
+                    Expanded(child: _buildInfoCard('ðŸŸï¸', 'Venue', _tournament!.venue ?? 'TBD')),
                   ],
                 ),
                 
@@ -197,20 +198,20 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
                 
                 Row(
                   children: [
-                    Expanded(child: _buildInfoCard('👥', 'Teams', '${_tournament!.registeredTeams}/${_tournament!.maxTeams}')),
-                    Expanded(child: _buildInfoCard('💰', 'Entry Fee', '₹${_tournament!.entryFee}')),
+                    Expanded(child: _buildInfoCard('ðŸ‘¥', 'Teams', '${_tournament!.registeredTeams}/${_tournament!.maxTeams}')),
+                    Expanded(child: _buildInfoCard('ðŸ’°', 'Entry Fee', 'â‚¹${_tournament!.entryFee}')),
                   ],
                 ),
                 
                 if (_tournament!.prizeMoney != null) ...[
                   const SizedBox(height: 12),
-                  _buildInfoCard('🏆', 'Prize Money', '₹${_tournament!.prizeMoney}'),
+                  _buildInfoCard('ðŸ†', 'Prize Money', 'â‚¹${_tournament!.prizeMoney}'),
                 ],
                 
                 const SizedBox(height: 24),
                 
                 // Filters
-                const Text('Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -243,11 +244,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
                       borderRadius: BorderRadius.circular(12),
                     ),
                     tabs: const [
-                      Tab(text: '📊 Overview'),
-                      Tab(text: '👥 Teams'),
-                      Tab(text: '📅 Matches'),
-                      Tab(text: '📈 Points'),
-                      Tab(text: '🏆 Prizes'),
+                      Tab(text: 'ðŸ“Š Overview'),
+                      Tab(text: 'ðŸ‘¥ Teams'),
+                      Tab(text: 'ðŸ“… Matches'),
+                      Tab(text: 'ðŸ“ˆ Points'),
+                      Tab(text: 'ðŸ† Prizes'),
                     ],
                   ),
                 ),
@@ -348,7 +349,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Entry Fee', style: TextStyle(color: Colors.grey[600])),
-                  Text('₹${_tournament!.entryFee}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text('â‚¹${_tournament!.entryFee}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -363,7 +364,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: Text(
-                  _isRegistered ? '✓ Registered' : 'Participate Now',
+                  _isRegistered ? 'âœ“ Registered' : 'Participate Now',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -381,7 +382,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Tournament Rules
-          const Text('📋 Tournament Rules', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('ðŸ“‹ Tournament Rules', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           _buildRuleItem('1', 'Each team must have minimum 11 players'),
           _buildRuleItem('2', 'Match will be of 20 overs per side'),
@@ -392,7 +393,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
           const SizedBox(height: 24),
           
           // Organizer Info
-          const Text('👤 Organized By', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('ðŸ‘¤ Organized By', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(16),
@@ -417,7 +418,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
                     ],
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.chat), onPressed: () {}),
+                IconButton(icon: Icon(Icons.chat), onPressed: () {}),
               ],
             ),
           ),
@@ -425,7 +426,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
           const SizedBox(height: 24),
           
           // Venue Info
-          const Text('📍 Venue Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('ðŸ“ Venue Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Container(
             height: 150,
@@ -433,7 +434,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
               color: Colors.grey[300],
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Center(
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -508,7 +509,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
+              Icon(Icons.chevron_right),
             ],
           ),
         ).animate().fadeIn(delay: Duration(milliseconds: index * 100)).slideX(begin: 0.1);
@@ -608,7 +609,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
               color: AppColors.primary,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 SizedBox(width: 30, child: Text('#', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                 Expanded(child: Text('Team', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
@@ -662,9 +663,9 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
             ),
             child: Column(
               children: [
-                const Text('🏆 Total Prize Pool', style: TextStyle(color: Colors.white, fontSize: 16)),
+                Text('ðŸ† Total Prize Pool', style: TextStyle(color: Colors.white, fontSize: 16)),
                 const SizedBox(height: 8),
-                Text('₹${_tournament!.prizeMoney ?? 0}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                Text('â‚¹${_tournament!.prizeMoney ?? 0}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -672,26 +673,26 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
           const SizedBox(height: 24),
           
           // Prize Distribution
-          const Text('Prize Distribution', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('Prize Distribution', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           
-          _buildPrizeCard(1, '₹${((_tournament!.prizeMoney ?? 0) * 0.5).toInt()}', '🥇 Champion', Colors.amber),
+          _buildPrizeCard(1, 'â‚¹${((_tournament!.prizeMoney ?? 0) * 0.5).toInt()}', 'ðŸ¥‡ Champion', Colors.amber),
           const SizedBox(height: 12),
-          _buildPrizeCard(2, '₹${((_tournament!.prizeMoney ?? 0) * 0.25).toInt()}', '🥈 Runner Up', Colors.grey[400]!),
+          _buildPrizeCard(2, 'â‚¹${((_tournament!.prizeMoney ?? 0) * 0.25).toInt()}', 'ðŸ¥ˆ Runner Up', Colors.grey[400]!),
           const SizedBox(height: 12),
-          _buildPrizeCard(3, '₹${((_tournament!.prizeMoney ?? 0) * 0.15).toInt()}', '🥉 Third Place', Colors.brown[300]!),
+          _buildPrizeCard(3, 'â‚¹${((_tournament!.prizeMoney ?? 0) * 0.15).toInt()}', 'ðŸ¥‰ Third Place', Colors.brown[300]!),
           const SizedBox(height: 12),
-          _buildPrizeCard(4, '₹${((_tournament!.prizeMoney ?? 0) * 0.10).toInt()}', '🎖️ Fourth Place', Colors.orange[200]!),
+          _buildPrizeCard(4, 'â‚¹${((_tournament!.prizeMoney ?? 0) * 0.10).toInt()}', 'ðŸŽ–ï¸ Fourth Place', Colors.orange[200]!),
           
           const SizedBox(height: 24),
           
           // Individual Awards
-          const Text('Individual Awards', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('Individual Awards', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          _buildAwardItem('🏏 Player of the Tournament', '₹50,000'),
-          _buildAwardItem('🔥 Best Batsman', '₹25,000'),
-          _buildAwardItem('⚡ Best Bowler', '₹25,000'),
-          _buildAwardItem('⭐ Most Valuable Player', '₹25,000'),
+          _buildAwardItem('ðŸ Player of the Tournament', 'â‚¹50,000'),
+          _buildAwardItem('ðŸ”¥ Best Batsman', 'â‚¹25,000'),
+          _buildAwardItem('âš¡ Best Bowler', 'â‚¹25,000'),
+          _buildAwardItem('â­ Most Valuable Player', 'â‚¹25,000'),
         ],
       ),
     );
@@ -740,3 +741,6 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
     return '${date.day}/${date.month}/${date.year}';
   }
 }
+
+
+

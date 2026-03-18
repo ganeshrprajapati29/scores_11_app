@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -76,7 +77,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: Icon(Icons.arrow_back, color: Colors.white),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -95,7 +96,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.sms, size: 45, color: AppColors.primary),
+                    child: Icon(Icons.sms, size: 45, color: AppColors.primary),
                   ),
                 ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.8, 0.8)),
                 const SizedBox(height: 24),
@@ -193,7 +194,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           Text("Didn't receive code?", style: TextStyle(color: AppColors.textSecondary)),
                           TextButton(
                             onPressed: widget.onResend,
-                            child: const Text('Resend', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                            child: Text('Resend', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -208,3 +209,6 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     );
   }
 }
+
+
+

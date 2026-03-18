@@ -55,8 +55,11 @@ class TeamService {
         );
       }
       throw Exception(response.data['message'] ?? 'Failed to get teams');
+} on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
     } catch (e) {
-      rethrow;
+      throw Exception(e.toString());
     }
   }
 

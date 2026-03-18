@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -85,7 +86,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reset Password'),
+        title: Text('Reset Password'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -113,7 +114,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.lock_reset,
                       size: 60,
                       color: Colors.white,
@@ -253,4 +254,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 }
+
+
+
 

@@ -36,7 +36,7 @@ class AuthProvider extends ChangeNotifier {
           _user = UserModel.fromJson(data);
           _status = AuthStatus.authenticated;
         } else {
-          await _logout();
+          await logout();
         }
       } else {
         _status = AuthStatus.unauthenticated;

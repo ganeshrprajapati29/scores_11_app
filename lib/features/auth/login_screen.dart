@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -17,7 +18,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'admin@crick11.com');
+final _emailController = TextEditingController(text: 'user@example.com');
   final _passwordController = TextEditingController(text: 'password123');
   final _phoneController = TextEditingController();
   
@@ -59,13 +60,13 @@ class _LoginScreenState extends State<LoginScreen> {
         if (_rememberMe) {
           // TODO: Implement secure storage for remember me
         }
-        Navigator.pushReplacementNamed(context, AppRoutes.dashboard);
+        Navigator.pushReplacementNamed(context, '/home');
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                Icon(Icons.error_outline, color: Colors.white, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -406,7 +407,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 CustomTextField(
                                                   controller: _passwordController,
                                                   label: 'Password',
-                                                  hintText: '••••••••',
+                                                  hintText: 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢',
                                                   obscureText: _obscurePassword,
                                                   prefixIcon: Icons.lock_outlined,
                                                   suffixIcon: IconButton(
@@ -573,7 +574,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                                           : Row(
                                                               mainAxisAlignment: MainAxisAlignment.center,
                                                               children: [
-                                                                const Icon(Icons.login, size: 16),
+                                                                Icon(Icons.login, size: 16),
                                                                 const SizedBox(width: 6),
                                                                 Text(
                                                                   'Sign In',
@@ -675,8 +676,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 height: 44,
                                                 child: OutlinedButton.icon(
                                                   onPressed: _toggleLoginType,
-                                                  icon: const Icon(Icons.email_outlined, size: 16),
-                                                  label: const Text(
+                                                  icon: Icon(Icons.email_outlined, size: 16),
+                                                  label: Text(
                                                     'Continue with Email',
                                                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                                                   ),
@@ -810,3 +811,5 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+
+

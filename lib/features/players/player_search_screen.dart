@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/config/theme_config.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/utils/debounce.dart';
 import '../../data/models/player_model.dart';
@@ -121,10 +121,10 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Search players by name...',
-                    prefixIcon: const Icon(Icons.search),
+                    prefixIcon: Icon(Icons.search),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear),
+                            icon: Icon(Icons.clear),
                             onPressed: () {
                               _searchController.clear();
                               _loadPlayers();
@@ -170,7 +170,7 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
           // Results
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator())
                 : _players.isEmpty
                     ? Center(
                         child: Column(
@@ -272,7 +272,7 @@ class _PlayerListState extends State<_PlayerList> {
         itemBuilder: (context, index) {
           if (index == widget.players.length) {
             return widget.isLoadingMore
-                ? const Padding(
+                ? Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(child: CircularProgressIndicator()),
                   )
@@ -328,7 +328,7 @@ class _PlayerCard extends StatelessWidget {
                           ? NetworkImage(player.profileImage!)
                           : null,
                       child: player.profileImage == null
-                          ? const Icon(Icons.person)
+                          ? Icon(Icons.person)
                           : null,
                     ),
                     Positioned(
@@ -398,7 +398,7 @@ class _PlayerCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.chevron_right,
                   color: AppColors.textHint,
                 ),
@@ -425,4 +425,6 @@ class _PlayerCard extends StatelessWidget {
     }
   }
 }
+
+
 

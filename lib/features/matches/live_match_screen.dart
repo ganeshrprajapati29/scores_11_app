@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/config/theme_config.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 
 class LiveMatchScreen extends StatefulWidget {
@@ -45,7 +45,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
               color: AppColors.error,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Icon(Icons.circle, color: Colors.white, size: 8),
                 SizedBox(width: 4),
@@ -109,7 +109,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                         ],
                       ),
                     ),
-                    const Text(
+                    Text(
                       'VS',
                       style: TextStyle(
                         color: Colors.white,
@@ -194,7 +194,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Current Over',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -306,7 +306,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Batting',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
@@ -347,7 +347,7 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                                           color: AppColors.primary,
                                           borderRadius: BorderRadius.circular(4),
                                         ),
-                                        child: const Text(
+                                        child: Text(
                                           'On Strike',
                                           style: TextStyle(
                                             color: Colors.white,
@@ -426,8 +426,8 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                   onPressed: () {
                     Navigator.pushNamed(context, '/scorecard', arguments: widget.matchId);
                   },
-                  icon: const Icon(Icons.analytics),
-                  label: const Text('Scorecard'),
+                  icon: Icon(Icons.analytics),
+                  label: Text('Scorecard'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -440,8 +440,8 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
                   onPressed: () {
                     Navigator.pushNamed(context, '/score-entry', arguments: widget.matchId);
                   },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Ball'),
+                  icon: Icon(Icons.add),
+                  label: Text('Add Ball'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -498,4 +498,6 @@ class _LiveMatchScreenState extends State<LiveMatchScreen> {
     );
   }
 }
+
+
 

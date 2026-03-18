@@ -1,6 +1,7 @@
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/cache_service.dart';
+import 'package:dio/dio.dart';
 import '../models/player_model.dart';
 
 /// Pagination response wrapper for players
@@ -80,6 +81,24 @@ class PlayerService {
         totalPages: pagination['pages'] ?? 1,
         hasMore: page < (pagination['pages'] ?? 1),
       );
+} on Exception catch (e) {
+      // If API fails, return cached data
+      if (page == 1 && search == null) {
+        final cachedData = _cacheService.getCachedPlayers(ttlMinutes: 60);
+        if (cachedData != null) {
+          final players = cachedData.map((json) => Player.fromJson(json)).toList();
+          return PaginatedPlayers(
+            players: players,
+            page: 1,
+            limit: limit,
+            total: players.length,
+            totalPages: 1,
+            hasMore: false,
+          );
+        }
+      }
+final message = _apiClient.parseDioError(e as DioException);
+      throw Exception(message);
     } catch (e) {
       // If API fails, return cached data
       if (page == 1 && search == null) {
@@ -96,7 +115,7 @@ class PlayerService {
           );
         }
       }
-      rethrow;
+      throw Exception(e.toString());
     }
   }
 

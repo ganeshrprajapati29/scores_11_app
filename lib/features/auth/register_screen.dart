@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -48,7 +49,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text('Please agree to terms & conditions'),
@@ -81,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text('Registration successful! Please login.'),
@@ -100,7 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                Icon(Icons.error_outline, color: Colors.white, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(authProvider.errorMessage ?? 'Registration failed'),
@@ -176,7 +177,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                   child: IconButton(
                                     onPressed: () => Navigator.pop(context),
-                                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                                    icon: Icon(Icons.arrow_back, color: Colors.white),
                                     splashRadius: 20,
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints.tightFor(width: 40, height: 40),
@@ -309,7 +310,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                               decoration: InputDecoration(
                                                 labelText: 'Full Name',
                                                 hintText: 'Enter your full name',
-                                                prefixIcon: const Icon(Icons.person_outlined, size: 20),
+                                                prefixIcon: Icon(Icons.person_outlined, size: 20),
                                                 border: OutlineInputBorder(
                                                   borderRadius: BorderRadius.circular(12),
                                                   borderSide: BorderSide(color: Colors.grey.shade300),
@@ -349,7 +350,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                               decoration: InputDecoration(
                                                 labelText: 'Email',
                                                 hintText: 'Enter your email',
-                                                prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                                                prefixIcon: Icon(Icons.email_outlined, size: 20),
                                                 border: OutlineInputBorder(
                                                   borderRadius: BorderRadius.circular(12),
                                                   borderSide: BorderSide(color: Colors.grey.shade300),
@@ -389,7 +390,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                               decoration: InputDecoration(
                                                 labelText: 'Phone (Optional)',
                                                 hintText: 'Enter your phone number',
-                                                prefixIcon: const Icon(Icons.phone_outlined, size: 20),
+                                                prefixIcon: Icon(Icons.phone_outlined, size: 20),
                                                 border: OutlineInputBorder(
                                                   borderRadius: BorderRadius.circular(12),
                                                   borderSide: BorderSide(color: Colors.grey.shade300),
@@ -431,7 +432,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                                 value: _selectedRole,
                                                 decoration: InputDecoration(
                                                   labelText: 'Register As',
-                                                  prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+                                                  prefixIcon: Icon(Icons.badge_outlined, size: 20),
                                                   border: InputBorder.none,
                                                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                                 ),
@@ -446,7 +447,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                                   });
                                                 },
                                                 style: const TextStyle(fontSize: 14, color: Colors.black87),
-                                                icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                                                icon: Icon(Icons.arrow_drop_down, color: AppColors.primary),
                                                 dropdownColor: Colors.white,
                                                 borderRadius: BorderRadius.circular(12),
                                               ),
@@ -461,7 +462,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                               decoration: InputDecoration(
                                                 labelText: 'Password',
                                                 hintText: 'Create a password',
-                                                prefixIcon: const Icon(Icons.lock_outlined, size: 20),
+                                                prefixIcon: Icon(Icons.lock_outlined, size: 20),
                                                 suffixIcon: IconButton(
                                                   icon: Icon(
                                                     _obscurePassword
@@ -551,7 +552,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                               decoration: InputDecoration(
                                                 labelText: 'Confirm Password',
                                                 hintText: 'Confirm your password',
-                                                prefixIcon: const Icon(Icons.lock_outlined, size: 20),
+                                                prefixIcon: Icon(Icons.lock_outlined, size: 20),
                                                 suffixIcon: IconButton(
                                                   icon: Icon(
                                                     _obscureConfirmPassword
@@ -702,7 +703,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                                           : Row(
                                                               mainAxisAlignment: MainAxisAlignment.center,
                                                               children: [
-                                                                const Icon(Icons.person_add, size: 16),
+                                                                Icon(Icons.person_add, size: 16),
                                                                 const SizedBox(width: 6),
                                                                 Text(
                                                                   'Create Account',
@@ -807,7 +808,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       minimumSize: Size.zero,
                                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       'Sign In',
                                       style: TextStyle(
                                         fontSize: 13,
@@ -897,3 +898,5 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+
+

@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
@@ -24,7 +25,7 @@ class PointsTableScreen extends StatelessWidget {
         title: 'Points Table',
         actions: [
           IconButton(
-            icon: const Icon(Icons.info_outline),
+            icon: Icon(Icons.info_outline),
             onPressed: () => _showPointsExplanation(context),
           ),
         ],
@@ -53,7 +54,7 @@ class PointsTableScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'IPL 2024',
                         style: TextStyle(
                           color: Colors.white,
@@ -62,7 +63,7 @@ class PointsTableScreen extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '6 Teams • 10 Matches Each',
+                        '6 Teams â€¢ 10 Matches Each',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 12,
@@ -77,7 +78,7 @@ class PointsTableScreen extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
+                  child: Text(
                     'League Stage',
                     style: TextStyle(
                       color: AppColors.primary,
@@ -279,7 +280,7 @@ class PointsTableScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Points System',
               style: TextStyle(
                 fontSize: 20,
@@ -291,7 +292,7 @@ class PointsTableScreen extends StatelessWidget {
             _buildExplanationRow('Tie/No Result', '1 Point'),
             _buildExplanationRow('Loss', '0 Points'),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'NRR (Net Run Rate)',
               style: TextStyle(
                 fontSize: 16,
@@ -322,4 +323,7 @@ class PointsTableScreen extends StatelessWidget {
     );
   }
 }
+
+
+
 

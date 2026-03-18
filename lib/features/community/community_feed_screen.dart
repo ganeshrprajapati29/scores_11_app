@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/community_service.dart';
+import '../../core/theme/app_colors.dart';
 
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
@@ -97,7 +98,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
         title: 'Community',
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: Icon(Icons.search),
             onPressed: () {},
           ),
         ],
@@ -131,8 +132,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
           Navigator.pushNamed(context, '/create-post');
         },
         backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add),
-        label: const Text('Post'),
+        icon: Icon(Icons.add),
+        label: Text('Post'),
       ),
     );
   }
@@ -149,7 +150,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
+        Text(
           'Trending Topics',
           style: TextStyle(
             fontSize: 20,
@@ -213,7 +214,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
                     ],
                   ),
                 ),
-                const Icon(Icons.trending_up, color: AppColors.primary),
+                Icon(Icons.trending_up, color: AppColors.primary),
               ],
             ),
           ).animate().fadeIn(delay: Duration(milliseconds: index * 100));
@@ -272,7 +273,7 @@ class _FeedTabState extends State<_FeedTab> {
   @override
   Widget build(BuildContext context) {
     if (widget.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator());
     }
 
     if (widget.posts.isEmpty) {
@@ -305,7 +306,7 @@ class _FeedTabState extends State<_FeedTab> {
         itemBuilder: (context, index) {
           if (index == widget.posts.length) {
             return widget.isLoadingMore
-                ? const Padding(
+                ? Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(child: CircularProgressIndicator()),
                   )
@@ -344,7 +345,7 @@ class _FeedTabState extends State<_FeedTab> {
                       ? NetworkImage(post['userAvatar'])
                       : null,
                   child: post['userAvatar'] == null
-                      ? const Icon(Icons.person)
+                      ? Icon(Icons.person)
                       : null,
                 ),
                 const SizedBox(width: 12),
@@ -369,7 +370,7 @@ class _FeedTabState extends State<_FeedTab> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.more_horiz),
+                  icon: Icon(Icons.more_horiz),
                   onPressed: () {},
                 ),
               ],
@@ -397,7 +398,7 @@ class _FeedTabState extends State<_FeedTab> {
                 errorBuilder: (context, error, stackTrace) => Container(
                   height: 200,
                   color: Colors.grey[200],
-                  child: const Icon(Icons.image, size: 50),
+                  child: Icon(Icons.image, size: 50),
                 ),
               )
             else
@@ -408,7 +409,7 @@ class _FeedTabState extends State<_FeedTab> {
                     child: Image.network(img, fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
                         color: Colors.grey[200],
-                        child: const Icon(Icons.image),
+                        child: Icon(Icons.image),
                       ),
                     ),
                   )).toList(),
@@ -454,4 +455,6 @@ class _FeedTabState extends State<_FeedTab> {
     );
   }
 }
+
+
 

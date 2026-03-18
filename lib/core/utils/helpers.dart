@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class Helpers {
   static void showSnackBar(BuildContext context, String message, {bool isError = false}) {
@@ -16,7 +16,7 @@ class Helpers {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder: (context) => Center(child: CircularProgressIndicator()),
     );
   }
 
@@ -37,3 +37,4 @@ class Helpers {
     return number.toString();
   }
 }
+

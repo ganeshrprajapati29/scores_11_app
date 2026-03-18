@@ -1,6 +1,8 @@
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../models/tournament_model.dart';
+import 'package:dio/dio.dart';
+// import 'dart:developer';
 
 /// Pagination response wrapper for tournaments
 class PaginatedTournaments {
@@ -54,10 +56,104 @@ class TournamentService {
           hasMore: page < (pagination['pages'] ?? 1),
         );
       }
-      throw Exception(response.data['message'] ?? 'Failed to get tournaments');
-    } catch (e) {
+      throw DioException(requestOptions: response.requestOptions, response: response, type: DioExceptionType.badResponse);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404 || e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+print('Tournament API 404/Timeout - returning empty list (no mock data)');
+        return PaginatedTournaments(
+          tournaments: [],
+          page: page,
+          limit: limit,
+          total: 0,
+          totalPages: 0,
+          hasMore: false,
+        );
+      }
       rethrow;
+    } catch (e) {
+print('Tournament API error: $e');
+      return PaginatedTournaments(
+        tournaments: [],
+        page: page,
+        limit: limit,
+        total: 0,
+        totalPages: 0,
+        hasMore: false,
+      );
     }
+  }
+
+  PaginatedTournaments _getMockTournaments(int page, int limit) {
+    final mockData = [
+      Tournament(
+        id: 'mock1',
+        name: 'IPL 2024',
+        shortName: 'IPL',
+        organizer: 'Mock Cricket League',
+        format: 'T20',
+        type: 'LEAGUE',
+        status: 'LIVE',
+        totalTeams: 10,
+        entryFee: 100,
+        prizeMoney: 100000,
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 60)),
+        createdAt: DateTime.now().subtract(const Duration(days: 30)),
+        updatedAt: DateTime.now(),
+        venue: 'Wankhede Stadium',
+        isPaid: true,
+      ),
+      Tournament(
+        id: 'mock2',
+        name: 'T20 Blast 2024',
+        shortName: 'Blast',
+        organizer: 'Mock County Cricket',
+        format: 'T20',
+        type: 'LEAGUE',
+        status: 'UPCOMING',
+        totalTeams: 18,
+        entryFee: 50,
+        prizeMoney: 50000,
+        startDate: DateTime.now().add(const Duration(days: 7)),
+        endDate: DateTime.now().add(const Duration(days: 90)),
+        createdAt: DateTime.now().subtract(const Duration(days: 15)),
+        updatedAt: DateTime.now(),
+        venue: 'Edgbaston',
+        isPaid: false,
+      ),
+      Tournament(
+        id: 'mock3',
+        name: 'Local League 2024',
+        shortName: 'Local',
+        organizer: 'Local Cricket Association',
+        format: 'ODI',
+        type: 'LEAGUE',
+        status: 'COMPLETED',
+        totalTeams: 8,
+        entryFee: 20,
+        prizeMoney: 5000,
+        startDate: DateTime.now().subtract(const Duration(days: 30)),
+        endDate: DateTime.now().subtract(const Duration(days: 1)),
+        venue: 'Local Ground',
+        createdAt: DateTime.now().subtract(const Duration(days: 45)),
+        updatedAt: DateTime.now(),
+        isPaid: true,
+      ),
+
+    ];
+
+    final start = (page - 1) * limit;
+    final end = start + limit;
+    final List<Tournament> pageData = mockData.sublist(start, end > mockData.length ? mockData.length : end);
+    
+    return PaginatedTournaments(
+      tournaments: pageData,
+      page: page,
+      limit: limit,
+      total: mockData.length,
+      totalPages: (mockData.length / limit).ceil(),
+      hasMore: page * limit < mockData.length,
+    );
   }
 
   /// Legacy method for backward compatibility

@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import '../../core/config/theme_config.dart';
 import '../../data/models/tournament_model.dart';
@@ -166,7 +167,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tournaments'),
+        title: Text('Tournaments'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -177,7 +178,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : TabBarView(
               controller: _tabController,
               children: [
@@ -205,8 +206,8 @@ class _TournamentListScreenState extends State<TournamentListScreen>
         onPressed: () {
           Navigator.pushNamed(context, '/create-tournament');
         },
-        icon: const Icon(Icons.add),
-        label: const Text('Create Tournament'),
+        icon: Icon(Icons.add),
+        label: Text('Create Tournament'),
         backgroundColor: AppColors.primary,
       ),
     );
@@ -258,7 +259,7 @@ class _TournamentListState extends State<_TournamentList> {
   @override
   Widget build(BuildContext context) {
     if (widget.tournaments.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -282,7 +283,7 @@ class _TournamentListState extends State<_TournamentList> {
         itemBuilder: (context, index) {
           if (index == widget.tournaments.length) {
             return widget.isLoadingMore
-                ? const Padding(
+                ? Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(child: CircularProgressIndicator()),
                   )
@@ -329,7 +330,7 @@ class _TournamentCard extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isLive
-                      ? [AppColors.live, AppColors.primary]
+                      ? AppColors.liveGradient
                       : [AppColors.primary, AppColors.primaryDark],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -365,7 +366,7 @@ class _TournamentCard extends StatelessWidget {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.circle,
@@ -419,7 +420,7 @@ class _TournamentCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today,
+                      Icon(Icons.calendar_today,
                           size: 14, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
                       Text(
@@ -432,7 +433,7 @@ class _TournamentCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Icon(Icons.location_on,
+                      Icon(Icons.location_on,
                           size: 14, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
                       Expanded(
@@ -462,7 +463,7 @@ class _TournamentCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.attach_money,
+                          Icon(Icons.attach_money,
                               size: 14, color: AppColors.secondary),
                           const SizedBox(width: 4),
                           Text(
@@ -475,7 +476,7 @@ class _TournamentCard extends StatelessWidget {
                           ),
                           if (tournament.prizeMoney != null) ...[
                             const SizedBox(width: 12),
-                            const Icon(Icons.emoji_events,
+                            Icon(Icons.emoji_events,
                                 size: 14, color: AppColors.secondary),
                             const SizedBox(width: 4),
                             Text(
@@ -533,3 +534,7 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
+
+
+
+

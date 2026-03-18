@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -9,9 +10,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/config/theme_config.dart';
-// import '../../core/constants/app_colors.dart';
 import '../../data/services/user_service.dart';
 import '../../providers/auth_provider.dart';
+
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -45,14 +47,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ];
 
   final List<Map<String, dynamic>> _equipmentOptions = [
-    {'name': 'Bat', 'icon': '🏏'},
-    {'name': 'Ball', 'icon': '⚾'},
-    {'name': 'Gloves', 'icon': '🧤'},
-    {'name': 'Helmet', 'icon': '⛑️'},
-    {'name': 'Pads', 'icon': '🦵'},
-    {'name': 'Shoes', 'icon': '👟'},
-    {'name': 'Kit Bag', 'icon': '🎒'},
-    {'name': 'Water Bottle', 'icon': '💧'},
+    {'name': 'Bat', 'icon': 'ðŸ'},
+    {'name': 'Ball', 'icon': 'âš¾'},
+    {'name': 'Gloves', 'icon': 'ðŸ§¤'},
+    {'name': 'Helmet', 'icon': 'â›‘ï¸'},
+    {'name': 'Pads', 'icon': 'ðŸ¦µ'},
+    {'name': 'Shoes', 'icon': 'ðŸ‘Ÿ'},
+    {'name': 'Kit Bag', 'icon': 'ðŸŽ’'},
+    {'name': 'Water Bottle', 'icon': 'ðŸ’§'},
   ];
 
   @override
@@ -104,8 +106,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Camera'),
+              leading: Icon(Icons.camera_alt),
+              title: Text('Camera'),
               onTap: () async {
                 Navigator.pop(context);
                 final XFile? image = await _imagePicker.pickImage(
@@ -119,8 +121,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Gallery'),
+              leading: Icon(Icons.photo_library),
+              title: Text('Gallery'),
               onTap: () async {
                 Navigator.pop(context);
                 final XFile? image = await _imagePicker.pickImage(
@@ -232,7 +234,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Scores11 QR Code',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
@@ -278,8 +280,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     debugPrint('Error sharing QR: $e');
                   }
                 },
-                icon: const Icon(Icons.share),
-                label: const Text('Share QR Code'),
+                icon: Icon(Icons.share),
+                label: Text('Share QR Code'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -303,7 +305,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Select Playing Style',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
@@ -347,7 +349,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'My Equipment',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
@@ -356,7 +358,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       await _userService.updateEquipment(_equipment);
                       if (mounted) Navigator.pop(context);
                     },
-                    child: const Text('Save'),
+                    child: Text('Save'),
                   ),
                 ],
               ),
@@ -432,14 +434,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text('Profile'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.qr_code),
+            icon: Icon(Icons.qr_code),
             onPressed: _showQRCode,
           ),
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: Icon(Icons.edit),
             onPressed: () {
               Navigator.pushNamed(context, '/edit-profile');
             },
@@ -447,7 +449,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               child: Column(
                 children: [
@@ -495,7 +497,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 radius: 16,
                                 backgroundColor: AppColors.primary,
                                 child: IconButton(
-                                  icon: const Icon(Icons.camera_alt, size: 16),
+                                  icon: Icon(Icons.camera_alt, size: 16),
                                   color: Colors.white,
                                   onPressed: _pickImage,
                                 ),
@@ -519,7 +521,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             if (user?.isEmailVerified ?? false) ...[
                               const SizedBox(width: 8),
-                              const Icon(Icons.verified, color: Colors.blueAccent, size: 24),
+                              Icon(Icons.verified, color: Colors.blueAccent, size: 24),
                             ],
                           ],
                         ),
@@ -545,7 +547,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.location_on, color: Colors.white, size: 16),
+                                Icon(Icons.location_on, color: Colors.white, size: 16),
                                 const SizedBox(width: 4),
                                 Text(
                                   user?.address?.city ?? 'Set Location',
@@ -565,7 +567,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: Colors.amber,
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.star, color: Colors.white, size: 16),
@@ -616,10 +618,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Card(
                       child: ListTile(
-                        leading: const Icon(Icons.sports_cricket, color: AppColors.primary),
-                        title: const Text('Playing Style'),
+                        leading: Icon(Icons.sports_cricket, color: AppColors.primary),
+                        title: Text('Playing Style'),
                         subtitle: Text(_selectedPlayingStyle),
-                        trailing: const Icon(Icons.chevron_right),
+                        trailing: Icon(Icons.chevron_right),
                         onTap: _showPlayingStyleSelector,
                       ),
                     ),
@@ -630,10 +632,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Card(
                       child: ListTile(
-                        leading: const Icon(Icons.inventory_2, color: AppColors.primary),
-                        title: const Text('Equipment'),
+                        leading: Icon(Icons.inventory_2, color: AppColors.primary),
+                        title: Text('Equipment'),
                         subtitle: Text('${_equipment.length} items selected'),
-                        trailing: const Icon(Icons.chevron_right),
+                        trailing: Icon(Icons.chevron_right),
                         onTap: _showEquipmentSelector,
                       ),
                     ),
@@ -646,8 +648,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onPressed: () {
                         Navigator.pushNamed(context, '/cricket-profile');
                       },
-                      icon: const Icon(Icons.sports_cricket),
-                      label: const Text('View Cricket Profile'),
+                      icon: Icon(Icons.sports_cricket),
+                      label: Text('View Cricket Profile'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -670,7 +672,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Account',
             style: TextStyle(
               fontSize: 14,
@@ -721,7 +723,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Security',
             style: TextStyle(
               fontSize: 14,
@@ -762,7 +764,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Support',
             style: TextStyle(
               fontSize: 14,
@@ -809,12 +811,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Clear Data'),
-                        content: const Text('Are you sure you want to clear all cached data?'),
+                        title: Text('Clear Data'),
+                        content: Text('Are you sure you want to clear all cached data?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
+                            child: Text('Cancel'),
                           ),
                           TextButton(
                             onPressed: () async {
@@ -830,7 +832,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 );
                               }
                             },
-                            child: const Text('Clear', style: TextStyle(color: Colors.orange)),
+                            child: Text('Clear', style: TextStyle(color: Colors.orange)),
                           ),
                         ],
                       ),
@@ -846,12 +848,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Logout'),
-                        content: const Text('Are you sure you want to logout?'),
+                        title: Text('Logout'),
+                        content: Text('Are you sure you want to logout?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
+                            child: Text('Cancel'),
                           ),
                           TextButton(
                             onPressed: () {
@@ -859,7 +861,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               context.read<AuthProvider>().logout();
                               Navigator.pushReplacementNamed(context, '/login');
                             },
-                            child: const Text('Logout', style: TextStyle(color: AppColors.error)),
+                            child: Text('Logout', style: TextStyle(color: AppColors.error)),
                           ),
                         ],
                       ),
@@ -876,14 +878,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Delete Account'),
-                        content: const Text(
+                        title: Text('Delete Account'),
+                        content: Text(
                           'Are you sure you want to delete your account? This action cannot be undone.',
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
+                            child: Text('Cancel'),
                           ),
                           TextButton(
                             onPressed: () async {
@@ -894,7 +896,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Navigator.pushReplacementNamed(context, '/login');
                               }
                             },
-                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                            child: Text('Delete', style: TextStyle(color: Colors.red)),
                           ),
                         ],
                       ),
@@ -989,3 +991,5 @@ class _MenuItem extends StatelessWidget {
     );
   }
 }
+
+

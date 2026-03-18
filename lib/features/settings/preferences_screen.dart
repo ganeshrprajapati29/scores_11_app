@@ -1,10 +1,13 @@
+﻿import '../../core/widgets/custom_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../core/constants/enums.dart';
 import '../../../core/config/theme_config.dart';
 import '../../../core/widgets/custom_appbar.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../data/services/settings_service.dart';
+import '../../core/theme/app_colors.dart';
 
 class PreferencesScreen extends StatefulWidget {
   const PreferencesScreen({super.key});
@@ -49,7 +52,11 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     return Scaffold(
       appBar: CustomAppBar(title: 'Preferences'),
       body: _isLoading
-        ? const Center(child: CustomLoader())
+        ? Center(
+            child: Builder(
+builder: (context) => CustomLoader(),
+            ),
+          )
         : Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -106,3 +113,6 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
         ),
       );
 }
+
+
+

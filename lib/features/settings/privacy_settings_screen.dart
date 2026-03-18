@@ -1,10 +1,13 @@
+﻿import '../../core/widgets/custom_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../core/constants/enums.dart';
 import '../../../core/config/theme_config.dart';
 import '../../../core/widgets/custom_appbar.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../data/services/settings_service.dart';
+import '../../core/theme/app_colors.dart';
 
 class PrivacySettingsScreen extends StatefulWidget {
   const PrivacySettingsScreen({super.key});
@@ -56,7 +59,11 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     return Scaffold(
       appBar: CustomAppBar(title: 'Privacy & Security'),
       body: _isLoading
-        ? const Center(child: CustomLoader())
+        ? Center(
+            child: Builder(
+builder: (context) => CustomLoader(),
+            ),
+          )
         : SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -148,3 +155,6 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
         ),
       );
 }
+
+
+

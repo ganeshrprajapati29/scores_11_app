@@ -1,3 +1,4 @@
+﻿import 'core/services/user_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/config/theme_config.dart';
@@ -43,6 +44,7 @@ import 'features/settings/notification_settings_screen.dart';
 import 'features/settings/privacy_settings_screen.dart';
 import 'features/settings/preferences_screen.dart';
 import 'features/settings/security_screen.dart';
+import 'features/dashboard/testing_screen.dart';
 import 'features/wallet/wallet_screen.dart';
 import 'features/subscription/subscription_screen.dart';
 import 'features/notifications/notifications_screen.dart';
@@ -50,10 +52,6 @@ import 'features/discovery/discovery_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize cache service
-  final cacheService = CacheService();
-  await cacheService.init();
   
   runApp(const Cric11App());
 }
@@ -162,6 +160,7 @@ class Cric11App extends StatelessWidget {
           '/settings/privacy': (context) => const PrivacySettingsScreen(),
           '/settings/preferences': (context) => const PreferencesScreen(),
           '/settings/security': (context) => const SecurityScreen(),
+          '/testing': (context) => TestingScreen(),
           '/change-password': (context) => const AppSettingsScreen(),
           '/support': (context) => const AppSettingsScreen(),
           '/notifications': (context) => const NotificationsScreen(),
@@ -182,3 +181,6 @@ class Cric11App extends StatelessWidget {
     );
   }
 }
+
+
+ 

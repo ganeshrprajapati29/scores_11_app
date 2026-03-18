@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -145,7 +146,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: Icon(Icons.arrow_back, color: Colors.white),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -165,7 +166,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.phone_android,
                       size: 45,
                       color: AppColors.primary,
@@ -233,7 +234,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                             decoration: InputDecoration(
                               labelText: 'Mobile Number',
                               hintText: 'Enter 10-digit mobile number',
-                              prefixIcon: const Icon(Icons.phone_outlined),
+                              prefixIcon: Icon(Icons.phone_outlined),
                               prefixText: '+91 ',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -273,7 +274,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                         valueColor: AlwaysStoppedAnimation(Colors.white),
                                       ),
                                     )
-                                  : const Text(
+                                  : Text(
                                       'Send OTP',
                                       style: TextStyle(
                                         fontSize: 16,
@@ -343,7 +344,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                         valueColor: AlwaysStoppedAnimation(Colors.white),
                                       ),
                                     )
-                                  : const Text(
+                                  : Text(
                                       'Verify & Login',
                                       style: TextStyle(
                                         fontSize: 16,
@@ -367,7 +368,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                     _isOTPRequested = false;
                                   });
                                 },
-                                child: const Text(
+                                child: Text(
                                   'Change Number',
                                   style: TextStyle(
                                     color: AppColors.primary,
@@ -397,7 +398,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       onPressed: () {
                         Navigator.pop(context);
                       },
-                      child: const Text(
+                      child: Text(
                         'Click Here',
                         style: TextStyle(
                           color: Colors.white,
@@ -415,3 +416,6 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     );
   }
 }
+
+
+

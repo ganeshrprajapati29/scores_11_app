@@ -1,3 +1,4 @@
+﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -144,16 +145,16 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Select Language'),
+        title: Text('Select Language'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildLanguageOption('English', '🇺🇸'),
-            _buildLanguageOption('हिंदी', '🇮🇳'),
-            _buildLanguageOption('தமிழ்', '🇮🇳'),
-            _buildLanguageOption('తెలుగు', '🇮🇳'),
-            _buildLanguageOption('मराठी', '🇮🇳'),
-            _buildLanguageOption('ગુજરાતી', '🇮🇳'),
+            _buildLanguageOption('English', 'ðŸ‡ºðŸ‡¸'),
+            _buildLanguageOption('à¤¹à¤¿à¤‚à¤¦à¥€', 'ðŸ‡®ðŸ‡³'),
+            _buildLanguageOption('à®¤à®®à®¿à®´à¯', 'ðŸ‡®ðŸ‡³'),
+            _buildLanguageOption('à°¤à±†à°²à±à°—à±', 'ðŸ‡®ðŸ‡³'),
+            _buildLanguageOption('à¤®à¤°à¤¾à¤ à¥€', 'ðŸ‡®ðŸ‡³'),
+            _buildLanguageOption('àª—à«àªœàª°àª¾àª¤à«€', 'ðŸ‡®ðŸ‡³'),
           ],
         ),
       ),
@@ -164,7 +165,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
     return ListTile(
       leading: Text(flag, style: const TextStyle(fontSize: 24)),
       title: Text(lang),
-      trailing: _selectedLanguage == lang ? const Icon(Icons.check, color: AppColors.primary) : null,
+      trailing: _selectedLanguage == lang ? Icon(Icons.check, color: AppColors.primary) : null,
       onTap: () {
         setState(() => _selectedLanguage = lang);
         Navigator.pop(context);
@@ -192,7 +193,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Expanded(
@@ -202,7 +203,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.language, color: Colors.white),
+                      icon: Icon(Icons.language, color: Colors.white),
                       onPressed: _showLanguageDialog,
                     ),
                   ],
@@ -220,11 +221,11 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('🌐', style: TextStyle(fontSize: 16)),
+                    Text('ðŸŒ', style: TextStyle(fontSize: 16)),
                     const SizedBox(width: 8),
                     Text(_selectedLanguage, style: const TextStyle(color: Colors.white)),
                     const SizedBox(width: 4),
-                    const Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
+                    Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
                   ],
                 ),
               ),
@@ -247,10 +248,10 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
                   unselectedLabelColor: Colors.white,
                   labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   tabs: const [
-                    Tab(text: '🏏 Live Now'),
-                    Tab(text: '📺 Go Live'),
-                    Tab(text: '🔍 Watch'),
-                    Tab(text: '❓ Help'),
+                    Tab(text: 'ðŸ Live Now'),
+                    Tab(text: 'ðŸ“º Go Live'),
+                    Tab(text: 'ðŸ” Watch'),
+                    Tab(text: 'â“ Help'),
                   ],
                 ),
               ),
@@ -282,7 +283,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
   }
 
   Widget _buildLiveNowTab() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_isLoading) return Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text('Error: $_error'));
 
     final allStreams = [..._featuredStreams, ..._liveStreams];
@@ -294,12 +295,12 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
           children: [
             Icon(Icons.live_tv, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            const Text('No live streams', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('No live streams', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => _tabController.animateTo(1),
-              icon: const Icon(Icons.add),
-              label: const Text('Go Live'),
+              icon: Icon(Icons.add),
+              label: Text('Go Live'),
             ),
           ],
         ),
@@ -365,7 +366,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (stream.isLive) const Icon(Icons.circle, color: Colors.white, size: 8),
+                        if (stream.isLive) Icon(Icons.circle, color: Colors.white, size: 8),
                         const SizedBox(width: 4),
                         Text(stream.statusDisplay, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                       ],
@@ -379,7 +380,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
                     decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
                     child: Row(
                       children: [
-                        const Icon(Icons.visibility, color: Colors.white, size: 14),
+                        Icon(Icons.visibility, color: Colors.white, size: 14),
                         const SizedBox(width: 4),
                         Text('${stream.viewerCount}', style: const TextStyle(color: Colors.white, fontSize: 12)),
                       ],
@@ -428,23 +429,23 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Stream Type Selection
-          const Text('🎥 Stream Type', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('ðŸŽ¥ Stream Type', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildStreamTypeChip('mobile', '📱 Mobile Camera', 'Use phone camera'),
-              _buildStreamTypeChip('professional', '🎬 Professional', 'DSLR/Pro camera'),
-              _buildStreamTypeChip('session', '🎓 Live Session', 'Teaching/coaching'),
-              _buildStreamTypeChip('watch', '📺 Watch Party', 'Watch & react'),
+              _buildStreamTypeChip('mobile', 'ðŸ“± Mobile Camera', 'Use phone camera'),
+              _buildStreamTypeChip('professional', 'ðŸŽ¬ Professional', 'DSLR/Pro camera'),
+              _buildStreamTypeChip('session', 'ðŸŽ“ Live Session', 'Teaching/coaching'),
+              _buildStreamTypeChip('watch', 'ðŸ“º Watch Party', 'Watch & react'),
             ],
           ),
           
           const SizedBox(height: 24),
           
           // Quality Selection
-          const Text('✨ Quality', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('âœ¨ Quality', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -457,24 +458,24 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
           const SizedBox(height: 24),
           
           // Looking For Section
-          const Text('👥 Looking For', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('ðŸ‘¥ Looking For', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildLookingForChip('co-host', '🤝 Co-host'),
-              _buildLookingForChip('commentator', '🎙️ Commentator'),
-              _buildLookingForChip('analyst', '📊 Analyst'),
-              _buildLookingForChip('viewer', '👀 Viewers'),
-              _buildLookingForChip('player', '🏏 Player'),
+              _buildLookingForChip('co-host', 'ðŸ¤ Co-host'),
+              _buildLookingForChip('commentator', 'ðŸŽ™ï¸ Commentator'),
+              _buildLookingForChip('analyst', 'ðŸ“Š Analyst'),
+              _buildLookingForChip('viewer', 'ðŸ‘€ Viewers'),
+              _buildLookingForChip('player', 'ðŸ Player'),
             ],
           ),
           
           const SizedBox(height: 24),
           
           // Stream Details
-          const Text('📝 Stream Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('ðŸ“ Stream Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           TextField(
             controller: _titleController,
@@ -497,11 +498,11 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
           const SizedBox(height: 24),
           
           // Pricing
-          const Text('💰 Pricing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('ðŸ’° Pricing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _buildPricingCard('free', 'Free', '₹0', true)),
+              Expanded(child: _buildPricingCard('free', 'Free', 'â‚¹0', true)),
               const SizedBox(width: 12),
               Expanded(child: _buildPricingCard('paid', 'Paid', 'Custom', false)),
             ],
@@ -511,8 +512,8 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
           
           // Private Stream
           SwitchListTile(
-            title: const Text('Private Stream'),
-            subtitle: const Text('Only invited can watch'),
+            title: Text('Private Stream'),
+            subtitle: Text('Only invited can watch'),
             value: _isPrivate,
             onChanged: (v) => setState(() => _isPrivate = v),
           ),
@@ -523,8 +524,8 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
           CheckboxListTile(
             value: _acceptTerms,
             onChanged: (v) => setState(() => _acceptTerms = v ?? false),
-            title: const Text('I accept Terms & Conditions'),
-            subtitle: const Text('Read terms before streaming'),
+            title: Text('I accept Terms & Conditions'),
+            subtitle: Text('Read terms before streaming'),
             controlAffinity: ListTileControlAffinity.leading,
             activeColor: AppColors.primary,
           ),
@@ -537,8 +538,8 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
             height: 56,
             child: ElevatedButton.icon(
               onPressed: _acceptTerms ? _createStream : null,
-              icon: const Icon(Icons.live_tv),
-              label: const Text('Start Streaming', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              icon: Icon(Icons.live_tv),
+              label: Text('Start Streaming', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _acceptTerms ? AppColors.primary : Colors.grey,
                 foregroundColor: Colors.white,
@@ -561,8 +562,8 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
                   _titleController.text = 'Free Cricket Stream';
                 });
               },
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Free - OK!'),
+              icon: Icon(Icons.check_circle_outline),
+              label: Text('Free - OK!'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.success,
                 side: const BorderSide(color: AppColors.success),
@@ -662,18 +663,18 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // What You Get Section
-          const Text('🎁 What You Get', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text('ðŸŽ What You Get', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           SizedBox(
             height: 200,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                _buildWhatYouGetCard('📡', 'Live Streaming', 'Broadcast to thousands'),
-                _buildWhatYouGetCard('💬', 'Chat', 'Interact with viewers'),
-                _buildWhatYouGetCard('👥', 'Find Players', 'Recruit for your team'),
-                _buildWhatYouGetCard('🏆', 'Earn Money', 'Paid streams & gifts'),
-                _buildWhatYouGetCard('📊', 'Analytics', 'Track your growth'),
+                _buildWhatYouGetCard('ðŸ“¡', 'Live Streaming', 'Broadcast to thousands'),
+                _buildWhatYouGetCard('ðŸ’¬', 'Chat', 'Interact with viewers'),
+                _buildWhatYouGetCard('ðŸ‘¥', 'Find Players', 'Recruit for your team'),
+                _buildWhatYouGetCard('ðŸ†', 'Earn Money', 'Paid streams & gifts'),
+                _buildWhatYouGetCard('ðŸ“Š', 'Analytics', 'Track your growth'),
               ],
             ),
           ),
@@ -681,17 +682,17 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
           const SizedBox(height: 24),
           
           // What You Need Section
-          const Text('🛠️ What You Need', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text('ðŸ› ï¸ What You Need', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          _buildWhatYouNeedItem('📱', 'Smartphone', 'Any modern smartphone with camera'),
-          _buildWhatYouNeedItem('🌐', 'Internet', 'Stable broadband connection (5+ Mbps)'),
-          _buildWhatYouNeedItem('🔋', 'Power', 'Charging while streaming recommended'),
-          _buildWhatYouNeedItem('💡', 'Lighting', 'Good lighting for clear video'),
+          _buildWhatYouNeedItem('ðŸ“±', 'Smartphone', 'Any modern smartphone with camera'),
+          _buildWhatYouNeedItem('ðŸŒ', 'Internet', 'Stable broadband connection (5+ Mbps)'),
+          _buildWhatYouNeedItem('ðŸ”‹', 'Power', 'Charging while streaming recommended'),
+          _buildWhatYouNeedItem('ðŸ’¡', 'Lighting', 'Good lighting for clear video'),
           
           const SizedBox(height: 24),
           
           // FAQ
-          const Text('❓ FAQ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text('â“ FAQ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           _buildFAQItem('How do I start?', 'Go to "Go Live" tab, select type, add title, tap Start'),
           _buildFAQItem('Can I stream matches?', 'Yes! Use "Watch Party" type to stream and commentate live matches'),
@@ -708,7 +709,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
             ),
             child: Column(
               children: [
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.workspace_premium, color: Colors.amber, size: 32),
@@ -717,14 +718,14 @@ class _GoLiveScreenState extends State<GoLiveScreen> with SingleTickerProviderSt
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text('Unlock all features!', style: TextStyle(color: Colors.white70)),
+                Text('Unlock all features!', style: TextStyle(color: Colors.white70)),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {},
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
-                    child: const Text('Tap to Purchase Plan'),
+                    child: Text('Tap to Purchase Plan'),
                   ),
                 ),
               ],
@@ -830,7 +831,7 @@ class _LiveStreamPlayerScreenState extends State<LiveStreamPlayerScreen> {
                   // Video placeholder
                   Container(
                     color: Colors.black,
-                    child: const Center(
+                    child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -854,7 +855,7 @@ class _LiveStreamPlayerScreenState extends State<LiveStreamPlayerScreen> {
                       child: Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            icon: Icon(Icons.arrow_back, color: Colors.white),
                             onPressed: () => Navigator.pop(context),
                           ),
                           Expanded(
@@ -864,7 +865,7 @@ class _LiveStreamPlayerScreenState extends State<LiveStreamPlayerScreen> {
                                 Text(widget.stream.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                                 Row(
                                   children: [
-                                    Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(4)), child: const Row(children: [Icon(Icons.circle, color: Colors.white, size: 6), SizedBox(width: 4), Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10))])),
+                                    Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(4)), child: Row(children: [Icon(Icons.circle, color: Colors.white, size: 6), SizedBox(width: 4), Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10))])),
                                     const SizedBox(width: 8),
                                     Text('${widget.stream.viewerCount} watching', style: const TextStyle(color: Colors.white70, fontSize: 12)),
                                   ],
@@ -872,7 +873,7 @@ class _LiveStreamPlayerScreenState extends State<LiveStreamPlayerScreen> {
                               ],
                             ),
                           ),
-                          IconButton(icon: const Icon(Icons.fullscreen, color: Colors.white), onPressed: () => setState(() => _isFullScreen = !_isFullScreen)),
+                          IconButton(icon: Icon(Icons.fullscreen, color: Colors.white), onPressed: () => setState(() => _isFullScreen = !_isFullScreen)),
                         ],
                       ),
                     ),
@@ -918,7 +919,7 @@ class _LiveStreamPlayerScreenState extends State<LiveStreamPlayerScreen> {
                           decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                           child: Row(
                             children: [
-                              const Icon(Icons.sports_cricket, color: AppColors.primary),
+                              Icon(Icons.sports_cricket, color: AppColors.primary),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
@@ -942,7 +943,7 @@ class _LiveStreamPlayerScreenState extends State<LiveStreamPlayerScreen> {
                         const SizedBox(height: 16),
                         
                         // Current batsmen
-                        const Text('Current Batsmen', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Current Batsmen', style: TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         _buildBatsmanRow(_matchScore['currentBatsman1']['name'], _matchScore['currentBatsman1']['runs'], _matchScore['currentBatsman1']['balls'], _matchScore['currentBatsman1']['fours'], _matchScore['currentBatsman1']['sixes'], isStrike: true),
                         _buildBatsmanRow(_matchScore['currentBatsman2']['name'], _matchScore['currentBatsman2']['runs'], _matchScore['currentBatsman2']['balls'], _matchScore['currentBatsman2']['fours'], _matchScore['currentBatsman2']['sixes'], isStrike: false),
@@ -950,14 +951,14 @@ class _LiveStreamPlayerScreenState extends State<LiveStreamPlayerScreen> {
                         const SizedBox(height: 16),
                         
                         // Current bowler
-                        const Text('Current Bowler', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Current Bowler', style: TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         _buildBowlerRow(_matchScore['currentBowler']['name'], _matchScore['currentBowler']['overs'], _matchScore['currentBowler']['runs'], _matchScore['currentBowler']['wickets']),
                         
                         const SizedBox(height: 16),
                         
                         // Last over
-                        const Text('Last Over', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Last Over', style: TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         Row(
                           children: (_matchScore['lastOver'] as List).map((ball) => Container(
@@ -1018,7 +1019,7 @@ Container(
     color: AppColors.error,
     borderRadius: BorderRadius.circular(4),
   ),
-  child: const Row(
+  child: Row(
     children: [
       Icon(Icons.circle, color: Colors.white, size: 6),
       SizedBox(width: 4),
@@ -1067,7 +1068,7 @@ Container(
       decoration: BoxDecoration(color: AppColors.secondary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
-          const Icon(Icons.sports_score, color: AppColors.secondary),
+          Icon(Icons.sports_score, color: AppColors.secondary),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -1090,3 +1091,6 @@ Container(
     );
   }
 }
+
+
+
