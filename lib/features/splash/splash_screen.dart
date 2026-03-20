@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/config/theme_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/constants/app_routes.dart';
+import '../../data/models/user_model.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,29 +23,32 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeApp() async {
-    await Future.delayed(const Duration(seconds: 2));
-    
-    final authProvider = context.read<AuthProvider>();
-    
-    try {
-      await authProvider.checkAuth();
-    } catch (e) {
-      debugPrint('Splash init error: $e');
-    }
-    
-    if (mounted) {
-      final status = authProvider.status;
-      String route = status == AuthStatus.authenticated ? '/dashboard' : '/login';
+    // Initialize auth properly using provider API
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, route);
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.checkAuth();
       }
-    }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
+        // Auto-navigate based on auth status
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final status = authProvider.status;
+            if (status != AuthStatus.initial && status != AuthStatus.loading) {
+              String route = status == AuthStatus.authenticated 
+                  ? '/dashboard' 
+                  : '/login';
+              Navigator.pushReplacementNamed(context, route);
+            }
+          }
+        });
+        // Rest remains same
         return Scaffold(
           body: Container(
             decoration: const BoxDecoration(

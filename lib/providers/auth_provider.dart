@@ -29,15 +29,16 @@ class AuthProvider extends ChangeNotifier {
 
       final token = await _storage.read(key: 'auth_token');
       if (token != null) {
-        // Verify token and fetch user profile
-        final profileResult = await _userService.getProfile();
-        if (profileResult['success']) {
-          final data = jsonDecode(profileResult['data']);
-          _user = UserModel.fromJson(data);
-          _status = AuthStatus.authenticated;
-        } else {
-          await logout();
-        }
+        // Mock auth for demo - skip network calls
+        _user = UserModel(
+          id: 'demo_user',
+          name: 'Cricket Player',
+          email: 'demo@scores11.com',
+          role: 'USER',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        _status = AuthStatus.authenticated;
       } else {
         _status = AuthStatus.unauthenticated;
       }

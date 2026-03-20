@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class UserStats {
   final int followers;
   final int following;
