@@ -58,17 +58,21 @@ Future<void> fetchDashboardData() async {
     }
   }
 
-Future<dynamic> loadUserStats() async {
+Future<UserStats> loadUserStats() async {
     try {
       final response = await ApiClient().get('${ApiConfig.auth}/me/stats');
       if (response.statusCode == 200) {
-  return <String, dynamic>{};
+        return UserStats.fromJson(response.data['data']);
       }
     } catch (e) {
-      print('User stats API error: $e');
+      debugPrint('User stats API error: $e');
     }
-    // Fallback
-    return UserStats(followers: 124, following: 45, profileViews: 5678);
+    // Mock fallback
+    return UserStats(
+      followers: 124,
+      following: 45, 
+      profileViews: 5678,
+    );
   }
 
   void clearError() {

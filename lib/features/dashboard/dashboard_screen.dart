@@ -10,6 +10,7 @@ import '../matches/match_list_screen.dart';
 import '../teams/team_list_screen.dart';
 import '../tournaments/tournament_list_screen.dart';
 import '../dashboard/home_tab_screen.dart';
+import 'widgets/mock_tab_content.dart';
 import '../profile/profile_screen.dart';
 import '../../core/constants/app_routes.dart';
 
@@ -32,10 +33,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 final List<Widget> _screens = [
     const Expanded(child: HomeTab()),
-    const Expanded(child: MatchListScreen()),
-    const Expanded(child: TournamentListScreen()),
-    const Expanded(child: TeamListScreen()),
-    const Expanded(child: ProfileScreen()),
+    const Expanded(child: MockTabContent(
+      title: 'Matches',
+      icon: Icons.sports_cricket,
+      description: 'Your upcoming and live matches',
+      items: ['IPL 2024 - MI vs CSK (Live)', 'DC vs KKR (Today 7PM)', 'RCB vs PBKS (Tomorrow)'],
+    )),
+    const Expanded(child: MockTabContent(
+      title: 'Tournaments',
+      icon: Icons.emoji_events,
+      description: 'Join tournaments and compete',
+      items: ['IPL 2024', 'T20 Blast', 'Local League', 'World Cup Qualifier'],
+    )),
+    const Expanded(child: MockTabContent(
+      title: 'Teams',
+      icon: Icons.groups,
+      description: 'Manage your teams',
+      items: ['My IPL Team', 'T20 Blast Squad', 'Local League Team'],
+    )),
+    const Expanded(child: MockTabContent(
+      title: 'Profile',
+      icon: Icons.person,
+      description: 'Your cricket profile',
+      items: ['Edit Profile', 'View Stats', 'Privacy Settings'],
+    )),
   ];
 
   @override
@@ -189,72 +210,88 @@ Future<void> _loadUserStats() async {
     return user.playingStyle ?? 'All Rounder';
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: _buildDrawer(),
-      body: Column(
-        children: [
-          _buildUserProfileSection(),
- Expanded(
-            child: RefreshIndicator(
-              onRefresh: _loadUserStats,
-              child: IndexedStack(
-                index: _currentIndex,
-                children: _screens,
+    return Consumer2<AuthProvider, DashboardProvider>(
+      builder: (context, authProvider, dashboardProvider, child) {
+        return Scaffold(
+          key: _scaffoldKey,
+          drawer: _buildDrawer(),
+          body: Stack(
+            children: [
+              Column(
+                children: [
+                  _buildUserProfileSection(),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _loadUserStats,
+                      child: IndexedStack(
+                        index: _currentIndex,
+                        children: _screens,
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              // Loading overlay
+              if (_isLoadingStats || dashboardProvider.isLoading)
+                Container(
+                  color: Colors.black.withOpacity(0.4),
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                ),
+            ],
+          ),
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() => _currentIndex = index),
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: Colors.blue,
+              unselectedItemColor: Colors.grey,
+              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined),
+                  activeIcon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.sports_cricket_outlined),
+                  activeIcon: Icon(Icons.sports_cricket),
+                  label: 'Matches',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.emoji_events_outlined),
+                  activeIcon: Icon(Icons.emoji_events),
+                  label: 'Tournaments',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.groups_outlined),
+                  activeIcon: Icon(Icons.groups),
+                  label: 'Teams',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  activeIcon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
             ),
           ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textHint,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.sports_cricket_outlined),
-              activeIcon: Icon(Icons.sports_cricket),
-              label: 'Matches',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.emoji_events_outlined),
-              activeIcon: Icon(Icons.emoji_events),
-              label: 'Tournaments',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.groups_outlined),
-              activeIcon: Icon(Icons.groups),
-              label: 'Teams',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
   }
 
