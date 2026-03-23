@@ -1,4 +1,4 @@
-﻿import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_colors.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -13,8 +13,6 @@ import '../../core/config/theme_config.dart';
 import '../../data/services/user_service.dart';
 import '../../providers/auth_provider.dart';
 
-
-
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -25,7 +23,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final UserService _userService = UserService();
   final ImagePicker _imagePicker = ImagePicker();
-  
+
   int _profileViews = 0;
   int _followers = 0;
   int _following = 0;
@@ -36,25 +34,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final GlobalKey _qrKey = GlobalKey();
 
   final List<String> _playingStyles = [
-    'Batsman',
-    'Bowler',
-    'All Rounder',
-    'Wicket Keeper',
-    'Opening Batsman',
-    'Middle Order',
-    'Fast Bowler',
-    'Spinner',
+    'Batsman', 'Bowler', 'All Rounder', 'Wicket Keeper', 'Opening Batsman', 'Middle Order', 'Fast Bowler', 'Spinner',
   ];
 
   final List<Map<String, dynamic>> _equipmentOptions = [
-    {'name': 'Bat', 'icon': 'ðŸ'},
-    {'name': 'Ball', 'icon': 'âš¾'},
-    {'name': 'Gloves', 'icon': 'ðŸ§¤'},
-    {'name': 'Helmet', 'icon': 'â›‘ï¸'},
-    {'name': 'Pads', 'icon': 'ðŸ¦µ'},
-    {'name': 'Shoes', 'icon': 'ðŸ‘Ÿ'},
-    {'name': 'Kit Bag', 'icon': 'ðŸŽ’'},
-    {'name': 'Water Bottle', 'icon': 'ðŸ’§'},
+    {'name': 'Bat', 'icon': '🏏'},
+    {'name': 'Ball', 'icon': '⚾'},
+    {'name': 'Gloves', 'icon': '🧤'},
+    {'name': 'Helmet', 'icon': '⛑️'},
+    {'name': 'Pads', 'icon': '🦵'},
+    {'name': 'Shoes', 'icon': '👟'},
+    {'name': 'Kit Bag', 'icon': '🎒'},
+    {'name': 'Water Bottle', 'icon': '💧'},
   ];
 
   @override
@@ -66,28 +57,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfileData() async {
     setState(() => _isLoading = true);
     try {
-      // Load profile views
       final viewsResult = await _userService.getProfileViews();
       if (viewsResult['success']) {
         final data = jsonDecode(viewsResult['data']);
         setState(() => _profileViews = data['views'] ?? 0);
       }
 
-      // Load followers
       final followersResult = await _userService.getFollowers();
       if (followersResult['success']) {
         final data = jsonDecode(followersResult['data']);
         setState(() => _followers = (data['followers'] as List?)?.length ?? 0);
       }
 
-      // Load following
       final followingResult = await _userService.getFollowing();
       if (followingResult['success']) {
         final data = jsonDecode(followingResult['data']);
         setState(() => _following = (data['following'] as List?)?.length ?? 0);
       }
 
-      // Load equipment
       final equipmentResult = await _userService.getEquipment();
       if (equipmentResult['success']) {
         final data = jsonDecode(equipmentResult['data']);
@@ -106,33 +93,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Wrap(
           children: [
             ListTile(
-              leading: Icon(Icons.camera_alt),
-              title: Text('Camera'),
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? image = await _imagePicker.pickImage(
-                  source: ImageSource.camera,
-                  maxWidth: 800,
-                  maxHeight: 800,
-                );
-                if (image != null) {
-                  _uploadPhoto(image);
-                }
+                final XFile? image = await _imagePicker.pickImage(source: ImageSource.camera);
+                if (image != null) _uploadPhoto(image.path);
               },
             ),
             ListTile(
-              leading: Icon(Icons.photo_library),
-              title: Text('Gallery'),
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? image = await _imagePicker.pickImage(
-                  source: ImageSource.gallery,
-                  maxWidth: 800,
-                  maxHeight: 800,
-                );
-                if (image != null) {
-                  _uploadPhoto(image);
-                }
+                final XFile? image = await _imagePicker.pickImage(source: ImageSource.gallery);
+                if (image != null) _uploadPhoto(image.path);
               },
             ),
           ],
@@ -141,72 +116,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _uploadPhoto(XFile image) async {
+  Future<void> _uploadPhoto(String imagePath) async {
     setState(() => _isLoading = true);
     try {
-      // Convert XFile to File
-      final result = await _userService.uploadProfilePhoto(
-        await _imagePicker.pickImage(source: ImageSource.gallery) as dynamic,
-      );
-      if (result['success']) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Photo uploaded successfully')),
-          );
-        }
+      final result = await _userService.uploadProfilePhoto(imagePath);
+      if (result['success'] && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo uploaded successfully')),
+        );
       }
     } catch (e) {
       debugPrint('Error uploading photo: $e');
     }
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location services are disabled')),
-        );
-      }
-      return;
-    }
+    if (!serviceEnabled) return _showSnack('Location services disabled');
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission denied')),
-          );
-        }
-        return;
-      }
+      if (permission == LocationPermission.denied) return _showSnack('Location permission denied');
     }
+    if (permission == LocationPermission.deniedForever) return _showSnack('Location permissions permanently denied');
 
-    if (permission == LocationPermission.deniedForever) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permissions are permanently denied')),
-        );
-      }
-      return;
+    Position position = await Geolocator.getCurrentPosition();
+    final result = await _userService.updateLocation(position.latitude, position.longitude);
+    if (result['success'] && mounted) _showSnack('Location updated successfully');
+  }
+
+  void _showSnack(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
+  }
 
-    try {
-      Position position = await Geolocator.getCurrentPosition();
-      final result = await _userService.updateLocation(
-        position.latitude,
-        position.longitude,
+  void _showQRCode() {
+    final authProvider = context.read<AuthProvider>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 400,
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Text('Scores11 QR Code', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 20),
+                ],
+              ),
+            ),
+            RepaintBoundary(key: _qrKey, child: QrImageView(data: 'scores11://user/${authProvider.user?.id}', size: 200)),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  try {
+                    final boundary = _qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+                    final image = await boundary.toImage(pixelRatio: 3.0);
+                    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+                    await Share.shareXFiles([XFile.fromData(byteData!.buffer.asUint8List())], text: 'My Scores11 profile!');
+                  } catch (e) {
+                    debugPrint('Share error: $e');
+                  }
+                },
+                icon: const Icon(Icons.share),
+                label: const Text('Share'),
+              ),
+            ),
+      position.latitude,
+      position.longitude,
+    );
+    if (result['success'] && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location updated successfully')),
       );
-      if (result['success'] && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location updated successfully')),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error getting location: $e');
     }
   }
 
@@ -234,7 +225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
+            const Text(
               'Scores11 QR Code',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
@@ -261,7 +252,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  // Capture QR code and share
                   try {
                     final boundary = _qrKey.currentContext?.findRenderObject() 
                         as RenderRepaintBoundary?;
@@ -269,19 +259,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       final image = await boundary.toImage(pixelRatio: 3.0);
                       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
                       if (byteData != null) {
-                        // Share functionality would go here
-                        await Share.share(
-                          'Check out my Scores11 profile!',
-                          subject: 'My Scores11 Profile',
-                        );
+                        final buffer = byteData.buffer.asUint8List();
+                        await Share.shareXFiles([XFile.fromData(buffer)], text: 'Check out my Scores11 profile!');
                       }
                     }
                   } catch (e) {
                     debugPrint('Error sharing QR: $e');
                   }
                 },
-                icon: Icon(Icons.share),
-                label: Text('Share QR Code'),
+                icon: const Icon(Icons.share),
+                label: const Text('Share QR Code'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -305,7 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Select Playing Style',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
@@ -349,7 +336,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
+                  const Text(
                     'My Equipment',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
@@ -358,7 +345,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       await _userService.updateEquipment(_equipment);
                       if (mounted) Navigator.pop(context);
                     },
-                    child: Text('Save'),
+                    child: const Text('Save'),
                   ),
                 ],
               ),
@@ -383,7 +370,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _equipment.add(option);
                           }
                         });
-                        setState(() {});
                       },
                       child: Container(
                         decoration: BoxDecoration(
@@ -434,235 +420,230 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Profile'),
+        title: const Text('Profile'),
         actions: [
           IconButton(
-            icon: Icon(Icons.qr_code),
+            icon: const Icon(Icons.qr_code),
             onPressed: _showQRCode,
           ),
           IconButton(
-            icon: Icon(Icons.edit),
+            icon: const Icon(Icons.edit),
             onPressed: () {
               Navigator.pushNamed(context, '/edit-profile');
             },
           ),
         ],
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  // Profile Header
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: AppColors.primaryGradient,
+      body: SafeArea(
+        top: true,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: AppColors.primaryGradient,
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      children: [
-                        // Avatar with edit option
-                        Stack(
-                          children: [
-                            GestureDetector(
-                              onTap: _pickImage,
-                              child: CircleAvatar(
-                                radius: 50,
-                                backgroundColor: Colors.white,
-                                child: user?.avatar?.url != null
-                                    ? ClipOval(
-                                        child: Image.network(
-                                          user!.avatar!.url!,
-                                          width: 96,
-                                          height: 96,
-                                          fit: BoxFit.cover,
+                      child: Column(
+                        children: [
+                          Stack(
+                            children: [
+                              GestureDetector(
+                                onTap: _pickImage,
+                                child: CircleAvatar(
+                                  radius: 50,
+                                  backgroundColor: Colors.white,
+                                  child: user?.avatar?.url != null
+                                      ? ClipOval(
+                                          child: Image.network(
+                                            user!.avatar!.url!,
+                                            width: 96,
+                                            height: 96,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => Text(
+                                              user.name.substring(0, 1).toUpperCase(),
+                                              style: const TextStyle(
+                                                fontSize: 40,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : Text(
+                                          user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                                          style: const TextStyle(
+                                            fontSize: 40,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
                                         ),
-                                      )
-                                    : Text(
-                                        user?.name.substring(0, 1).toUpperCase() ?? 'U',
-                                        style: const TextStyle(
-                                          fontSize: 40,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: CircleAvatar(
-                                radius: 16,
-                                backgroundColor: AppColors.primary,
-                                child: IconButton(
-                                  icon: Icon(Icons.camera_alt, size: 16),
-                                  color: Colors.white,
-                                  onPressed: _pickImage,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Name and Verified badge
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              user?.name ?? 'User',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (user?.isEmailVerified ?? false) ...[
-                              const SizedBox(width: 8),
-                              Icon(Icons.verified, color: Colors.blueAccent, size: 24),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          user?.email ?? '',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        
-                        // Location
-                        GestureDetector(
-                          onTap: _getCurrentLocation,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.location_on, color: Colors.white, size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  user?.address?.city ?? 'Set Location',
-                                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // Pro Version Badge
-                        if (_isPro)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.amber,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.star, color: Colors.white, size: 16),
-                                SizedBox(width: 4),
-                                Text(
-                                  'PRO',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: AppColors.primary,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                                    onPressed: _pickImage,
                                   ),
                                 ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  user?.name ?? 'User',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (user?.isEmailVerified ?? false) ...[
+                                const SizedBox(width: 8),
+                                const Icon(Icons.verified, color: Colors.blueAccent, size: 24),
                               ],
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            user?.email ?? '',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 14,
                             ),
                           ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Stats Row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _StatItem(
-                              label: 'Followers',
-                              value: _followers.toString(),
-                              onTap: () => Navigator.pushNamed(context, '/followers'),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: _getCurrentLocation,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.location_on, color: Colors.white, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    user?.address?.city ?? 'Set Location',
+                                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                                  ),
+                                ],
+                              ),
                             ),
-                            _StatItem(
-                              label: 'Following',
-                              value: _following.toString(),
-                              onTap: () => Navigator.pushNamed(context, '/following'),
+                          ),
+                          const SizedBox(height: 12),
+                          if (_isPro)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.amber,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.star, color: Colors.white, size: 16),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'PRO',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            _StatItem(
-                              label: 'Profile Views',
-                              value: _profileViews.toString(),
-                              onTap: () {},
-                            ),
-                          ],
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _StatItem(
+                                label: 'Followers',
+                                value: _followers.toString(),
+                                onTap: () => Navigator.pushNamed(context, '/followers'),
+                              ),
+                              _StatItem(
+                                label: 'Following',
+                                value: _following.toString(),
+                                onTap: () => Navigator.pushNamed(context, '/following'),
+                              ),
+                              _StatItem(
+                                label: 'Profile Views',
+                                value: _profileViews.toString(),
+                                onTap: () {},
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.sports_cricket, color: AppColors.primary),
+                          title: const Text('Playing Style'),
+                          subtitle: Text(_selectedPlayingStyle),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: _showPlayingStyleSelector,
                         ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Playing Style
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Card(
-                      child: ListTile(
-                        leading: Icon(Icons.sports_cricket, color: AppColors.primary),
-                        title: Text('Playing Style'),
-                        subtitle: Text(_selectedPlayingStyle),
-                        trailing: Icon(Icons.chevron_right),
-                        onTap: _showPlayingStyleSelector,
                       ),
                     ),
-                  ),
-                  
-                  // Equipment
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Card(
-                      child: ListTile(
-                        leading: Icon(Icons.inventory_2, color: AppColors.primary),
-                        title: Text('Equipment'),
-                        subtitle: Text('${_equipment.length} items selected'),
-                        trailing: Icon(Icons.chevron_right),
-                        onTap: _showEquipmentSelector,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.inventory_2, color: AppColors.primary),
+                          title: const Text('Equipment'),
+                          subtitle: Text('${_equipment.length} items selected'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: _showEquipmentSelector,
+                        ),
                       ),
                     ),
-                  ),
-                  
-                  // Cricket Profile Button
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/cricket-profile');
-                      },
-                      icon: Icon(Icons.sports_cricket),
-                      label: Text('View Cricket Profile'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/cricket-profile');
+                        },
+                        icon: const Icon(Icons.sports_cricket),
+                        label: const Text('View Cricket Profile'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
                       ),
                     ),
-                  ),
-                  
-                  // Menu Items
-                  _buildMenuSection(),
-                ],
+                    _buildMenuSection(),
+                  ],
+                ),
               ),
             ),
+      ),
     );
   }
 
@@ -672,7 +653,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Account',
             style: TextStyle(
               fontSize: 14,
@@ -688,42 +669,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: Icons.people_outline,
                   title: 'Connections',
                   subtitle: 'Manage followers and following',
-                  onTap: () {
-                    Navigator.pushNamed(context, '/connections');
-                  },
+                  onTap: () => Navigator.pushNamed(context, '/connections'),
                 ),
                 const Divider(height: 1),
                 _MenuItem(
                   icon: Icons.notifications_outlined,
                   title: 'Notifications',
                   subtitle: 'Manage notification preferences',
-                  onTap: () {
-                    Navigator.pushNamed(context, '/notification-preferences');
-                  },
+                  onTap: () => Navigator.pushNamed(context, '/notification-preferences'),
                 ),
                 const Divider(height: 1),
                 _MenuItem(
                   icon: Icons.language,
                   title: 'Language',
                   subtitle: 'Change app language',
-                  onTap: () {
-                    Navigator.pushNamed(context, '/language');
-                  },
+                  onTap: () => Navigator.pushNamed(context, '/language'),
                 ),
                 const Divider(height: 1),
                 _MenuItem(
                   icon: Icons.shopping_bag_outlined,
                   title: 'Purchase History',
                   subtitle: 'View your purchases',
-                  onTap: () {
-                    Navigator.pushNamed(context, '/purchase-history');
-                  },
+                  onTap: () => Navigator.pushNamed(context, '/purchase-history'),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'Security',
             style: TextStyle(
               fontSize: 14,
@@ -756,15 +729,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _MenuItem(
                   icon: Icons.lock_outline,
                   title: 'Change Password',
-                  onTap: () {
-                    Navigator.pushNamed(context, '/change-password');
-                  },
+                  onTap: () => Navigator.pushNamed(context, '/change-password'),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'Support',
             style: TextStyle(
               fontSize: 14,
@@ -779,9 +750,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _MenuItem(
                   icon: Icons.help_outline,
                   title: 'Help & Support',
-                  onTap: () {
-                    Navigator.pushNamed(context, '/help');
-                  },
+                  onTap: () => Navigator.pushNamed(context, '/help'),
                 ),
                 const Divider(height: 1),
                 _MenuItem(
@@ -811,12 +780,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: Text('Clear Data'),
-                        content: Text('Are you sure you want to clear all cached data?'),
+                        title: const Text('Clear Data'),
+                        content: const Text('Are you sure you want to clear all cached data?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: Text('Cancel'),
+                            child: const Text('Cancel'),
                           ),
                           TextButton(
                             onPressed: () async {
@@ -832,7 +801,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 );
                               }
                             },
-                            child: Text('Clear', style: TextStyle(color: Colors.orange)),
+                            child: const Text('Clear', style: TextStyle(color: Colors.orange)),
                           ),
                         ],
                       ),
@@ -848,12 +817,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: Text('Logout'),
-                        content: Text('Are you sure you want to logout?'),
+                        title: const Text('Logout'),
+                        content: const Text('Are you sure you want to logout?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: Text('Cancel'),
+                            child: const Text('Cancel'),
                           ),
                           TextButton(
                             onPressed: () {
@@ -861,7 +830,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               context.read<AuthProvider>().logout();
                               Navigator.pushReplacementNamed(context, '/login');
                             },
-                            child: Text('Logout', style: TextStyle(color: AppColors.error)),
+                            child: const Text('Logout', style: TextStyle(color: AppColors.error)),
                           ),
                         ],
                       ),
@@ -878,14 +847,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: Text('Delete Account'),
-                        content: Text(
+                        title: const Text('Delete Account'),
+                        content: const Text(
                           'Are you sure you want to delete your account? This action cannot be undone.',
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: Text('Cancel'),
+                            child: const Text('Cancel'),
                           ),
                           TextButton(
                             onPressed: () async {
@@ -896,7 +865,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Navigator.pushReplacementNamed(context, '/login');
                               }
                             },
-                            child: Text('Delete', style: TextStyle(color: Colors.red)),
+                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
                           ),
                         ],
                       ),
@@ -991,5 +960,4 @@ class _MenuItem extends StatelessWidget {
     );
   }
 }
-
 

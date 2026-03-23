@@ -5,6 +5,8 @@ import 'dart:convert';
 import '../../data/services/auth_service.dart';
 import '../../data/services/user_service.dart';
 import '../../data/models/user_model.dart';
+import '../../core/constants/app_constants.dart';
+import 'dart:developer';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
@@ -27,22 +29,27 @@ class AuthProvider extends ChangeNotifier {
       _status = AuthStatus.loading;
       notifyListeners();
 
-      final token = await _storage.read(key: 'auth_token');
-      if (token != null) {
-        // Mock auth for demo - skip network calls
-        _user = UserModel(
-          id: 'demo_user',
-          name: 'Cricket Player',
-          email: 'demo@scores11.com',
-          role: 'USER',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        _status = AuthStatus.authenticated;
+      final token = await _storage.read(key: AppConstants.accessTokenKey);
+      if (token != null && token.isNotEmpty) {
+        debugPrint('Auth token found, fetching real user profile...');
+        try {
+          _user = await _authService.getCurrentUser();
+          _status = AuthStatus.authenticated;
+        } catch (e) {
+          debugPrint('Failed to get user profile, token might be invalid: $e');
+          await _storage.delete(key: AppConstants.accessTokenKey);
+          await _storage.delete(key: AppConstants.refreshTokenKey);
+          _user = null;
+          _status = AuthStatus.unauthenticated;
+        }
       } else {
         _status = AuthStatus.unauthenticated;
       }
     } catch (e) {
+      debugPrint('checkAuth error: $e');
+      await _storage.delete(key: AppConstants.accessTokenKey);
+      await _storage.delete(key: AppConstants.refreshTokenKey);
+      _user = null;
       _status = AuthStatus.unauthenticated;
     }
     notifyListeners();
@@ -57,17 +64,34 @@ class AuthProvider extends ChangeNotifier {
       final response = await _authService.login(identifier, password);
       
       if (response['success'] == true) {
-        // Store token
-        await _storage.write(key: 'auth_token', value: response['data']['token']);
+        // Store tokens using ApiClient's keys
+        final accessToken = response['data']['accessToken'];
+        final refreshToken = response['data']['refreshToken'];
         
-        // Fetch complete user profile
-        final profileResult = await _userService.getProfile();
-        if (profileResult['success']) {
-          final data = jsonDecode(profileResult['data']);
-          _user = UserModel.fromJson(data);
-        } else {
-          _user = UserModel.fromJson(response['data']['user']);
+        if (accessToken != null) {
+          await _storage.write(key: AppConstants.accessTokenKey, value: accessToken);
         }
+        if (refreshToken != null) {
+          await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
+        }
+        
+        // Get user from response
+        final userData = response['data']['user'];
+        if (userData != null) {
+          if (userData is UserModel) {
+            _user = userData;
+          } else if (userData is Map<String, dynamic>) {
+            _user = UserModel.fromJson(userData);
+          }
+        } else {
+          // Try to fetch complete user profile
+          try {
+            _user = await _authService.getCurrentUser();
+          } catch (e) {
+            debugPrint('Failed to fetch user profile after login: $e');
+          }
+        }
+        
         _status = AuthStatus.authenticated;
         notifyListeners();
         return true;
@@ -75,14 +99,25 @@ class AuthProvider extends ChangeNotifier {
         _errorMessage = response['message'] ?? 'Login failed';
         _status = AuthStatus.error;
         notifyListeners();
-        _status = AuthStatus.unauthenticated;
+        // Reset status after error
+        Future.delayed(const Duration(seconds: 2), () {
+          if (_status == AuthStatus.error) {
+            _status = AuthStatus.unauthenticated;
+            notifyListeners();
+          }
+        });
         return false;
       }
     } catch (e) {
       _errorMessage = e.toString();
       _status = AuthStatus.error;
       notifyListeners();
-      _status = AuthStatus.unauthenticated;
+      Future.delayed(const Duration(seconds: 2), () {
+        if (_status == AuthStatus.error) {
+          _status = AuthStatus.unauthenticated;
+          notifyListeners();
+        }
+      });
       return false;
     }
   }
@@ -108,17 +143,27 @@ class AuthProvider extends ChangeNotifier {
       );
       
       if (response['success'] == true) {
-        // Store token
-        await _storage.write(key: 'auth_token', value: response['data']['token']);
+        // Store tokens
+        final accessToken = response['data']['accessToken'];
+        final refreshToken = response['data']['refreshToken'];
         
-        // Fetch complete user profile
-        final profileResult = await _userService.getProfile();
-        if (profileResult['success']) {
-          final data = jsonDecode(profileResult['data']);
-          _user = UserModel.fromJson(data);
-        } else {
-          _user = UserModel.fromJson(response['data']['user']);
+        if (accessToken != null) {
+          await _storage.write(key: AppConstants.accessTokenKey, value: accessToken);
         }
+        if (refreshToken != null) {
+          await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
+        }
+        
+        // Get user from response
+        final userData = response['data']['user'];
+        if (userData != null) {
+          if (userData is UserModel) {
+            _user = userData;
+          } else if (userData is Map<String, dynamic>) {
+            _user = UserModel.fromJson(userData);
+          }
+        }
+        
         _status = AuthStatus.authenticated;
         notifyListeners();
         return true;
@@ -126,14 +171,24 @@ class AuthProvider extends ChangeNotifier {
         _errorMessage = response['message'] ?? 'Registration failed';
         _status = AuthStatus.error;
         notifyListeners();
-        _status = AuthStatus.unauthenticated;
+        Future.delayed(const Duration(seconds: 2), () {
+          if (_status == AuthStatus.error) {
+            _status = AuthStatus.unauthenticated;
+            notifyListeners();
+          }
+        });
         return false;
       }
     } catch (e) {
       _errorMessage = e.toString();
       _status = AuthStatus.error;
       notifyListeners();
-      _status = AuthStatus.unauthenticated;
+      Future.delayed(const Duration(seconds: 2), () {
+        if (_status == AuthStatus.error) {
+          _status = AuthStatus.unauthenticated;
+          notifyListeners();
+        }
+      });
       return false;
     }
   }
@@ -173,14 +228,7 @@ class AuthProvider extends ChangeNotifier {
       final response = await _authService.verifyOTP(identifier, otp);
       
       if (response['success'] == true) {
-        // Store token and fetch profile
-        await _storage.write(key: 'auth_token', value: response['data']['token']);
-        final profileResult = await _userService.getProfile();
-        if (profileResult['success']) {
-          final data = jsonDecode(profileResult['data']);
-          _user = UserModel.fromJson(data);
-        }
-        _status = AuthStatus.authenticated;
+        _status = AuthStatus.unauthenticated;
         notifyListeners();
         return true;
       } else {
@@ -255,7 +303,8 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       // Ignore logout errors
     } finally {
-      await _storage.delete(key: 'auth_token');
+      await _storage.delete(key: AppConstants.accessTokenKey);
+      await _storage.delete(key: AppConstants.refreshTokenKey);
       _user = null;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
@@ -267,4 +316,3 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
-

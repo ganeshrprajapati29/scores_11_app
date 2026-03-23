@@ -1,209 +1,157 @@
+// lib/data/services/dashboard_service.dart
+
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import 'package:flutter/foundation.dart';
 import '../models/dashboard_model.dart';
+import 'dart:developer';
 
-/// Dashboard Service with offline mock fallback
+/// Dashboard Service - Real API only (no mock fallback)
 class DashboardService {
   final ApiClient _apiClient = ApiClient();
 
-  /// Get complete dashboard overview with 404 fallback
+  /// Get complete dashboard overview - Uses the actual dashboard endpoint
   Future<DashboardData> getDashboardOverview() async {
     try {
-      final response = await _apiClient.get(
-        '${ApiConfig.dashboard}/overview',
-      );
+      debugPrint('🌐 Fetching dashboard data from: ${ApiConfig.baseUrl}/dashboard');
+      
+      final response = await _apiClient.get('/dashboard');
+      
+      debugPrint('📡 Dashboard response status: ${response.statusCode}');
+      debugPrint('📡 Dashboard response data: ${response.data}');
+      
       if (response.statusCode == 200) {
-        return DashboardData.fromJson(response.data['data'] as Map<String, dynamic>);
+        final responseData = response.data;
+        
+        // Check if response has success flag and data
+        if (responseData['success'] == true && responseData['data'] != null) {
+          return DashboardData.fromJson(responseData['data']);
+        } else {
+          throw Exception('Invalid response structure: ${responseData['message'] ?? 'Unknown error'}');
+        }
       }
-      throw DioException(requestOptions: response.requestOptions, response: response, type: DioExceptionType.badResponse);
+      
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        message: 'Failed with status: ${response.statusCode}',
+      );
+      
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404 || e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
-        debugPrint('Dashboard API 404/Timeout - using mock data');
-        return _getMockDashboardData();
+      debugPrint('❌ Dashboard API DioException: ${e.type} - ${e.message}');
+      if (e.response != null) {
+        debugPrint('❌ Response status: ${e.response?.statusCode}');
+        debugPrint('❌ Response data: ${e.response?.data}');
       }
       rethrow;
     } catch (e) {
-      debugPrint('Dashboard API error: $e');
-      return _getMockDashboardData();
+      debugPrint('❌ Dashboard API error: $e');
+      rethrow;
     }
   }
 
-  /// Mock data for offline/demo mode
-  DashboardData _getMockDashboardData() {
-    return DashboardData(
-      tournaments: [],
-      matches: [],
-      news: [],
-      videos: [],
-      stats: {},
-      liveMatches: [
-        DashboardMatch(
-          tournament: DashboardTournament(
-            id: 'ipl2024',
-            name: 'IPL 2024',
-            format: 'T20',
-          ),
-          id: 'mock-live1',
-          title: 'MI vs CSK',
-          team1: 'Mumbai Indians',
-          team2: 'Chennai Super Kings',
-          status: 'LIVE',
-          format: 'T20',
-          team1Score: 164,
-          team2Score: 3,  // wickets
-        ),
-      ],
-      upcomingMatches: [
-        DashboardMatch(
-          tournament: DashboardTournament(
-            id: 'ipl2024',
-            name: 'IPL 2024',
-            format: 'T20',
-          ),
-          id: 'mock-up1',
-          title: 'DC vs KKR',
-          team1: 'Delhi Capitals',
-          team2: 'Kolkata Knight Riders',
-          status: 'SCHEDULED',
-          format: 'T20',
-        ),
-        DashboardMatch(
-          tournament: DashboardTournament(
-            id: 'ipl2024',
-            name: 'IPL 2024',
-            format: 'T20',
-          ),
-          id: 'mock-up2',
-          title: 'RCB vs PBKS',
-          team1: 'RCB',
-          team2: 'Punjab Kings',
-          status: 'SCHEDULED',
-          format: 'T20',
-        ),
-      ],
-      trendingPlayers: [
-        TrendingPlayer(
-          rank: 1,
-          id: 'virat',
-          name: 'Virat Kohli',
-          role: 'Batsman',
-          stats: PlayerStats(runs: 452, wickets: 0, matches: 8, average: 64.57, strikeRate: 148.2),
-        ),
-        TrendingPlayer(
-          rank: 2,
-          id: 'bumrah',
-          name: 'Jasprit Bumrah',
-          role: 'Bowler',
-          stats: PlayerStats(runs: 23, wickets: 12, matches: 8, average: 8.5, strikeRate: 112.0),
-        ),
-        TrendingPlayer(
-          rank: 3,
-          id: 'skyy',
-          name: 'Suryakumar Yadav',
-          role: 'Batsman',
-          stats: PlayerStats(runs: 312, wickets: 0, matches: 7, average: 52.0, strikeRate: 167.7),
-        ),
-      ],
-      latestTournaments: [
-        DashboardTournament(
-          id: 'ipl2024',
-          name: 'IPL 2024',
-          format: 'T20',
-          status: 'LIVE',
-        ),
-        DashboardTournament(
-          id: 't20blast',
-          name: 'T20 Blast 2024',
-          format: 'T20',
-          status: 'UPCOMING',
-        ),
-      ],
-      quickStats: QuickStats(
-        totalMatches: 1247,
-        totalTournaments: 89,
-        totalTeams: 1562,
-        totalPlayers: 24567,
-        todayMatches: 3,
-        weekMatches: 28,
-        activeTournaments: 12,
-        liveMatches: 1,
-      ),
-    );
-  }
-
-  Future<List<DashboardMatch>> getLiveMatches() async {
+  /// Get live matches - Extracts from dashboard data
+  Future<List<LiveMatch>> getLiveMatches() async {
     try {
-      final response = await _apiClient.get('${ApiConfig.dashboard}/live-matches');
-      if (response.statusCode == 200) {
-        final List data = response.data['data'] ?? [];
-        return data.map((json) => DashboardMatch.fromJson(json)).toList();
-      }
-      throw Exception('Failed to get live matches');
+      final dashboardData = await getDashboardOverview();
+      return dashboardData.liveMatches;
     } catch (e) {
-      return _getMockDashboardData().liveMatches;
+      debugPrint('❌ getLiveMatches error: $e');
+      return [];
     }
   }
 
-  Future<List<DashboardMatch>> getUpcomingMatches({int limit = 10}) async {
+  /// Get upcoming matches - Extracts from dashboard data
+  Future<List<UpcomingMatch>> getUpcomingMatches({int limit = 10}) async {
     try {
-      final response = await _apiClient.get(
-        '${ApiConfig.dashboard}/upcoming-matches',
-        queryParameters: {'limit': limit.toString()},
-      );
-      if (response.statusCode == 200) {
-        final List data = response.data['data'] ?? [];
-        return data.map((json) => DashboardMatch.fromJson(json)).toList();
-      }
-      throw Exception('Failed to get upcoming matches');
+      final dashboardData = await getDashboardOverview();
+      final matches = dashboardData.upcomingMatches;
+      return limit > 0 ? matches.take(limit).toList() : matches;
     } catch (e) {
-      return _getMockDashboardData().upcomingMatches.take(limit).toList();
+      debugPrint('❌ getUpcomingMatches error: $e');
+      return [];
     }
   }
 
+  /// Get trending players - Extracts from dashboard data
   Future<List<TrendingPlayer>> getTrendingPlayers({int limit = 10}) async {
     try {
-      final response = await _apiClient.get(
-        '${ApiConfig.dashboard}/trending-players',
-        queryParameters: {'limit': limit.toString()},
-      );
-      if (response.statusCode == 200) {
-        final List data = response.data['data'] ?? [];
-        return data.map((json) => TrendingPlayer.fromJson(json)).toList();
-      }
-      throw Exception('Failed to get trending players');
+      final dashboardData = await getDashboardOverview();
+      final players = dashboardData.trendingPlayers;
+      return limit > 0 ? players.take(limit).toList() : players;
     } catch (e) {
-      return _getMockDashboardData().trendingPlayers.take(limit).toList();
+      debugPrint('❌ getTrendingPlayers error: $e');
+      return [];
     }
   }
 
-  Future<List<DashboardTournament>> getLatestTournaments({int limit = 5}) async {
+  /// Get latest tournaments - Extracts from dashboard data
+  Future<List<Tournament>> getLatestTournaments({int limit = 5}) async {
     try {
-      final response = await _apiClient.get(
-        '${ApiConfig.dashboard}/latest-tournaments',
-        queryParameters: {'limit': limit.toString()},
-      );
-      if (response.statusCode == 200) {
-        final List data = response.data['data'] ?? [];
-        return data.map((json) => DashboardTournament.fromJson(json)).toList();
-      }
-      throw Exception('Failed to get tournaments');
+      final dashboardData = await getDashboardOverview();
+      final tournaments = dashboardData.latestTournaments;
+      return limit > 0 ? tournaments.take(limit).toList() : tournaments;
     } catch (e) {
-      return _getMockDashboardData().latestTournaments.take(limit).toList();
+      debugPrint('❌ getLatestTournaments error: $e');
+      return [];
     }
   }
 
+  /// Get quick stats - Extracts from dashboard data
   Future<QuickStats> getQuickStats() async {
     try {
-      final response = await _apiClient.get('${ApiConfig.dashboard}/quick-stats');
-      if (response.statusCode == 200) {
-        return QuickStats.fromJson(response.data['data']);
-      }
-      throw Exception('Failed to get stats');
+      final dashboardData = await getDashboardOverview();
+      return dashboardData.quickStats;
     } catch (e) {
-      return _getMockDashboardData().quickStats;
+      debugPrint('❌ getQuickStats error: $e');
+      return QuickStats(
+        totalMatches: 0,
+        totalTournaments: 0,
+        totalTeams: 0,
+        totalPlayers: 0,
+        todayMatches: 0,
+        weekMatches: 0,
+        activeTournaments: 0,
+        liveMatches: 0,
+      );
     }
+  }
+
+  /// Refresh dashboard data (force refresh)
+  Future<DashboardData> refreshDashboard() async {
+    // Since we're using direct API calls, just fetch again
+    return await getDashboardOverview();
+  }
+}
+
+// Optional: Add a cached version if needed
+class CachedDashboardService extends DashboardService {
+  DashboardData? _cachedData;
+  DateTime? _lastFetch;
+  final Duration _cacheDuration = const Duration(minutes: 2);
+
+  @override
+  Future<DashboardData> getDashboardOverview() async {
+    // Return cached data if still valid
+    if (_cachedData != null && 
+        _lastFetch != null && 
+        DateTime.now().difference(_lastFetch!) < _cacheDuration) {
+      debugPrint('📦 Returning cached dashboard data');
+      return _cachedData!;
+    }
+    
+    // Fetch fresh data
+    debugPrint('🔄 Fetching fresh dashboard data');
+    _cachedData = await super.getDashboardOverview();
+    _lastFetch = DateTime.now();
+    return _cachedData!;
+  }
+  
+  void clearCache() {
+    _cachedData = null;
+    _lastFetch = null;
   }
 }

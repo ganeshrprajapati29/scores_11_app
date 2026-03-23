@@ -16,6 +16,7 @@ class UserModel extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final Map<String, dynamic>? cricketProfile;
+  final String playingStyle;
 
   const UserModel({
     required this.id,
@@ -33,6 +34,7 @@ class UserModel extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.cricketProfile,
+    required this.playingStyle,
   });
 
   factory UserModel.fromJson(dynamic json) {
@@ -45,6 +47,7 @@ class UserModel extends Equatable {
         role: 'USER',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        playingStyle: 'All Rounder',
       );
     }
     
@@ -62,6 +65,7 @@ class UserModel extends Equatable {
         role: 'USER',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        playingStyle: 'All Rounder',
       );
     }
     
@@ -136,6 +140,7 @@ class UserModel extends Equatable {
           : null,
       createdAt: parsedCreatedAt ?? DateTime.now(),
       updatedAt: parsedUpdatedAt ?? DateTime.now(),
+      playingStyle: data['playingStyle'] ?? data['cricketProfile']?['playingStyle'] ?? 'All Rounder',
     );
   }
 
@@ -173,6 +178,7 @@ class UserModel extends Equatable {
     DateTime? lastLogin,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? playingStyle,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -189,10 +195,11 @@ class UserModel extends Equatable {
       lastLogin: lastLogin ?? this.lastLogin,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      playingStyle: playingStyle ?? this.playingStyle,
     );
   }
 
-  @override
+@override
   List<Object?> get props => [
         id,
         email,
@@ -208,6 +215,7 @@ class UserModel extends Equatable {
         lastLogin,
         createdAt,
         updatedAt,
+        playingStyle,
       ];
 }
 

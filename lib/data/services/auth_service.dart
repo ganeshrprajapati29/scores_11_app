@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart'; // Add this import for debugPrint
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
+import '../../core/services/connectivity_service.dart';
 import '../models/user_model.dart';
+import 'dart:developer';
 
 class AuthService {
   final ApiClient _apiClient = ApiClient();
@@ -65,9 +68,11 @@ class AuthService {
       }
       return {'success': false, 'message': response.data['message'] ?? 'Registration failed'};
     } on DioException catch (e) {
+      debugPrint('❌ LOGIN DioException: type=${e.type}, message=${e.message}, status=${e.response?.statusCode}, response=${e.response?.data}');
       final message = _handleDioError(e);
       return {'success': false, 'message': message};
     } catch (e) {
+      debugPrint('❌ LOGIN Unknown error: $e');
       return {'success': false, 'message': e.toString()};
     }
   }
@@ -87,6 +92,13 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> login(String identifier, String password) async {
+    final connectivityService = ConnectivityService();
+    final isOnline = await connectivityService.isConnected();
+    if (!isOnline) {
+      debugPrint('🚫 LOGIN: No internet connection detected by ConnectivityService');
+      return {'success': false, 'message': 'No Internet Connection. Please check your network and try again.'};
+    }
+    debugPrint('✅ LOGIN: Network available, attempting API call to ${ApiConfig.baseUrl}${ApiConfig.auth}/login');
     try {
       final response = await _apiClient.post(
         '${ApiConfig.auth}/login',
@@ -139,6 +151,10 @@ class AuthService {
   
   // Helper method to handle Dio errors
   String _handleDioError(DioException e) {
+    debugPrint('🔍 Handling DioError: ${e.type} | ${e.message}');
+    if (e.response != null) {
+      debugPrint('📡 Response: ${e.response!.statusCode} - ${e.response!.data}');
+    }
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:

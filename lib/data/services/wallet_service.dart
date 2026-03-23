@@ -26,7 +26,7 @@ class WalletService {
 
   /// Add funds to wallet
   Future<Wallet> addFunds(Map<String, dynamic> data) async {
-    final response = await _apiClient.post('${ApiConfig.wallet}/deposit', data: data);
+    final response = await _apiClient.post('${ApiConfig.wallet}/deposit', data: data); 
     return Wallet.fromJson(response.data['data']);
   }
 

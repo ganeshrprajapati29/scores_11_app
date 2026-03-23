@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:developer';
+import 'package:flutter/foundation.dart'; // Add this import for debugPrint
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -158,13 +160,18 @@ class ApiClient {
     DioException e, {
     String defaultMessage = 'Something went wrong. Please try again.',
   }) {
+    debugPrint('🔍 ApiClient parseDioError: type=${e.type}, error=${e.error}, status=${e.response?.statusCode}');
+    if (e.response != null) {
+      debugPrint('📡 Full response data: ${e.response!.data}');
+    }
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
         return 'Connection timeout. Please check your internet connection.';
       case DioExceptionType.connectionError:
-        return 'No internet connection. Please check your network.';
+        debugPrint('🌐 ConnectionError detected - checking if truly offline');
+        return 'Connection issue. Please check your internet connection and try again.';
       case DioExceptionType.cancel:
         return 'Request cancelled.';
       case DioExceptionType.badCertificate:
@@ -200,7 +207,8 @@ class ApiClient {
         return defaultMessage;
       case DioExceptionType.unknown:
         if (e.error is SocketException) {
-          return 'No internet connection. Please check your network.';
+          debugPrint('🔌 SocketException: ${(e.error as SocketException).address}');
+          return 'No Internet Connection. Please check your network.';
         }
         return e.message ?? defaultMessage;
     }

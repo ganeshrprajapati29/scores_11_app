@@ -46,7 +46,7 @@ class ApiConfig {
   static const String dashboard = '/dashboard';
   
   // Timeouts
-  static const int connectionTimeout = 30000;
-  static const int receiveTimeout = 30000;
+  static const int connectionTimeout = 45000;
+  static const int receiveTimeout = 45000;
 }
 

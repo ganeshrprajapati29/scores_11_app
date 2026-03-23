@@ -1,86 +1,57 @@
-﻿import 'package:flutter/material.dart';
+﻿// lib/data/models/dashboard_model.dart
 
+import 'package:flutter/material.dart';
+
+// ==================== Main Dashboard Model ====================
 class DashboardData {
-  final List<DashboardTournament> tournaments;
-  final List<DashboardMatch> matches;
-  final List<DashboardNews> news;
-  final List<DashboardVideo> videos;
-  final Map<String, dynamic> stats;
-  final List<DashboardMatch> liveMatches;
-  final List<DashboardMatch> upcomingMatches;
+  final List<LiveMatch> liveMatches;
+  final List<UpcomingMatch> upcomingMatches;
   final List<TrendingPlayer> trendingPlayers;
-  final List<DashboardTournament> latestTournaments;
+  final List<Tournament> latestTournaments;
   final QuickStats quickStats;
+  final DateTime timestamp;
 
   DashboardData({
-    required this.tournaments,
-    required this.matches,
-    required this.news,
-    required this.videos,
-    required this.stats,
-    this.liveMatches = const [],
-    this.upcomingMatches = const [],
-    this.trendingPlayers = const [],
-    this.latestTournaments = const [],
-    QuickStats? quickStats,
-  }) : quickStats = quickStats ?? const QuickStats(
-    totalMatches: 0,
-    totalTournaments: 0,
-    totalTeams: 0,
-    totalPlayers: 0,
-    todayMatches: 0,
-    weekMatches: 0,
-    activeTournaments: 0,
-    liveMatches: 0,
-  );
+    required this.liveMatches,
+    required this.upcomingMatches,
+    required this.trendingPlayers,
+    required this.latestTournaments,
+    required this.quickStats,
+    required this.timestamp,
+  });
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     return DashboardData(
-      tournaments: (json['tournaments'] as List? ?? [])
-          .map<DashboardTournament>((e) => DashboardTournament.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      matches: (json['matches'] as List? ?? [])
-          .map<DashboardMatch>((e) => DashboardMatch.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      news: (json['news'] as List? ?? [])
-          .map<DashboardNews>((e) => DashboardNews.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      videos: (json['videos'] as List? ?? [])
-          .map<DashboardVideo>((e) => DashboardVideo.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      stats: json['stats'] as Map<String, dynamic>? ?? {},
       liveMatches: (json['liveMatches'] as List? ?? [])
-          .map<DashboardMatch>((e) => DashboardMatch.fromJson(e as Map<String, dynamic>))
+          .map((e) => LiveMatch.fromJson(e as Map<String, dynamic>))
           .toList(),
       upcomingMatches: (json['upcomingMatches'] as List? ?? [])
-          .map<DashboardMatch>((e) => DashboardMatch.fromJson(e as Map<String, dynamic>))
+          .map((e) => UpcomingMatch.fromJson(e as Map<String, dynamic>))
           .toList(),
       trendingPlayers: (json['trendingPlayers'] as List? ?? [])
-          .map<TrendingPlayer>((e) => TrendingPlayer.fromJson(e as Map<String, dynamic>))
+          .map((e) => TrendingPlayer.fromJson(e as Map<String, dynamic>))
           .toList(),
       latestTournaments: (json['latestTournaments'] as List? ?? [])
-          .map<DashboardTournament>((e) => DashboardTournament.fromJson(e as Map<String, dynamic>))
+          .map((e) => Tournament.fromJson(e as Map<String, dynamic>))
           .toList(),
       quickStats: QuickStats.fromJson(json['quickStats'] as Map<String, dynamic>? ?? {}),
+      timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'tournaments': tournaments.map((e) => e.toJson()).toList(),
-      'matches': matches.map((e) => e.toJson()).toList(),
-      'news': news.map((e) => e.toJson()).toList(),
-      'videos': videos.map((e) => e.toJson()).toList(),
-      'stats': stats,
       'liveMatches': liveMatches.map((e) => e.toJson()).toList(),
       'upcomingMatches': upcomingMatches.map((e) => e.toJson()).toList(),
       'trendingPlayers': trendingPlayers.map((e) => e.toJson()).toList(),
       'latestTournaments': latestTournaments.map((e) => e.toJson()).toList(),
       'quickStats': quickStats.toJson(),
+      'timestamp': timestamp.toIso8601String(),
     };
   }
 }
 
+// ==================== Quick Stats Model ====================
 class QuickStats {
   final int totalMatches;
   final int totalTournaments;
@@ -129,18 +100,248 @@ class QuickStats {
   }
 }
 
+// ==================== Team Model ====================
+class Team {
+  final String id;
+  final String name;
+  final String shortName;
+  final String? logo;
+
+  Team({
+    required this.id,
+    required this.name,
+    required this.shortName,
+    this.logo,
+  });
+
+  factory Team.fromJson(Map<String, dynamic> json) {
+    return Team(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      shortName: json['shortName'] ?? '',
+      logo: json['logo'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'shortName': shortName,
+      'logo': logo,
+    };
+  }
+}
+
+// ==================== Tournament Model ====================
+class Tournament {
+  final String id;
+  final String name;
+  final String format;
+  final String type;
+  final String status;
+  final DateTime startDate;
+  final DateTime endDate;
+  final Venue venue;
+  final int totalTeams;
+  final int entryFee;
+  final String? logo;
+
+  Tournament({
+    required this.id,
+    required this.name,
+    required this.format,
+    required this.type,
+    required this.status,
+    required this.startDate,
+    required this.endDate,
+    required this.venue,
+    required this.totalTeams,
+    required this.entryFee,
+    this.logo,
+  });
+
+  factory Tournament.fromJson(Map<String, dynamic> json) {
+    return Tournament(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      format: json['format'] ?? '',
+      type: json['type'] ?? '',
+      status: json['status'] ?? '',
+      startDate: DateTime.tryParse(json['startDate'] ?? '') ?? DateTime.now(),
+      endDate: DateTime.tryParse(json['endDate'] ?? '') ?? DateTime.now(),
+      venue: Venue.fromJson(json['venue'] ?? {}),
+      totalTeams: json['totalTeams'] ?? 0,
+      entryFee: json['entryFee'] ?? 0,
+      logo: json['logo'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'format': format,
+      'type': type,
+      'status': status,
+      'startDate': startDate.toIso8601String(),
+      'endDate': endDate.toIso8601String(),
+      'venue': venue.toJson(),
+      'totalTeams': totalTeams,
+      'entryFee': entryFee,
+      'logo': logo,
+    };
+  }
+}
+
+// ==================== Venue Model ====================
+class Venue {
+  final String name;
+  final String city;
+  final String country;
+
+  Venue({
+    required this.name,
+    required this.city,
+    required this.country,
+  });
+
+  factory Venue.fromJson(Map<String, dynamic> json) {
+    return Venue(
+      name: json['name'] ?? '',
+      city: json['city'] ?? '',
+      country: json['country'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'city': city,
+      'country': country,
+    };
+  }
+}
+
+// ==================== Live Match Model ====================
+class LiveMatch {
+  final String id;
+  final Team team1;
+  final Team team2;
+  final String status;
+  final String format;
+  final DateTime scheduledDate;
+  final Tournament tournament;
+  final Map<String, dynamic>? innings;
+  final String? scoreString;
+  final int? team1Score;
+  final int? team2Score;
+
+  LiveMatch({
+    required this.id,
+    required this.team1,
+    required this.team2,
+    required this.status,
+    required this.format,
+    required this.scheduledDate,
+    required this.tournament,
+    this.innings,
+    this.scoreString,
+    this.team1Score,
+    this.team2Score,
+  });
+
+  factory LiveMatch.fromJson(Map<String, dynamic> json) {
+    return LiveMatch(
+      id: json['id'] ?? '',
+      team1: Team.fromJson(json['team1'] ?? {}),
+      team2: Team.fromJson(json['team2'] ?? {}),
+      status: json['status'] ?? '',
+      format: json['format'] ?? '',
+      scheduledDate: DateTime.tryParse(json['scheduledDate'] ?? '') ?? DateTime.now(),
+      tournament: Tournament.fromJson(json['tournament'] ?? {}),
+      innings: json['innings'],
+      scoreString: json['scoreString'],
+      team1Score: json['team1Score'],
+      team2Score: json['team2Score'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'team1': team1.toJson(),
+      'team2': team2.toJson(),
+      'status': status,
+      'format': format,
+      'scheduledDate': scheduledDate.toIso8601String(),
+      'tournament': tournament.toJson(),
+      'innings': innings,
+      'scoreString': scoreString,
+      'team1Score': team1Score,
+      'team2Score': team2Score,
+    };
+  }
+}
+
+// ==================== Upcoming Match Model ====================
+class UpcomingMatch {
+  final String id;
+  final Team team1;
+  final Team team2;
+  final String format;
+  final DateTime scheduledDate;
+  final Tournament tournament;
+
+  UpcomingMatch({
+    required this.id,
+    required this.team1,
+    required this.team2,
+    required this.format,
+    required this.scheduledDate,
+    required this.tournament,
+  });
+
+  factory UpcomingMatch.fromJson(Map<String, dynamic> json) {
+    return UpcomingMatch(
+      id: json['id'] ?? '',
+      team1: Team.fromJson(json['team1'] ?? {}),
+      team2: Team.fromJson(json['team2'] ?? {}),
+      format: json['format'] ?? '',
+      scheduledDate: DateTime.tryParse(json['scheduledDate'] ?? '') ?? DateTime.now(),
+      tournament: Tournament.fromJson(json['tournament'] ?? {}),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'team1': team1.toJson(),
+      'team2': team2.toJson(),
+      'format': format,
+      'scheduledDate': scheduledDate.toIso8601String(),
+      'tournament': tournament.toJson(),
+    };
+  }
+}
+
+// ==================== Trending Player Model ====================
 class TrendingPlayer {
   final int rank;
   final String id;
   final String name;
+  final int jerseyNumber;
   final String role;
+  final Team team;
   final PlayerStats stats;
 
   TrendingPlayer({
     required this.rank,
     required this.id,
     required this.name,
+    required this.jerseyNumber,
     required this.role,
+    required this.team,
     required this.stats,
   });
 
@@ -149,7 +350,9 @@ class TrendingPlayer {
       rank: json['rank'] ?? 0,
       id: json['id'] ?? '',
       name: json['name'] ?? '',
+      jerseyNumber: json['jerseyNumber'] ?? 0,
       role: json['role'] ?? '',
+      team: Team.fromJson(json['team'] ?? {}),
       stats: PlayerStats.fromJson(json['stats'] ?? {}),
     );
   }
@@ -159,12 +362,15 @@ class TrendingPlayer {
       'rank': rank,
       'id': id,
       'name': name,
+      'jerseyNumber': jerseyNumber,
       'role': role,
+      'team': team.toJson(),
       'stats': stats.toJson(),
     };
   }
 }
 
+// ==================== Player Stats Model ====================
 class PlayerStats {
   final int runs;
   final int wickets;
@@ -201,254 +407,46 @@ class PlayerStats {
   }
 }
 
-class DashboardMatch {
-  final DashboardTournament tournament;
-  final String id;
-  final String title;
-  final String? subtitle;
-  final String? time;
-  final String? status;
-  final String? team1;
-  final String? team2;
-  final String? team1ShortName;
-  final String? team2ShortName;
-  final String? team1Name;
-  final String? team2Name;
-  final String? scoreString;
-  final DateTime? scheduledDate;
-  final String? team1Logo;
-  final String? team2Logo;
-  final int? team1Score;
-  final int? team2Score;
-  final String? result;
-  final String? format;
-
-  DashboardMatch({
-    required this.tournament,
-    required this.id,
-    required this.title,
-    this.subtitle,
-    this.time,
-    this.status,
-    this.team1,
-    this.team2,
-    this.team1ShortName,
-    this.team2ShortName,
-    this.team1Name,
-    this.team2Name,
-    this.scoreString,
-    this.scheduledDate,
-    this.team1Logo,
-    this.team2Logo,
-    this.team1Score,
-    this.team2Score,
-    this.result,
-    this.format,
-  });
-
-  factory DashboardMatch.fromJson(Map<String, dynamic> json) {
-    return DashboardMatch(
-      tournament: DashboardTournament.fromJson(json['tournament'] ?? {}),
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      subtitle: json['subtitle'],
-      time: json['time'],
-      status: json['status'],
-      team1: json['team1'],
-      team2: json['team2'],
-      team1ShortName: json['team1ShortName'],
-      team2ShortName: json['team2ShortName'],
-      team1Name: json['team1Name'],
-      team2Name: json['team2Name'],
-      scoreString: json['scoreString'],
-      scheduledDate: json['scheduledDate'] != null ? DateTime.parse(json['scheduledDate']) : null,
-      team1Logo: json['team1Logo'],
-      team2Logo: json['team2Logo'],
-      team1Score: json['team1Score'],
-      team2Score: json['team2Score'],
-      result: json['result'],
-      format: json['format'],
-    );
+// ==================== Helper Extensions ====================
+extension MatchStatusExtension on String {
+  Color get statusColor {
+    switch (this.toLowerCase()) {
+      case 'live':
+        return Colors.red;
+      case 'completed':
+        return Colors.green;
+      case 'upcoming':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'tournament': tournament.toJson(),
-      'id': id,
-      'title': title,
-      'subtitle': subtitle,
-      'time': time,
-      'status': status,
-      'team1': team1,
-      'team2': team2,
-      'team1ShortName': team1ShortName,
-      'team2ShortName': team2ShortName,
-      'team1Name': team1Name,
-      'team2Name': team2Name,
-      'scoreString': scoreString,
-      'scheduledDate': scheduledDate?.toIso8601String(),
-      'team1Logo': team1Logo,
-      'team2Logo': team2Logo,
-      'team1Score': team1Score,
-      'team2Score': team2Score,
-      'result': result,
-      'format': format,
-    };
+  String get statusText {
+    switch (this.toLowerCase()) {
+      case 'live':
+        return 'LIVE';
+      case 'completed':
+        return 'COMPLETED';
+      case 'upcoming':
+        return 'UPCOMING';
+      default:
+        return this.toUpperCase();
+    }
   }
 }
 
-class DashboardTournament {
-  final String id;
-  final String name;
-  final String? logo;
-  final String? category;
-  final String? status;
-  final String? startDate;
-  final String? endDate;
-  final int? teamCount;
-  final int? matchCount;
-  final int? totalTeams;
-  final bool? isPaid;
-  final double? entryFee;
-  final String? prizeMoney;
-  final String? format;
-
-  DashboardTournament({
-    required this.id,
-    required this.name,
-    this.logo,
-    this.category,
-    this.status,
-    this.startDate,
-    this.endDate,
-    this.teamCount,
-    this.matchCount,
-    this.totalTeams,
-    this.isPaid,
-    this.entryFee,
-    this.prizeMoney,
-    this.format,
-  });
-
-  factory DashboardTournament.fromJson(Map<String, dynamic> json) {
-    return DashboardTournament(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      logo: json['logo'],
-      category: json['category'],
-      status: json['status'],
-      startDate: json['startDate'],
-      endDate: json['endDate'],
-      teamCount: json['teamCount'],
-      matchCount: json['matchCount'],
-      totalTeams: json['totalTeams'],
-      isPaid: json['isPaid'],
-      entryFee: json['entryFee']?.toDouble(),
-      prizeMoney: json['prizeMoney'],
-      format: json['format'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'logo': logo,
-      'category': category,
-      'status': status,
-      'startDate': startDate,
-      'endDate': endDate,
-      'teamCount': teamCount,
-      'matchCount': matchCount,
-      'totalTeams': totalTeams,
-      'isPaid': isPaid,
-      'entryFee': entryFee,
-      'prizeMoney': prizeMoney,
-      'format': format,
-    };
-  }
-}
-
-class DashboardNews {
-  final String id;
-  final String title;
-  final String? subtitle;
-  final String? image;
-  final String? source;
-  final String? time;
-  final String? url;
-
-  DashboardNews({
-    required this.id,
-    required this.title,
-    this.subtitle,
-    this.image,
-    this.source,
-    this.time,
-    this.url,
-  });
-
-  factory DashboardNews.fromJson(Map<String, dynamic> json) {
-    return DashboardNews(
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      subtitle: json['subtitle'],
-      image: json['image'],
-      source: json['source'],
-      time: json['time'],
-      url: json['url'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'subtitle': subtitle,
-      'image': image,
-      'source': source,
-      'time': time,
-      'url': url,
-    };
-  }
-}
-
-class DashboardVideo {
-  final String id;
-  final String title;
-  final String? thumbnail;
-  final String? duration;
-  final String? views;
-  final String? url;
-
-  DashboardVideo({
-    required this.id,
-    required this.title,
-    this.thumbnail,
-    this.duration,
-    this.views,
-    this.url,
-  });
-
-  factory DashboardVideo.fromJson(Map<String, dynamic> json) {
-    return DashboardVideo(
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      thumbnail: json['thumbnail'],
-      duration: json['duration'],
-      views: json['views'],
-      url: json['url'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'thumbnail': thumbnail,
-      'duration': duration,
-      'views': views,
-      'url': url,
-    };
+extension FormatExtension on String {
+  String get formatDisplay {
+    switch (this.toLowerCase()) {
+      case 't20':
+        return 'T20';
+      case 'odi':
+        return 'ODI';
+      case 'test':
+        return 'TEST';
+      default:
+        return this.toUpperCase();
+    }
   }
 }
