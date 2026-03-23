@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/config/theme_config.dart';
 import '../../data/services/user_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/widgets/profile_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -31,6 +32,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
   String _selectedPlayingStyle = 'All Rounder';
   List<Map<String, dynamic>> _equipment = [];
+  Position? position;
+  Map<String, dynamic>? result;
   final GlobalKey _qrKey = GlobalKey();
 
   final List<String> _playingStyles = [
@@ -142,62 +145,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     if (permission == LocationPermission.deniedForever) return _showSnack('Location permissions permanently denied');
 
-    Position position = await Geolocator.getCurrentPosition();
-    final result = await _userService.updateLocation(position.latitude, position.longitude);
-    if (result['success'] && mounted) _showSnack('Location updated successfully');
+    position = await Geolocator.getCurrentPosition();
+    result = await _userService.updateLocation(position!.latitude, position!.longitude);
+    if (result!['success'] && mounted) _showSnack('Location updated successfully');
   }
 
   void _showSnack(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  void _showQRCode() {
-    final authProvider = context.read<AuthProvider>();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: 400,
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Text('Scores11 QR Code', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 20),
-                ],
-              ),
-            ),
-            RepaintBoundary(key: _qrKey, child: QrImageView(data: 'scores11://user/${authProvider.user?.id}', size: 200)),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  try {
-                    final boundary = _qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-                    final image = await boundary.toImage(pixelRatio: 3.0);
-                    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-                    await Share.shareXFiles([XFile.fromData(byteData!.buffer.asUint8List())], text: 'My Scores11 profile!');
-                  } catch (e) {
-                    debugPrint('Share error: $e');
-                  }
-                },
-                icon: const Icon(Icons.share),
-                label: const Text('Share'),
-              ),
-            ),
-      position.latitude,
-      position.longitude,
-    );
-    if (result['success'] && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location updated successfully')),
-      );
     }
   }
 
@@ -253,7 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ElevatedButton.icon(
                 onPressed: () async {
                   try {
-                    final boundary = _qrKey.currentContext?.findRenderObject() 
+                    final boundary = _qrKey.currentContext?.findRenderObject()
                         as RenderRepaintBoundary?;
                     if (boundary != null) {
                       final image = await boundary.toImage(pixelRatio: 3.0);
@@ -373,7 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isSelected 
+                          color: isSelected
                               ? AppColors.primary.withOpacity(0.1)
                               : Colors.grey[100],
                           borderRadius: BorderRadius.circular(12),
@@ -434,54 +389,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        top: true,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: AppColors.primaryGradient,
-                        ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  Container(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + 24,
+                      left: 24,
+                      right: 24,
+                      bottom: 24,
+                    ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: AppColors.primaryGradient,
                       ),
-                      child: Column(
+                    ),
+                    child: Column(
                         children: [
                           Stack(
                             children: [
                               GestureDetector(
                                 onTap: _pickImage,
-                                child: CircleAvatar(
-                                  radius: 50,
-                                  backgroundColor: Colors.white,
-                                  child: user?.avatar?.url != null
-                                      ? ClipOval(
-                                          child: Image.network(
-                                            user!.avatar!.url!,
-                                            width: 96,
-                                            height: 96,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) => Text(
-                                              user.name.substring(0, 1).toUpperCase(),
-                                              style: const TextStyle(
-                                                fontSize: 40,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                      : Text(
-                                          user?.name.substring(0, 1).toUpperCase() ?? 'U',
-                                          style: const TextStyle(
-                                            fontSize: 40,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
+                                child: ProfileAvatar(
+                                  user: user,
+                                  radius: 42,
+                                  isEditable: true,
                                 ),
                               ),
                               Positioned(
@@ -641,9 +575,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildMenuSection(),
                   ],
                 ),
-              ),
             ),
-      ),
     );
   }
 
@@ -717,8 +649,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(result['success'] 
-                              ? 'Verification email sent!' 
+                          content: Text(result['success']
+                              ? 'Verification email sent!'
                               : 'Failed to send verification email'),
                         ),
                       );
@@ -794,8 +726,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(result['success'] 
-                                        ? 'Data cleared successfully' 
+                                    content: Text(result['success']
+                                        ? 'Data cleared successfully'
                                         : 'Failed to clear data'),
                                   ),
                                 );
@@ -960,4 +892,3 @@ class _MenuItem extends StatelessWidget {
     );
   }
 }
-

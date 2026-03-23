@@ -14,6 +14,8 @@ import '../../data/services/dashboard_service.dart';
 import '../../data/services/user_service.dart';
 import '../../data/models/user_model.dart';
 import '../../core/constants/app_routes.dart';
+import '../../core/widgets/profile_avatar.dart';
+import '../../core/widgets/profile_avatar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -239,10 +241,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
 
-            /// NEW: User Profile Summary Section
-            SliverToBoxAdapter(
-              child: _buildUserProfileSection(user),
-            ),
+            // FIXED: Removed overlapping profile header from home screen
+            // SliverToBoxAdapter(
+            //   child: _buildUserProfileSection(user),
+            // ),
 
             // Bottom Navigation & Content
             SliverToBoxAdapter(
@@ -287,33 +289,10 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: user.avatar?.url != null
-                    ? Image.network(
-                        user.avatar!.url!,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.person, size: 30, color: AppColors.primary),
-                        ),
-                      )
-                    : Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.person, size: 30, color: AppColors.primary),
-                      ),
+ProfileAvatar(
+                user: user,
+                radius: 30,
+                onTap: () => Navigator.pushNamed(context, '/profile'),
               ),
               const SizedBox(width: 16),
               Expanded(

@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/constants/app_routes.dart';
+import '../../core/widgets/profile_avatar.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -78,12 +79,9 @@ class _HomeTabState extends State<HomeTab> {
         children: [
           GestureDetector(
             onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
-            child: CircleAvatar(
+            child: ProfileAvatar(
+              user: user,
               radius: 20,
-              backgroundImage: user?.avatar?.url != null ? NetworkImage(user.avatar.url) : null,
-              child: user?.avatar?.url == null 
-                ? Icon(Icons.person, color: AppColors.primary)
-                : null,
             ),
           ),
           const SizedBox(width: 12),

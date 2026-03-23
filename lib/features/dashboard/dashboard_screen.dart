@@ -10,6 +10,7 @@ import '../../data/models/dashboard_model.dart';
 import '../../data/models/user_model.dart';
 import '../../core/constants/app_routes.dart';
 import '../profile/profile_screen.dart';
+import '../../core/widgets/profile_avatar.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -51,7 +52,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 top: true,
                 child: Column(
                   children: [
-                    _buildUserProfileSection(authProvider, dashboardProvider),
+                    // FIXED: Removed overlapping profile header from dashboard
+                    // _buildUserProfileSection(authProvider, dashboardProvider),
                     Expanded(
                       child: RefreshIndicator(
                         onRefresh: () => dashboardProvider.refreshDashboard(context),
@@ -212,33 +214,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildAvatar(UserModel user) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(35),
-      child: user.avatar?.url != null
-          ? Image.network(
-              user.avatar!.url!,
-              width: 70,
-              height: 70,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: AppColors.primaryGradient),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.person, size: 35, color: Colors.white),
-              ),
-            )
-          : Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: AppColors.primaryGradient),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.person, size: 35, color: Colors.white),
-            ),
+    return ProfileAvatar(
+      user: user,
+      radius: 35,
     );
   }
 
