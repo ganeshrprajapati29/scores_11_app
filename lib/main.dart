@@ -97,7 +97,7 @@ class Cric11App extends StatelessWidget {
           // Match Routes
           '/matches': (context) => const MatchListScreen(),
           '/match-detail': (context) => const MatchDetailScreen(matchId: ''),
-          '/create-match': (context) => const DashboardScreen(),
+          '/create-match': (context) => const ScoreEntryScreen(matchId: ''),
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
           '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
           '/scorecard': (context) => const MatchDetailScreen(matchId: ''),
@@ -111,7 +111,7 @@ class Cric11App extends StatelessWidget {
           // Tournament Routes
           '/tournaments': (context) => const TournamentListScreen(),
           '/tournament-detail': (context) => const TournamentDetailScreen(tournamentId: ''),
-          '/create-tournament': (context) => const DashboardScreen(),
+          '/create-tournament': (context) => const TournamentListScreen(),
           '/points-table': (context) => const PointsTableScreen(tournamentId: ''),
           '/fixtures': (context) => const FixturesScreen(tournamentId: ''),
           '/my-tournaments': (context) => const TournamentListScreen(),
@@ -120,7 +120,7 @@ class Cric11App extends StatelessWidget {
           '/players': (context) => const PlayerSearchScreen(),
           '/player-search': (context) => const PlayerSearchScreen(),
           '/player-profile': (context) => const CricketProfileScreen(),
-          '/compare-players': (context) => const DashboardScreen(),
+          '/compare-players': (context) => const PlayerSearchScreen(),
           
           // Leaderboard Routes
           '/leaderboard': (context) => const TopBatsmanScreen(),

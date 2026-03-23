@@ -10,6 +10,9 @@ import '../../data/models/dashboard_model.dart';
 import '../../data/models/user_model.dart';
 import '../../core/constants/app_routes.dart';
 import '../profile/profile_screen.dart';
+import '../../features/matches/match_list_screen.dart';
+import '../../features/tournaments/tournament_list_screen.dart';
+import '../../features/teams/team_list_screen.dart';
 import '../../core/widgets/profile_avatar.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -24,11 +27,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final List<Widget> _screens = [
-    const HomeTab(),
-    const MatchesTab(),
-    const TournamentsTab(),
-    const TeamsTab(),
-    const ProfileTab(),
+    HomeTab(key: ValueKey('home-tab')),
+    MatchListScreen(key: ValueKey('match-list')),
+    TournamentListScreen(key: ValueKey('tournament-list')),
+    TeamListScreen(key: ValueKey('team-list')),
+    ProfileTab(key: ValueKey('profile-tab')),
   ];
 
   @override
@@ -46,24 +49,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return Scaffold(
           key: _scaffoldKey,
           drawer: _buildDrawer(authProvider),
-          body: Stack(
-            children: [
-              SafeArea(
-                top: true,
-                child: Column(
-                  children: [
-                    // FIXED: Removed overlapping profile header from dashboard
-                    // _buildUserProfileSection(authProvider, dashboardProvider),
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: () => dashboardProvider.refreshDashboard(context),
-                        child: IndexedStack(
-                          index: _currentIndex,
-                          children: _screens,
+          appBar: AppBar(
+            title: const Text('Dashboard'),
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            leading: Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
+            ),
+            actions: [
+              Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined),
+                    onPressed: () => Navigator.pushNamed(context, '/notifications'),
+                  ),
+                  if (dashboardProvider.quickStats.liveMatches > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${dashboardProvider.quickStats.liveMatches}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ],
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.search),
+                onPressed: () => Navigator.pushNamed(context, '/players'),
+              ),
+            ],
+          ),
+          body: Stack(
+            children: [
+              RefreshIndicator(
+                onRefresh: () => dashboardProvider.refreshDashboard(context),
+                child: IndexedStack(
+                  index: _currentIndex,
+                  children: _screens,
                 ),
               ),
               // Loading overlay
@@ -434,7 +471,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
-          ),
+          ),  
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
