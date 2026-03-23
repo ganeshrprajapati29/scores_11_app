@@ -156,7 +156,37 @@ class ApiClient {
     return await _storage.read(key: AppConstants.accessTokenKey);
   }
 
-  String parseDioError(
+Future<Map<String, dynamic>> executeWithRetry(
+  Future<Response> Function() request,
+  {int maxRetries = 3}
+) async {
+  for (int attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      final response = await request();
+      return _parseApiResponse(response);
+    } on DioException catch (e) {
+      if (attempt == maxRetries || 
+          e.type != DioExceptionType.connectionTimeout && 
+          e.type != DioExceptionType.receiveTimeout &&
+          e.type != DioExceptionType.connectionError) {
+        rethrow;
+      }
+      debugPrint('🔄 ApiClient retry $attempt/$maxRetries for ${e.type}');
+      await Future.delayed(Duration(seconds: attempt * 2));
+    }
+  }
+  throw Exception('Max retries exceeded');
+}
+
+Map<String, dynamic> _parseApiResponse(Response response) {
+  final data = response.data;
+  if (data is Map<String, dynamic> && data['success'] == true) {
+    return data['data'] ?? {};
+  }
+  return data ?? {};
+}
+
+String parseDioError(
     DioException e, {
     String defaultMessage = 'Something went wrong. Please try again.',
   }) {

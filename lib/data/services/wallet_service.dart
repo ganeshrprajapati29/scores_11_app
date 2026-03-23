@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../core/config/api_config.dart';
 import '../models/wallet_model.dart';
 import '../../core/services/api_client.dart';
@@ -7,22 +8,48 @@ class WalletService {
 
   /// Get wallet balance
   Future<Wallet> getWalletBalance() async {
-    final response = await _apiClient.get('${ApiConfig.wallet}');
-    return Wallet.fromJson(response.data['data']);
+    try {
+      final data = await _apiClient.executeWithRetry(
+        () => _apiClient.get('${ApiConfig.wallet}'),
+        maxRetries: 3
+      ) as Map<String, dynamic>;
+      return Wallet.fromJson(data);
+    } catch (e) {
+      debugPrint('Wallet balance error (fallback): $e');
+      // Safe empty wallet fallback
+      return Wallet(
+        id: '',
+        userId: '',
+        balance: 0.0,
+        totalCredits: 0.0,
+        totalDebits: 0.0,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
   }
+
 
   /// Get all transactions
   Future<List<Transaction>> getTransactions({int page = 1, int limit = 20, String? type}) async {
-    final queryParams = <String, dynamic>{
-      'page': page.toString(),
-      'limit': limit.toString(),
-      if (type != null) 'type': type,
-    };
-    
-    final response = await _apiClient.get('${ApiConfig.wallet}/transactions', queryParameters: queryParams);
-    final List<dynamic> data = response.data['data'] ?? [];
-    return data.map((json) => Transaction.fromJson(json)).toList();
+    try {
+      final queryParams = <String, dynamic>{
+        'page': page.toString(),
+        'limit': limit.toString(),
+        if (type != null) 'type': type,
+      };
+      
+      final data = await _apiClient.executeWithRetry(
+        () => _apiClient.get('${ApiConfig.wallet}/transactions', queryParameters: queryParams),
+        maxRetries: 3
+      ) as List;
+      return data.map((json) => Transaction.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Wallet transactions error (empty fallback): $e');
+      return [];
+    }
   }
+
 
   /// Add funds to wallet
   Future<Wallet> addFunds(Map<String, dynamic> data) async {

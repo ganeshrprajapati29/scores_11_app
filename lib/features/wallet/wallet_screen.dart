@@ -32,6 +32,7 @@ class _WalletScreenState extends State<WalletScreen> {
         _isLoading = true;
         _error = null;
       });
+      // Service now handles errors + returns safe data
       final wallet = await _walletService.getWalletBalance();
       final transactions = await _walletService.getTransactions(limit: 20);
       setState(() {
@@ -40,12 +41,14 @@ class _WalletScreenState extends State<WalletScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('Wallet screen error (handled by service): $e');
       setState(() {
-        _error = e.toString();
         _isLoading = false;
+        // No error popup - service provides fallback data
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

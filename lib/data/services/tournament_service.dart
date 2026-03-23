@@ -1,6 +1,7 @@
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../models/tournament_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 // import 'dart:developer';
 
@@ -33,45 +34,30 @@ class TournamentService {
     String? status,
   }) async {
     try {
-      final response = await _apiClient.get(
-        '${ApiConfig.tournaments}',
-        queryParameters: {
+      final data = await _apiClient.executeWithRetry(
+        () => _apiClient.get('${ApiConfig.tournaments}', queryParameters: {
           'page': page,
           'limit': limit,
           if (status != null) 'status': status,
-        },
+        }),
+        maxRetries: 3
+      ) as Map<String, dynamic>;
+      
+      final List tournamentsList = data['tournaments'] ?? data['data'] ?? [];
+      final pagination = data['pagination'] ?? {};
+      
+      final tournaments = tournamentsList.map((json) => Tournament.fromJson(json)).toList();
+      
+      return PaginatedTournaments(
+        tournaments: tournaments,
+        page: pagination['page'] ?? page,
+        limit: pagination['limit'] ?? limit,
+        total: pagination['total'] ?? tournaments.length,
+        totalPages: pagination['pages'] ?? 1,
+        hasMore: page < (pagination['pages'] ?? 1),
       );
-      if (response.statusCode == 200) {
-        final List data = response.data['data'] ?? [];
-        final pagination = response.data['pagination'] ?? {};
-        
-        final tournaments = data.map((json) => Tournament.fromJson(json)).toList();
-        
-        return PaginatedTournaments(
-          tournaments: tournaments,
-          page: pagination['page'] ?? page,
-          limit: pagination['limit'] ?? limit,
-          total: pagination['total'] ?? data.length,
-          totalPages: pagination['pages'] ?? 1,
-          hasMore: page < (pagination['pages'] ?? 1),
-        );
-      }
-      throw DioException(requestOptions: response.requestOptions, response: response, type: DioExceptionType.badResponse);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404 || e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
-print('Tournament API 404/Timeout - returning empty list (no mock data)');
-        return PaginatedTournaments(
-          tournaments: [],
-          page: page,
-          limit: limit,
-          total: 0,
-          totalPages: 0,
-          hasMore: false,
-        );
-      }
-      rethrow;
     } catch (e) {
-print('Tournament API error: $e');
+      debugPrint('Tournament service error (fallback): $e');
       return PaginatedTournaments(
         tournaments: [],
         page: page,
@@ -82,6 +68,7 @@ print('Tournament API error: $e');
       );
     }
   }
+
 
   PaginatedTournaments _getMockTournaments(int page, int limit) {
     final mockData = [

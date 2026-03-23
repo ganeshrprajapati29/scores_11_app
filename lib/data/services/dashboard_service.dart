@@ -15,43 +15,50 @@ class DashboardService {
   /// Get complete dashboard overview - Uses the actual dashboard endpoint
   Future<DashboardData> getDashboardOverview() async {
     try {
-      debugPrint('🌐 Fetching dashboard data from: ${ApiConfig.baseUrl}/dashboard');
+      debugPrint('🌐 Fetching dashboard data with retry: ${ApiConfig.baseUrl}/dashboard');
       
-      final response = await _apiClient.get('/dashboard');
+      final data = await _apiClient.executeWithRetry(
+        () => _apiClient.get('/dashboard'),
+        maxRetries: 3
+      ) as Map<String, dynamic>;
       
-      debugPrint('📡 Dashboard response status: ${response.statusCode}');
-      debugPrint('📡 Dashboard response data: ${response.data}');
+      debugPrint('✅ Dashboard data loaded: ${data.length} sections');
       
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        
-        // Check if response has success flag and data
-        if (responseData['success'] == true && responseData['data'] != null) {
-          return DashboardData.fromJson(responseData['data']);
-        } else {
-          throw Exception('Invalid response structure: ${responseData['message'] ?? 'Unknown error'}');
-        }
-      }
-      
-      throw DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        message: 'Failed with status: ${response.statusCode}',
-      );
+      return DashboardData.fromJson(data);
       
     } on DioException catch (e) {
-      debugPrint('❌ Dashboard API DioException: ${e.type} - ${e.message}');
-      if (e.response != null) {
-        debugPrint('❌ Response status: ${e.response?.statusCode}');
-        debugPrint('❌ Response data: ${e.response?.data}');
-      }
-      rethrow;
+      debugPrint('❌ Dashboard final error after retries: ${e.type} - ${e.message}');
+      // Return empty DashboardData instead of crashing
+      return DashboardData(
+        liveMatches: [],
+        upcomingMatches: [],
+        trendingPlayers: [],
+        latestTournaments: [],
+        quickStats: const QuickStats(
+          totalMatches: 0, totalTournaments: 0, totalTeams: 0, 
+          totalPlayers: 0, todayMatches: 0, weekMatches: 0,
+          activeTournaments: 0, liveMatches: 0
+        ),
+        timestamp: DateTime.now(),
+      );
     } catch (e) {
-      debugPrint('❌ Dashboard API error: $e');
-      rethrow;
+      debugPrint('❌ Dashboard unexpected error: $e');
+      // Safe fallback
+      return DashboardData(
+        liveMatches: [],
+        upcomingMatches: [],
+        trendingPlayers: [],
+        latestTournaments: [],
+        quickStats: const QuickStats(
+          totalMatches: 0, totalTournaments: 0, totalTeams: 0, 
+          totalPlayers: 0, todayMatches: 0, weekMatches: 0,
+          activeTournaments: 0, liveMatches: 0
+        ),
+        timestamp: DateTime.now(),
+      );
     }
   }
+
 
   /// Get live matches - Extracts from dashboard data
   Future<List<LiveMatch>> getLiveMatches() async {
