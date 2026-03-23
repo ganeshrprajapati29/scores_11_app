@@ -785,33 +785,72 @@ class HomeTab extends StatelessWidget {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _QuickActionCard(
-            icon: Icons.group_add_rounded,
-            title: 'Create Team',
-            color: AppColors.primary,
-            onTap: () => Navigator.pushNamed(context, '/create-team'),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.group_add_rounded,
+                title: 'Create Team',
+                color: AppColors.primary,
+                onTap: () => Navigator.pushNamed(context, '/create-team'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.emoji_events_rounded,
+                title: 'Join Cup',
+                color: const Color(0xFFFF8F00),
+                onTap: () => Navigator.pushNamed(context, '/tournaments'),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _QuickActionCard(
-            icon: Icons.emoji_events_rounded,
-            title: 'Join Cup',
-            color: const Color(0xFFFF8F00),
-            onTap: () => Navigator.pushNamed(context, '/tournaments'),
-          ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.person_search_rounded,
+                title: 'Find Players',
+                color: const Color(0xFF2E7D32),
+                onTap: () => Navigator.pushNamed(context, '/players'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.live_tv_rounded,
+                title: 'Start Streaming',
+                color: const Color(0xFF8E24AA),
+                onTap: () => Navigator.pushNamed(context, '/go-live'),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _QuickActionCard(
-            icon: Icons.person_search_rounded,
-            title: 'Find Players',
-            color: const Color(0xFF2E7D32),
-            onTap: () => Navigator.pushNamed(context, '/players'),
-          ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.analytics_outlined,
+                title: 'Scorecard',
+                color: Colors.orange,
+                onTap: () => Navigator.pushNamed(context, '/scorecard'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.article_outlined,
+                title: 'Blogs',
+                color: const Color(0xFF00897B),
+                onTap: () => Navigator.pushNamed(context, AppRoutes.blogs),
+              ),
+            ),
+          ],
         ),
       ],
     );

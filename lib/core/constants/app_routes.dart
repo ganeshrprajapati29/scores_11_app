@@ -36,6 +36,9 @@ class AppRoutes {
   static const String community = '/community';
   static const String createPost = '/create-post';
   static const String postDetail = '/post/:id';
+  // Blogs
+  static const String blogs = '/blogs';
+  static const String blogDetail = '/blog/:id';
   
   // Store
   static const String store = '/store';
@@ -58,4 +61,6 @@ class AppRoutes {
   static String pointsTableRoute(String id) => '/points-table/$id';
   static String productDetailRoute(String id) => '/product/$id';
   static String postDetailRoute(String id) => '/post/$id';
+  static String blogsRoute() => blogs;
+  static String blogDetailRoute(String id) => blogDetail.replaceAll(':id', id);
 }

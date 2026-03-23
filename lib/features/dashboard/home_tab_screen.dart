@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+﻿﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +8,7 @@ import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/constants/app_routes.dart';
 import '../../core/widgets/profile_avatar.dart';
+import '../../../data/services/community_service.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -19,12 +20,22 @@ class HomeTab extends StatefulWidget {
 class _HomeTabState extends State<HomeTab> {
   Timer? _refreshTimer;
 
-  @override
+  final CommunityService _communityService = CommunityService();
+  List<Map<String, dynamic>> _posts = [];
+  int _postsPage = 1;
+  bool _postsHasMore = true;
+  bool _postsLoadingMore = false;
+  late ScrollController _scrollController;
+
+@override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onPostsScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<DashboardProvider>();
       provider.refreshDashboard();
+      _loadPosts();
     });
 
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -34,8 +45,9 @@ class _HomeTabState extends State<HomeTab> {
     });
   }
 
-  @override
+@override
   void dispose() {
+    _scrollController.dispose();
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -51,6 +63,7 @@ class _HomeTabState extends State<HomeTab> {
           child: provider.isLoading 
             ? const Center(child: CircularProgressIndicator())
             : CustomScrollView(
+                controller: _scrollController,
                 slivers: [
                   _buildWelcomeSection(context, user),
                   if ((provider.quickStats?.liveMatches ?? 0) > 0)
@@ -60,6 +73,7 @@ class _HomeTabState extends State<HomeTab> {
                   _buildUpcomingMatchesSection(provider),
                   _buildTrendingPlayersSection(provider),
                   _buildLatestTournamentsSection(provider),
+                  _buildLatestPostsSection(),
                   if (provider.error != null || provider.isMockData)
                     _buildStatusBanner(provider),
                 ],
@@ -306,6 +320,103 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
+  void _onPostsScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMorePosts();
+    }
+  }
+
+  Future<void> _loadPosts() async {
+    setState(() => _postsLoadingMore = true);
+    try {
+      final result = await _communityService.getPosts(page: 1);
+      if (mounted) {
+        setState(() {
+          _posts = result.posts;
+          _postsPage = 1;
+          _postsHasMore = result.hasMore ?? true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load posts: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _postsLoadingMore = false);
+    }
+  }
+
+  Future<void> _loadMorePosts() async {
+    if (_postsLoadingMore || !_postsHasMore) return;
+    setState(() => _postsLoadingMore = true);
+    try {
+      _postsPage++;
+      final result = await _communityService.getPosts(page: _postsPage);
+      if (mounted) {
+        setState(() {
+          _posts.addAll(result.posts);
+          _postsHasMore = result.hasMore ?? false;
+        });
+      }
+    } catch (e) {
+      _postsPage--;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Load more failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _postsLoadingMore = false);
+    }
+  }
+
+  SliverToBoxAdapter _buildLatestPostsSection() {
+    if (_posts.isEmpty && !_postsLoadingMore) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '📱 Latest Posts',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pushNamed(context, '/community'),
+                  child: const Text('See All'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 400,
+              child: ListView.builder(
+                itemCount: _posts.length + (_postsHasMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == _posts.length) {
+                    return const Center(child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(),
+                    ));
+                  }
+                  return _PostCard(post: _posts[index]);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   SliverToBoxAdapter _buildStatusBanner(DashboardProvider provider) {
     return SliverToBoxAdapter(
       child: Container(
@@ -448,5 +559,139 @@ class _HomeTabState extends State<HomeTab> {
       ),
     );
   }
+
+  Widget _PostCard({required Map<String, dynamic> post}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.grey,
+                  child: Icon(Icons.person, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'User Name',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        post['createdAt'] ?? 'Just now',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.more_horiz),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+          
+          // Content
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              post['content'] ?? 'Post content...',
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          
+          // Mock Image
+          if ((post['images'] as List?)?.isNotEmpty ?? false)
+            Container(
+              height: 200,
+              width: double.infinity,
+              margin: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+                image: (post['images'] as List).isNotEmpty 
+                  ? DecorationImage(
+                      image: NetworkImage(post['images'][0]),
+                      fit: BoxFit.cover,
+                    ) 
+                  : null,
+              ),
+            ),
+          
+          // Actions
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _ActionButton(
+                    icon: Icons.thumb_up_outlined,
+                    label: '${post['likes'] ?? 0}',
+                    onTap: () => _communityService.likePost(post['id']),
+                  ),
+                ),
+                Expanded(
+                  child: _ActionButton(
+                    icon: Icons.comment_outlined,
+                    label: '${post['comments'] ?? 0}',
+                    onTap: () => Navigator.pushNamed(context, '/post-detail', arguments: post['id']),
+                  ),
+                ),
+                Expanded(
+                  child: _ActionButton(
+                    icon: Icons.share_outlined,
+                    label: '${post['shares'] ?? 0}',
+                    onTap: () => _communityService.sharePost(post['id']),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20, color: Colors.grey[600]),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(color: Colors.grey[600])),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
+
 

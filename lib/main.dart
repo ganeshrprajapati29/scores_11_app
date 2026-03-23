@@ -19,6 +19,7 @@ import 'features/tournaments/tournament_detail_screen.dart';
 import 'features/tournaments/tournament_list_screen.dart';
 import 'features/tournaments/points_table_screen.dart';
 import 'features/tournaments/fixtures_screen.dart';
+import 'features/tournaments/create_tournament_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/cricket_profile_screen.dart';
@@ -50,6 +51,7 @@ import 'features/wallet/wallet_screen.dart';
 import 'features/subscription/subscription_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/discovery/discovery_screen.dart';
+import 'features/blogs/blogs_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -98,7 +100,7 @@ class Cric11App extends StatelessWidget {
           // Match Routes
           '/matches': (context) => const MatchListScreen(),
           '/match-detail': (context) => const MatchDetailScreen(matchId: ''),
-'/create-match': (context) => CreateMatchScreen(),
+          '/create-match': (context) => const CreateMatchScreen(),
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
           '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
           '/scorecard': (context) => const MatchDetailScreen(matchId: ''),
@@ -112,7 +114,7 @@ class Cric11App extends StatelessWidget {
           // Tournament Routes
           '/tournaments': (context) => const TournamentListScreen(),
           '/tournament-detail': (context) => const TournamentDetailScreen(tournamentId: ''),
-          '/create-tournament': (context) => const TournamentListScreen(),
+          '/create-tournament': (context) => CreateTournamentScreen(),
           '/points-table': (context) => const PointsTableScreen(tournamentId: ''),
           '/fixtures': (context) => const FixturesScreen(tournamentId: ''),
           '/my-tournaments': (context) => const TournamentListScreen(),
@@ -171,17 +173,16 @@ class Cric11App extends StatelessWidget {
           '/my-teams': (context) => const TeamListScreen(),
           '/my-tournaments': (context) => const TournamentListScreen(),
           '/create-team': (context) => const CreateTeamScreen(),
-          '/create-match': (context) => const MatchListScreen(),
+          '/create-match': (context) => const CreateMatchScreen(),
           '/player-profile': (context) => const PlayerSearchScreen(),
           '/community': (context) => const CommunityFeedScreen(),
           '/store': (context) => const StoreHomeScreen(),
           '/messages': (context) => const HomeScreen(),
           '/chat': (context) => const HomeScreen(),
+          '/blogs': (context) => const BlogsScreen(),
         },
       ),
     );
   }
 }
 
-
- 
