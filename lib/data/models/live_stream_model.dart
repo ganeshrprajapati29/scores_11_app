@@ -10,9 +10,9 @@ class LiveStreamModel {
   final String? streamUrl;
   final String? rtmpUrl;
   final String? hlsUrl;
-  final String status;
-  final int viewerCount;
-  final int likes;
+  String status;
+  int viewerCount;
+  int likes;
   final String category;
   final List<String> tags;
   final bool isPrivate;

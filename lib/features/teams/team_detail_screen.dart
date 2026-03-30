@@ -5,7 +5,12 @@ import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_loader.dart';
 import '../../data/models/team_model.dart';
+import '../../data/models/player_model.dart';
 import '../../data/services/team_service.dart';
+import '../../data/services/player_service.dart';
+import '../../data/models/player_model.dart';
+import '../players/find_player_screen.dart';
+
 
 class TeamDetailScreen extends StatefulWidget {
   final String teamId;
@@ -19,8 +24,13 @@ class TeamDetailScreen extends StatefulWidget {
 class _TeamDetailScreenState extends State<TeamDetailScreen>
     with SingleTickerProviderStateMixin {
   final TeamService _teamService = TeamService();
+  final PlayerService _playerService = PlayerService();
   Team? _team;
+  List<Player> _players = [];
+  List<Player> _filteredPlayers = [];
+  final TextEditingController _playerSearchController = TextEditingController();
   bool _isLoading = true;
+  bool _isPlayerLoading = false;
   String? _error;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -36,8 +46,12 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
       parent: _animationController,
       curve: Curves.easeInOut,
     );
+    _playerSearchController.addListener(_filterPlayers);
     _loadTeam();
   }
+
+
+
 
   @override
   void dispose() {
@@ -52,8 +66,12 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
         _error = null;
       });
       final team = await _teamService.getTeamById(widget.teamId);
+      final playersData = team.players ?? [];
+      final players = playersData.map((p) => Player.fromJson(p as Map<String, dynamic>)).toList();
       setState(() {
         _team = team;
+        _players = players;
+        _filteredPlayers = players;
         _isLoading = false;
       });
       _animationController.forward();
@@ -64,6 +82,17 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
       });
     }
   }
+
+  void _filterPlayers() {
+    final query = _playerSearchController.text.toLowerCase();
+    setState(() {
+      _filteredPlayers = _players.where((player) => 
+        player.name.toLowerCase().contains(query) ||
+        (player.role?.toLowerCase().contains(query) ?? false)
+      ).toList();
+    });
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -306,98 +335,170 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
   // ─── Players Section ───────────────────────────────────────────────────────
 
   Widget _buildPlayersSection() {
-    final players = _team!.players;
-
-    return _buildSectionCard(
-      title: 'Players',
-      icon: Icons.people_outline_rounded,
-      trailing: Text(
-        '${players?.length ?? 0} players',
-        style: TextStyle(
-          color: Colors.grey[500],
-          fontSize: 13,
-        ),
-      ),
-      child: players != null && players.isNotEmpty
-          ? Column(
-              children: List.generate(players.length, (index) {
-                final player = players[index] as Map<String, dynamic>;
-                final name = player['name'] as String? ?? 'Unknown';
-                final role = player['role'] as String? ?? 'Player';
-                final initial =
-                    name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'P';
-
-                return Container(
-                  margin: EdgeInsets.only(
-                      bottom: index < players.length - 1 ? 10 : 0),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F7FA),
-                    borderRadius: BorderRadius.circular(12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionCard(
+          title: 'Players',
+          icon: Icons.people_outline_rounded,
+          trailing: Text(
+            '${_filteredPlayers.length} / ${_players.length} players',
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 13,
+            ),
+          ),
+          child: Column(
+            children: [
+              // Local Search
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: TextField(
+                  controller: _playerSearchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search players by name or role...',
+                    prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
+                    suffixIcon: _playerSearchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear, color: Colors.grey[500]),
+                            onPressed: () {
+                              _playerSearchController.clear();
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[200]!),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor: AppColors.primary.withOpacity(0.12),
-                        child: Text(
-                          initial,
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
+                ),
+              ),
+              // Players List
+              _filteredPlayers.isNotEmpty
+                  ? ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _filteredPlayers.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final player = _filteredPlayers[index];
+                        final initial = player.name.isNotEmpty ? player.name[0].toUpperCase() : 'P';
+                        return InkWell(
+                          onTap: () => _showPlayerDetails(player),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F7FA),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            const SizedBox(height: 2),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: AppColors.primary.withOpacity(0.12),
+                                  child: Text(
+                                    initial,
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        player.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Text(
+                                        player.role ?? 'Player',
+                                        style: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      if (player.teamName != null)
+                                        Text(
+                                          player.teamName!,
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.visibility,
+                                  color: Colors.grey[400],
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.person_off_outlined,
+                                size: 40, color: Colors.grey[300]),
+                            const SizedBox(height: 8),
                             Text(
-                              role,
-                              style: TextStyle(
-                                color: Colors.grey[500],
-                                fontSize: 12,
-                              ),
+                              _playerSearchController.text.isNotEmpty 
+                                  ? 'No matching players' 
+                                  : 'No players in this team',
+                              style: TextStyle(color: Colors.grey[400], fontSize: 14),
                             ),
                           ],
                         ),
                       ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: Colors.grey[400],
-                        size: 20,
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            )
-          : Container(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(Icons.person_off_outlined,
-                        size: 40, color: Colors.grey[300]),
-                    const SizedBox(height: 8),
-                    Text(
-                      'No players in this team',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 14),
                     ),
-                  ],
-                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Find & Add Players Button
+        CustomButton(
+          text: 'Find & Add Players',
+          onPressed: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FindPlayerScreen(teamId: widget.teamId),
               ),
-            ),
+            );
+            if (result == true && mounted) {
+              _loadTeam(); // Refresh after add
+            }
+          },
+          icon: Icons.search,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showPlayerDetails(Player player) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FindPlayerScreen(teamId: widget.teamId),
+        settings: RouteSettings(arguments: player),
+      ),
     );
   }
 

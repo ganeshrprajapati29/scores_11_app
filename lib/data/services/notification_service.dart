@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../models/notification_model.dart';
@@ -57,8 +58,13 @@ class NotificationService {
 
   /// Get unread count
   Future<int> getUnreadCount() async {
-    final response = await _apiClient.get('${ApiConfig.notifications}/unread-count');
-    return response.data['count'] ?? 0;
+    try {
+      final response = await _apiClient.get('${ApiConfig.notifications}/unread-count');
+      return response.data['count'] ?? 0;
+    } catch (e) {
+      debugPrint('Error fetching notification count: $e');
+      return 0;
+    }
   }
 
   /// Subscribe to a topic

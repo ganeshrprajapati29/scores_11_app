@@ -10,6 +10,8 @@ class ApiConfig {
   
   // Socket URL
   static const String socketUrl = 'http://68.178.171.95:3000';
+  static const String agoraAppId = '5b430e042a88490eb9f292c4a05ab339';
+  static const String agoraAppCertificate = 'd5d648b3f5b048eb830f921471c7e116';
   
   // Endpoints
   static const String auth = '/auth';

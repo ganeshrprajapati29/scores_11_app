@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../../data/services/team_service.dart';
 
 class CreateTeamScreen extends StatefulWidget {
   const CreateTeamScreen({super.key});
@@ -12,6 +13,49 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   final _formKey = GlobalKey<FormState>();
   final _teamNameController = TextEditingController();
   final _teamCityController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  bool _isLoading = false;
+  final TeamService _teamService = TeamService();
+
+  Future<void> _createTeam() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await _teamService.createTeam(
+        name: _teamNameController.text.trim(),
+        city: _teamCityController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+        country: 'India',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Team created successfully!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/my-teams', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +68,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
         backgroundColor: AppColors.primary,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
@@ -32,10 +76,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
             children: [
               const Text(
                 'Team Information',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
               Container(
@@ -57,13 +98,16 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                     TextFormField(
                       controller: _teamNameController,
                       decoration: const InputDecoration(
-                        labelText: 'Team Name',
+                        labelText: 'Team Name *',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.emoji_events),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter team name';
+                        }
+                        if (value.length < 3) {
+                          return 'Team name must be at least 3 characters';
                         }
                         return null;
                       },
@@ -76,30 +120,23 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.location_city),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter city';
-                        }
-                        return null;
-                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _descriptionController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Description (Optional)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.description),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            // Save team logic here
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Team created successfully!'),
-                                backgroundColor: AppColors.success,
-                              ),
-                            );
-                            Navigator.pop(context);
-                          }
-                        },
+                        onPressed: _isLoading ? null : _createTeam,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -107,10 +144,19 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text(
-                          'Create Team',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                        child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text(
+                              'Create Team',
+                              style: TextStyle(fontSize: 16),
+                            ),
                       ),
                     ),
                   ],
@@ -127,6 +173,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   void dispose() {
     _teamNameController.dispose();
     _teamCityController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 }

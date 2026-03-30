@@ -4,6 +4,7 @@ import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/cache_service.dart';
 import '../models/team_model.dart';
+import '../models/player_model.dart';
 
 /// Pagination response wrapper for teams
 class PaginatedTeams {
@@ -81,6 +82,25 @@ class TeamService {
       rethrow;
     }
   }
+
+  /// Get team by ID with populated players details
+  Future<Map<String, dynamic>> getTeamWithPlayers(String id) async {
+    try {
+      final teamResponse = await _apiClient.get('${ApiConfig.teams}/$id');
+      final playersResponse = await _apiClient.get('${ApiConfig.players}/team/$id');
+      
+      if (teamResponse.statusCode == 200 && playersResponse.statusCode == 200) {
+        final team = Team.fromJson(teamResponse.data['data']);
+        final List data = playersResponse.data['data'] ?? [];
+        final players = data.map((json) => Player.fromJson(json)).toList();
+        return {'team': team, 'players': players};
+      }
+      throw Exception('Failed to load team with players');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
 
   /// Get public team info (less details)
   Future<Team> getTeamByIdPublic(String id) async {

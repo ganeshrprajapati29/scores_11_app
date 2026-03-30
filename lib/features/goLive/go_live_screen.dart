@@ -1,105 +1,21 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../../providers/auth_provider.dart';
+import '../../data/services/live_stream_service.dart';
+import '../live_stream/live_player_screen.dart';
+import '../../data/models/live_stream_model.dart';
+import 'dart:io';
 
-// ─────────────────────────────────────────────
-// MOCK MODELS  (replace with your real imports)
-// ─────────────────────────────────────────────
 class AppColors {
-  static const Color primary     = Color(0xFF1E88E5);
+  static const Color primary = Color(0xFF1E88E5);
   static const Color primaryDark = Color(0xFF1565C0);
-  static const Color secondary   = Color(0xFFFB8C00);
-  static const Color success     = Color(0xFF43A047);
-  static const Color error       = Color(0xFFE53935);
+  static const Color secondary = Color(0xFFFB8C00);
+  static const Color success = Color(0xFF43A047);
+  static const Color error = Color(0xFFE53935);
 }
 
-class LiveStreamPricing {
-  final String type;
-  final double amount;
-  final String currency;
-  LiveStreamPricing({required this.type, required this.amount, required this.currency});
-  String get displayPrice => type == 'free' ? 'Free' : '₹${amount.toStringAsFixed(0)}';
-}
-
-class LiveStreamModel {
-  final String id;
-  final String title;
-  final String? description;
-  final String? thumbnail;
-  final String status;
-  final int viewerCount;
-  final int likes;
-  final String streamType;
-  final bool isPrivate;
-  final LiveStreamPricing? pricing;
-
-  LiveStreamModel({
-    required this.id,
-    required this.title,
-    this.description,
-    this.thumbnail,
-    required this.status,
-    required this.viewerCount,
-    required this.likes,
-    required this.streamType,
-    required this.isPrivate,
-    this.pricing,
-  });
-
-  bool get isLive     => status == 'live';
-  bool get isFree     => pricing == null || pricing!.type == 'free';
-  String get statusDisplay     => isLive ? 'LIVE' : status.toUpperCase();
-  String get streamTypeDisplay => streamType == 'mobile'       ? 'Mobile Camera'
-                                : streamType == 'professional' ? 'Pro Camera'
-                                : 'Live Session';
-}
-
-// ─────────────────────────────────────────────
-// MOCK SERVICE  (replace with your real service)
-// ─────────────────────────────────────────────
-class LiveStreamService {
-  Future<List<LiveStreamModel>> getLiveStreams({String status = 'live'}) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    return [
-      LiveStreamModel(id: '1', title: 'India vs Australia ODI', status: 'live',
-          viewerCount: 12450, likes: 3200, streamType: 'mobile', isPrivate: false,
-          pricing: LiveStreamPricing(type: 'free', amount: 0, currency: 'INR')),
-      LiveStreamModel(id: '2', title: 'IPL 2024 Match Analysis', status: 'live',
-          viewerCount: 5600, likes: 1100, streamType: 'professional', isPrivate: false,
-          pricing: LiveStreamPricing(type: 'paid', amount: 49, currency: 'INR')),
-    ];
-  }
-
-  Future<List<LiveStreamModel>> getFeaturedStreams() async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    return [
-      LiveStreamModel(id: '3', title: 'World Cup Highlights', status: 'live',
-          viewerCount: 30000, likes: 8000, streamType: 'professional', isPrivate: false,
-          pricing: LiveStreamPricing(type: 'free', amount: 0, currency: 'INR')),
-    ];
-  }
-
-  Future<LiveStreamModel> createLiveStream(Map<String, dynamic> data) async {
-    await Future.delayed(const Duration(seconds: 1));
-    return LiveStreamModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: data['title'] as String,
-      description: data['description'] as String?,
-      status: 'live',
-      viewerCount: 0,
-      likes: 0,
-      streamType: data['streamType'] as String,
-      isPrivate: data['isPrivate'] as bool,
-      pricing: LiveStreamPricing(
-        type: (data['pricing'] as Map)['type'] as String,
-        amount: ((data['pricing'] as Map)['amount'] as num).toDouble(),
-        currency: 'INR',
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// MAIN SCREEN
-// ─────────────────────────────────────────────
 class GoLiveScreen extends StatefulWidget {
   const GoLiveScreen({super.key});
 
@@ -109,49 +25,105 @@ class GoLiveScreen extends StatefulWidget {
 
 class _GoLiveScreenState extends State<GoLiveScreen>
     with SingleTickerProviderStateMixin {
+  
   late TabController _tabController;
-  final LiveStreamService _service = LiveStreamService();
 
-  List<LiveStreamModel> _liveStreams    = [];
+  List<LiveStreamModel> _liveStreams = [];
   List<LiveStreamModel> _featuredStreams = [];
-  bool   _isLoading = true;
+  bool _isLoading = true;
   String? _error;
-
-  // Language
+  
   String _selectedLanguage = 'English';
-
-  // Form
-  bool   _acceptTerms  = false;
-  bool   _isCreating   = false;
-  final  _titleCtrl    = TextEditingController();
-  final  _descCtrl     = TextEditingController();
-  final  _reqCtrl      = TextEditingController();
-
-  // Stream type: only 3 options
-  String _streamType   = 'mobile';        // 'mobile' | 'professional' | 'session'
-  String _quality      = '720p';
-  String _category     = 'other';
-  bool   _isPrivate    = false;
-  String _pricing      = 'free';
-  double _priceAmount  = 99;
+  bool _acceptTerms = false;
+  bool _isCreating = false;
+  
+  final _titleCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  final _reqCtrl = TextEditingController();
+  
+  String _streamType = 'mobile';
+  String _quality = '720p';
+  String _pricing = 'free';
+  double _priceAmount = 99;
+  bool _isPrivate = false;
   List<String> _lookingFor = [];
 
-  // ── Bilingual labels ─────────────────────────────
-  String _t(String en, String hi) =>
-      _selectedLanguage == 'Hindi' ? hi : en;
-
-  // ── Language list ──────────────────────────────────
   static const _languages = ['English', 'Hindi'];
+  
+  // Permission status
+  bool _hasCameraPermission = false;
+  bool _hasMicrophonePermission = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _initService();
     _loadStreams();
+    _checkPermissions();
+  }
+
+  Future<void> _checkPermissions() async {
+    final cameraStatus = await Permission.camera.status;
+    final micStatus = await Permission.microphone.status;
+    
+    setState(() {
+      _hasCameraPermission = cameraStatus.isGranted;
+      _hasMicrophonePermission = micStatus.isGranted;
+    });
+    
+    if (!_hasCameraPermission || !_hasMicrophonePermission) {
+      _requestPermissions();
+    }
+  }
+
+  Future<void> _requestPermissions() async {
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.camera,
+      Permission.microphone,
+    ].request();
+    
+    setState(() {
+      _hasCameraPermission = statuses[Permission.camera]?.isGranted ?? false;
+      _hasMicrophonePermission = statuses[Permission.microphone]?.isGranted ?? false;
+    });
+    
+    if (!_hasCameraPermission || !_hasMicrophonePermission) {
+      _showPermissionDialog();
+    }
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Permissions Required'),
+        content: const Text('Camera and microphone permissions are required for live streaming. Please grant them in settings.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _initService() async {
+    await LiveStreamService.initSocket();
   }
 
   @override
   void dispose() {
+    LiveStreamService.dispose();
     _tabController.dispose();
     _titleCtrl.dispose();
     _descCtrl.dispose();
@@ -159,61 +131,138 @@ class _GoLiveScreenState extends State<GoLiveScreen>
     super.dispose();
   }
 
-  // ── Data ─────────────────────────────────────────
+  String _t(String en, String hi) =>
+      _selectedLanguage == 'Hindi' ? hi : en;
+
+  Future<bool> _checkAuth() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.status != AuthStatus.authenticated) {
+      _showAuthDialog();
+      return false;
+    }
+    return true;
+  }
+
+  void _showAuthDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Login Required'),
+        content: const Text('Please login to access live streams.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text('Go to Login'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _loadStreams() async {
-    setState(() { _isLoading = true; _error = null; });
+    if (!await _checkAuth()) return;
+    
+    setState(() { 
+      _isLoading = true; 
+      _error = null; 
+    });
     try {
-      final live     = await _service.getLiveStreams(status: 'live');
-      final featured = await _service.getFeaturedStreams();
+      final live = await LiveStreamService.getLiveStreams(status: 'live');
+      final featured = live.take(3).toList();
       setState(() {
-        _liveStreams     = live;
+        _liveStreams = live;
         _featuredStreams = featured;
         _isLoading = false;
       });
     } catch (e) {
-      setState(() { _error = e.toString(); _isLoading = false; });
+      final errorStr = e.toString();
+      if (errorStr.contains('401') || errorStr.contains('unauthorized')) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.logout();
+        _showAuthDialog();
+      } else {
+        setState(() { 
+          _error = errorStr; 
+          _isLoading = false; 
+        });
+      }
     }
   }
 
-  // ── Create stream ────────────────────────────────
   Future<void> _createStream() async {
+    if (!await _checkAuth()) return;
+    
+    // Check permissions
+    if (!_hasCameraPermission || !_hasMicrophonePermission) {
+      _showPermissionDialog();
+      return;
+    }
+    
     if (!_acceptTerms) {
-      _snack(_t('Please accept Terms & Conditions',
-                 'कृपया नियम व शर्तें स्वीकार करें'), isError: true);
+      _snack(_t('Please accept Terms & Conditions', 'कृपया नियम स्वीकार करें'), isError: true);
       return;
     }
     if (_titleCtrl.text.trim().isEmpty) {
-      _snack(_t('Please enter a title', 'कृपया शीर्षक दर्ज करें'), isError: true);
+      _snack(_t('Please enter title', 'शीर्षक दर्ज करें'), isError: true);
       return;
     }
 
     setState(() => _isCreating = true);
     try {
       final data = {
-        'title':        _titleCtrl.text.trim(),
-        'description':  _descCtrl.text.trim(),
-        'streamType':   _streamType,
+        'title': _titleCtrl.text.trim(),
+        'description': _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+        'streamType': _streamType,
         'streamQuality': _quality,
-        'category':     _category,
-        'isPrivate':    _isPrivate,
+        'isPrivate': _isPrivate,
         'pricing': {
-          'type':     _pricing,
-          'amount':   _pricing == 'free' ? 0 : _priceAmount,
+          'type': _pricing,
+          'amount': _pricing == 'free' ? 0 : _priceAmount,
           'currency': 'INR',
         },
-        'lookingFor':   _lookingFor,
-        'requirements': _reqCtrl.text.trim(),
+        'lookingFor': _lookingFor,
+        'requirements': _reqCtrl.text.trim().isEmpty ? null : _reqCtrl.text.trim(),
       };
 
-      final stream = await _service.createLiveStream(data);
+      final stream = await LiveStreamService.createStream(data);
+      debugPrint('🎥 Created stream ${stream.id}, starting...');
+      await LiveStreamService.startStream(stream.id);
+      debugPrint('✅ Stream ${stream.id} started, navigating to player');
 
       if (mounted) {
-        Navigator.push(context, MaterialPageRoute(
-          builder: (_) => LiveStreamPlayerScreen(stream: stream),
-        ));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LivePlayerScreen(
+              streamId: stream.id,
+              isHost: true,
+            ),
+          ),
+        );
       }
     } catch (e) {
-      if (mounted) _snack('${_t("Error","त्रुटि")}: $e', isError: true);
+      debugPrint('❌ GoLive _createStream error: $e');
+      String errorMsg = _t('Failed to start stream. Please try again.', 'स्ट्रीम शुरू करने में विफल। पुनः प्रयास करें।');
+      
+      if (e.toString().contains('401') || e.toString().contains('unauthorized')) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.logout();
+        errorMsg = _t('Session expired. Please login again.', 'सत्र समाप्त। कृपया पुनः लॉगिन करें।');
+        _showAuthDialog();
+      } else if (e.toString().contains('permission')) {
+        errorMsg = _t('Camera/Microphone permission denied. Please grant permissions.', 'कैमरा/माइक्रोफोन अनुमति अस्वीकृत। कृपया अनुमति दें।');
+        _requestPermissions();
+      }
+      
+      if (mounted) _snack(errorMsg, isError: true);
     } finally {
       if (mounted) setState(() => _isCreating = false);
     }
@@ -223,25 +272,24 @@ class _GoLiveScreenState extends State<GoLiveScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: isError ? AppColors.error : AppColors.success,
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 3),
     ));
   }
 
-  // ── Language dialog ──────────────────────────────
   void _showLangDialog() {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(_t('Select Language', 'भाषा चुनें')),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: _languages.map((lang) => ListTile(
-            leading: Text(lang == 'Hindi' ? '🇮🇳' : '🇺🇸',
-                style: const TextStyle(fontSize: 22)),
+            leading: Text(lang == 'Hindi' ? '🇮🇳' : '🇺🇸', style: const TextStyle(fontSize: 22)),
             title: Text(lang),
-            trailing: _selectedLanguage == lang
-                ? const Icon(Icons.check_circle, color: AppColors.primary)
-                : null,
+            trailing: _selectedLanguage == lang 
+              ? const Icon(Icons.check_circle, color: AppColors.primary)
+              : null,
             onTap: () {
               setState(() => _selectedLanguage = lang);
               Navigator.pop(context);
@@ -252,156 +300,184 @@ class _GoLiveScreenState extends State<GoLiveScreen>
     );
   }
 
-  // ─────────────────────────────────────────────────
-  //  BUILD
-  // ─────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end:   Alignment.bottomRight,
-            colors: [Color(0xFF1E88E5), Color(0xFF1565C0)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // ── Header ──────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Text(
-                        _t('Go Live', 'लाइव जाएं'),
-                        style: const TextStyle(
-                          color: Colors.white, fontSize: 22,
-                          fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    // Language pill
-                    GestureDetector(
-                      onTap: _showLangDialog,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(_selectedLanguage == 'Hindi' ? '🇮🇳' : '🇺🇸',
-                                style: const TextStyle(fontSize: 16)),
-                            const SizedBox(width: 6),
-                            Text(_selectedLanguage,
-                                style: const TextStyle(color: Colors.white,
-                                    fontSize: 13)),
-                            const Icon(Icons.arrow_drop_down,
-                                color: Colors.white, size: 18),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                ),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        if (authProvider.status == AuthStatus.loading) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return Scaffold(
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1E88E5), Color(0xFF1565C0)],
               ),
-
-              // ── Tab Bar ──────────────────────────────
-              Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  indicator: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: Colors.white,
-                  labelStyle: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 11),
-                  tabs: [
-                    Tab(text: _t('🔴 Live Now', '🔴 अभी लाइव')),
-                    Tab(text: _t('📺 Go Live', '📺 लाइव करें')),
-                    Tab(text: _t('📋 Watch', '📋 देखें')),
-                    Tab(text: _t('❓ Help', '❓ सहायता')),
-                  ],
-                ),
-              ),
-
-              // ── Tab Body ─────────────────────────────
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(20)),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(20)),
-                    child: TabBarView(
-                      controller: _tabController,
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Row(
                       children: [
-                        _buildLiveNowTab(),
-                        _buildGoLiveTab(),
-                        _buildWatchTab(),
-                        _buildHelpTab(),
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
+                          child: Text(
+                            _t('Go Live', 'लाइव जाएं'),
+                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        if (authProvider.status == AuthStatus.authenticated)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle, color: Colors.green, size: 16),
+                                    SizedBox(width: 4),
+                                    Text('Logged In', style: TextStyle(color: Colors.white, fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                          )
+                        else
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Login', style: TextStyle(color: Colors.white)),
+                          ),
+                        GestureDetector(
+                          onTap: _showLangDialog,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(_selectedLanguage == 'Hindi' ? '🇮🇳' : '🇺🇸', style: const TextStyle(fontSize: 16)),
+                                const SizedBox(width: 6),
+                                Text(_selectedLanguage, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                                const Icon(Icons.arrow_drop_down, color: Colors.white, size: 18),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
+                  // Permission warning banner
+                  if (!_hasCameraPermission || !_hasMicrophonePermission)
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning, color: Colors.white, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _t('Camera/Microphone permission required', 'कैमरा/माइक्रोफोन अनुमति आवश्यक'),
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _requestPermissions,
+                            child: const Text('Grant', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TabBar(
+                      controller: _tabController,
+                      indicator: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      labelColor: AppColors.primary,
+                      unselectedLabelColor: Colors.white,
+                      tabs: [
+                        Tab(text: _t('🔴 Live Now', '🔴 अभी लाइव')),
+                        Tab(text: _t('📺 Go Live', '📺 लाइव करें')),
+                        Tab(text: _t('📋 Watch', '📋 देखें')),
+                        Tab(text: _t('❓ Help', '❓ सहायता')),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      ),
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildLiveNowTab(),
+                          _buildGoLiveTab(),
+                          _buildWatchTab(), 
+                          _buildHelpTab(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  // ─────────────────────────────────────────────────
-  //  TAB 1 – LIVE NOW
-  // ─────────────────────────────────────────────────
   Widget _buildLiveNowTab() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+            Icon(Icons.error_outline, size: 48, color: AppColors.error),
             const SizedBox(height: 12),
-            Text(_t('Error loading streams', 'स्ट्रीम लोड करने में त्रुटि'),
-                style: const TextStyle(fontSize: 16)),
+            Text(_t('Error loading streams', 'स्ट्रीम लोड में त्रुटि'), style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _loadStreams,
-              child: Text(_t('Retry', 'पुनः प्रयास')),
-            ),
+            ElevatedButton(onPressed: _loadStreams, child: Text(_t('Retry', 'पुनः प्रयास'))),
           ],
         ),
       );
     }
 
     final all = [..._featuredStreams, ..._liveStreams];
-
+    
     if (all.isEmpty) {
       return Center(
         child: Column(
@@ -409,9 +485,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
           children: [
             Icon(Icons.live_tv, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text(_t('No live streams', 'कोई लाइव स्ट्रीम नहीं'),
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(_t('No live streams', 'कोई लाइव स्ट्रीम नहीं'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => _tabController.animateTo(1),
@@ -428,104 +502,86 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: all.length,
-        itemBuilder: (_, i) => _buildStreamCard(
-            all[i], isFeatured: i < _featuredStreams.length),
+        itemBuilder: (_, i) => _buildStreamCard(all[i], isFeatured: i < _featuredStreams.length),
       ),
     );
   }
 
-  Widget _buildStreamCard(LiveStreamModel stream,
-      {bool isFeatured = false}) {
+  Widget _buildStreamCard(LiveStreamModel stream, {bool isFeatured = false}) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => LiveStreamPlayerScreen(stream: stream))),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LivePlayerScreen(
+            streamId: stream.id,
+            isHost: false,
+          ),
+        ),
+      ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: isFeatured
-              ? Border.all(color: AppColors.secondary, width: 2)
-              : null,
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4))
-          ],
+          border: isFeatured ? Border.all(color: AppColors.secondary, width: 2) : null,
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail
             Stack(
               children: [
                 Container(
                   height: 170,
                   decoration: BoxDecoration(
                     color: Colors.grey[300],
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(14)),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                   ),
                   child: stream.thumbnail != null
-                      ? ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(14)),
-                          child: Image.network(stream.thumbnail!,
-                              fit: BoxFit.cover, width: double.infinity),
-                        )
-                      : Center(
-                          child: Icon(Icons.live_tv,
-                              size: 56, color: Colors.grey[500])),
+                    ? ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                        child: Image.network(
+                          stream.thumbnail!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Icon(Icons.broken_image, size: 40, color: Colors.grey[400]),
+                          ),
+                        ),
+                      )
+                    : Center(child: Icon(Icons.live_tv, size: 56, color: Colors.grey[500])),
                 ),
-                // LIVE badge
-                Positioned(
-                  top: 10, left: 10,
-                  child: _liveBadge(stream),
-                ),
-                // Viewer count
+                Positioned(top: 10, left: 10, child: _liveBadge(stream)),
                 Positioned(
                   bottom: 10, right: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.visibility,
-                            color: Colors.white, size: 13),
+                        Icon(Icons.visibility, color: Colors.white, size: 13),
                         const SizedBox(width: 4),
-                        Text('${stream.viewerCount}',
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 12)),
+                        Text('${stream.viewerCount}', style: const TextStyle(color: Colors.white, fontSize: 12)),
                       ],
                     ),
                   ),
                 ),
               ],
             ),
-            // Info
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(stream.title,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.bold),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
+                  Text(stream.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       _chip(stream.streamTypeDisplay, AppColors.primary),
                       if (!stream.isFree) ...[
                         const SizedBox(width: 8),
-                        _chip(stream.pricing!.displayPrice,
-                            AppColors.secondary),
+                        _chip(stream.pricing?.displayPrice ?? 'Paid', AppColors.secondary),
                       ],
                     ],
                   ),
@@ -538,130 +594,75 @@ class _GoLiveScreenState extends State<GoLiveScreen>
     );
   }
 
-  Widget _liveBadge(LiveStreamModel stream) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: stream.isLive ? AppColors.error : Colors.grey,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (stream.isLive) ...[
-              const Icon(Icons.circle, color: Colors.white, size: 7),
-              const SizedBox(width: 4),
-            ],
-            Text(stream.statusDisplay,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11)),
-          ],
-        ),
-      );
-
   Widget _chip(String label, Color color) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-            color: color.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(6)),
-        child: Text(label,
-            style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w600)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+    child: Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+  );
 
-  // ─────────────────────────────────────────────────
-  //  TAB 2 – GO LIVE (FORM)
-  // ─────────────────────────────────────────────────
+  Widget _liveBadge(LiveStreamModel stream) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: stream.isLive ? AppColors.error : Colors.grey, borderRadius: BorderRadius.circular(4)),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (stream.isLive) ...[
+          Icon(Icons.circle, color: Colors.white, size: 7),
+          const SizedBox(width: 4),
+        ],
+        Text(stream.statusDisplay, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+      ],
+    ),
+  );
+
   Widget _buildGoLiveTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Stream Type ──────────────────────────
-          _sectionTitle(
-              _t('🎥 Stream Type', '🎥 स्ट्रीम प्रकार')),
-          const SizedBox(height: 12),
-          Column(
-            children: [
-              _streamTypeCard(
-                value:    'mobile',
-                emoji:    '📱',
-                title:    _t('Mobile Camera', 'मोबाइल कैमरा'),
-                subtitle: _t('Use your phone camera',
-                             'अपने फोन कैमरे का उपयोग करें'),
+          // Permission Status Indicator
+          if (!_hasCameraPermission || !_hasMicrophonePermission)
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
               ),
-              const SizedBox(height: 8),
-              _streamTypeCard(
-                value:    'professional',
-                emoji:    '🎬',
-                title:    _t('Professional Camera', 'प्रोफेशनल कैमरा'),
-                subtitle: _t('DSLR / External camera',
-                             'DSLR / बाहरी कैमरा'),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _t('Camera and microphone permissions needed to go live', 'लाइव जाने के लिए कैमरा और माइक्रोफोन अनुमति आवश्यक'),
+                      style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              _streamTypeCard(
-                value:    'session',
-                emoji:    '🎓',
-                title:    _t('Live Session', 'लाइव सेशन'),
-                subtitle: _t('Teaching / coaching',
-                             'शिक्षण / कोचिंग'),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── Quality ──────────────────────────────
-          _sectionTitle(_t('✨ Quality', '✨ गुणवत्ता')),
+            ),
+          
+          _sectionTitle(_t('🎥 Stream Type', 'स्ट्रीम प्रकार')),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _qualityChip('720p',  '720p HD'),
-              _qualityChip('1080p', '1080p Full HD'),
-              _qualityChip('4k',    '4K Ultra HD'),
-            ],
-          ),
-
+          _streamTypeCard('mobile', '📱', _t('Mobile Camera', 'मोबाइल कैमरा'), _t('Phone camera', 'फोन कैमरा')),
+          _streamTypeCard('professional', '🎬', _t('Professional', 'प्रोफेशनल'), _t('DSLR/External', 'DSLR')),
+          
           const SizedBox(height: 24),
-
-          // ── Looking For ──────────────────────────
-          _sectionTitle(_t('👥 Looking For', '👥 क्या चाहिए')),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _lookChip('co-host',     _t('🤝 Co-host',     '🤝 को-होस्ट')),
-              _lookChip('commentator', _t('🎙️ Commentator', '🎙️ कमेंटेटर')),
-              _lookChip('analyst',     _t('📊 Analyst',     '📊 विश्लेषक')),
-              _lookChip('viewer',      _t('👀 Viewers',     '👀 दर्शक')),
-              _lookChip('player',      _t('🏏 Player',      '🏏 खिलाड़ी')),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── Stream Details ────────────────────────
-          _sectionTitle(_t('📝 Stream Details', '📝 स्ट्रीम विवरण')),
-          const SizedBox(height: 12),
+          _sectionTitle(_t('📝 Details', 'विवरण')),
           TextField(
             controller: _titleCtrl,
             decoration: InputDecoration(
               labelText: _t('Title *', 'शीर्षक *'),
-              hintText:  _t('Enter stream title', 'स्ट्रीम शीर्षक दर्ज करें'),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              hintText: _t('Enter stream title', 'स्ट्रीम का शीर्षक दर्ज करें'),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: Colors.grey[50],
+              prefixIcon: const Icon(Icons.title),
             ),
+            maxLength: 100,
           ),
           const SizedBox(height: 12),
           TextField(
@@ -669,953 +670,217 @@ class _GoLiveScreenState extends State<GoLiveScreen>
             maxLines: 3,
             decoration: InputDecoration(
               labelText: _t('Description', 'विवरण'),
-              hintText:  _t('Tell viewers what this is about',
-                            'दर्शकों को बताएं यह किस बारे में है'),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              hintText: _t('Tell viewers about your stream', 'दर्शकों को अपने स्ट्रीम के बारे में बताएं'),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: Colors.grey[50],
+              alignLabelWithHint: true,
             ),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _reqCtrl,
-            decoration: InputDecoration(
-              labelText: _t('Requirements', 'आवश्यकताएं'),
-              hintText:
-                  _t('e.g. Wear team jersey', 'जैसे टीम जर्सी पहनें'),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              filled: true,
-              fillColor: Colors.grey[50],
-            ),
-          ),
-
           const SizedBox(height: 24),
-
-          // ── Pricing ───────────────────────────────
-          _sectionTitle(_t('💰 Pricing', '💰 मूल्य निर्धारण')),
-          const SizedBox(height: 12),
+          _sectionTitle(_t('💰 Pricing', 'मूल्य')),
           Row(
             children: [
-              Expanded(child: _pricingCard('free', _t('Free', 'मुफ़्त'), '₹0')),
+              Expanded(child: _pricingCard('free', _t('Free', 'मुफ्त'), '₹0')),
               const SizedBox(width: 12),
-              Expanded(
-                  child: _pricingCard(
-                      'paid', _t('Paid', 'सशुल्क'), '₹${_priceAmount.toInt()}')),
+              Expanded(child: _pricingCard('paid', _t('Paid', 'सशुल्क'), '₹${_priceAmount.toInt()}')),
             ],
           ),
-          if (_pricing == 'paid') ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Text(_t('Amount (₹): ', 'राशि (₹): '),
-                    style:
-                        const TextStyle(fontWeight: FontWeight.w600)),
-                Expanded(
-                  child: Slider(
-                    value: _priceAmount,
-                    min: 10,
-                    max: 999,
-                    divisions: 98,
-                    label: '₹${_priceAmount.toInt()}',
-                    activeColor: AppColors.secondary,
-                    onChanged: (v) =>
-                        setState(() => _priceAmount = v),
+          if (_pricing == 'paid')
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(
+                children: [
+                  const Text('Amount: '),
+                  Expanded(
+                    child: Slider(
+                      value: _priceAmount,
+                      min: 10,
+                      max: 1000,
+                      divisions: 99,
+                      label: '₹${_priceAmount.toInt()}',
+                      onChanged: (v) => setState(() => _priceAmount = v),
+                    ),
                   ),
-                ),
-                Text('₹${_priceAmount.toInt()}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.secondary)),
-              ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('₹${_priceAmount.toInt()}'),
+                  ),
+                ],
+              ),
             ),
-          ],
-
-          const SizedBox(height: 8),
-
-          // ── Private switch ────────────────────────
-          Card(
-            elevation: 0,
-            color: Colors.grey[100],
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
-            child: SwitchListTile(
-              title: Text(_t('Private Stream', 'प्राइवेट स्ट्रीम'),
-                  style:
-                      const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(
-                  _t('Only invited people can watch',
-                     'केवल आमंत्रित लोग देख सकते हैं'),
-                  style: const TextStyle(fontSize: 12)),
-              value: _isPrivate,
-              activeColor: AppColors.primary,
-              onChanged: (v) => setState(() => _isPrivate = v),
-            ),
+          SwitchListTile(
+            title: Text(_t('Private Stream', 'प्राइवेट स्ट्रीम')),
+            subtitle: Text(_t('Only invited users can join', 'केवल आमंत्रित उपयोगकर्ता जुड़ सकते हैं')),
+            value: _isPrivate,
+            onChanged: (v) => setState(() => _isPrivate = v),
+            activeColor: AppColors.primary,
           ),
-
-          const SizedBox(height: 8),
-
-          // ── Terms ─────────────────────────────────
-          Card(
-            elevation: 0,
-            color: _acceptTerms
-                ? AppColors.success.withOpacity(0.08)
-                : Colors.grey[100],
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                    color: _acceptTerms
-                        ? AppColors.success
-                        : Colors.transparent)),
-            child: CheckboxListTile(
-              value: _acceptTerms,
-              onChanged: (v) =>
-                  setState(() => _acceptTerms = v ?? false),
-              title: Text(
-                  _t('I accept Terms & Conditions',
-                     'मैं नियम व शर्तें स्वीकार करता/करती हूं'),
-                  style:
-                      const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(
-                  _t('Please read before streaming',
-                     'स्ट्रीम करने से पहले पढ़ें'),
-                  style: const TextStyle(fontSize: 12)),
-              controlAffinity: ListTileControlAffinity.leading,
-              activeColor: AppColors.success,
-            ),
+          CheckboxListTile(
+            title: Text(_t('I accept the Terms & Conditions', 'मैं नियम और शर्तें स्वीकार करता हूं')),
+            value: _acceptTerms,
+            onChanged: (v) => setState(() => _acceptTerms = v ?? false),
+            activeColor: AppColors.success,
+            controlAffinity: ListTileControlAffinity.leading,
           ),
-
           const SizedBox(height: 20),
-
-          // ── Start Button ──────────────────────────
           SizedBox(
             width: double.infinity,
             height: 56,
             child: ElevatedButton.icon(
-              onPressed: (_acceptTerms && !_isCreating)
-                  ? _createStream
+              onPressed: (_acceptTerms && !_isCreating && _hasCameraPermission && _hasMicrophonePermission) 
+                  ? _createStream 
                   : null,
               icon: _isCreating
                   ? const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
                   : const Icon(Icons.live_tv),
               label: Text(
-                _isCreating
-                    ? _t('Starting...', 'शुरू हो रहा है...')
-                    : _t('Start Streaming', 'स्ट्रीमिंग शुरू करें'),
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold),
+                _isCreating 
+                    ? _t('Starting...', 'शुरू हो रहा है') 
+                    : _t('Start Live Stream', 'लाइव स्ट्रीम शुरू करें'),
+                style: const TextStyle(fontSize: 16),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _acceptTerms
-                    ? AppColors.primary
-                    : Colors.grey[400],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                elevation: _acceptTerms ? 4 : 0,
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
             ),
           ),
-
           const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _sectionTitle(String text) => Text(text,
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold));
+  Widget _pricingCard(String value, String title, String price) {
+    final selected = _pricing == value;
+    final color = value == 'free' ? AppColors.success : AppColors.secondary;
+    return GestureDetector(
+      onTap: () => setState(() => _pricing = value),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: selected ? color.withOpacity(0.1) : Colors.grey[100],
+          border: Border.all(color: selected ? color : Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: selected ? color : null)),
+            const SizedBox(height: 4),
+            Text(price, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: selected ? color : null)),
+          ],
+        ),
+      ),
+    );
+  }
 
-  // Stream type full-width card
-  Widget _streamTypeCard({
-    required String value,
-    required String emoji,
-    required String title,
-    required String subtitle,
-  }) {
+  Widget _streamTypeCard(String value, String emoji, String title, String subtitle) {
     final selected = _streamType == value;
     return GestureDetector(
       onTap: () => setState(() => _streamType = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary.withOpacity(0.08)
-              : Colors.grey[100],
+          color: selected ? AppColors.primary.withOpacity(0.08) : Colors.grey[100],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? AppColors.primary : Colors.grey.shade300,
-            width: selected ? 2 : 1,
-          ),
+          border: Border.all(color: selected ? AppColors.primary : Colors.transparent),
         ),
         child: Row(
           children: [
             Container(
-              width: 48, height: 48,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.primary.withOpacity(0.15)
-                    : Colors.white,
+                color: selected ? AppColors.primary.withOpacity(0.15) : Colors.white,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Center(
-                  child: Text(emoji,
-                      style: const TextStyle(fontSize: 26))),
+              child: Center(child: Text(emoji, style: const TextStyle(fontSize: 26))),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: selected
-                              ? AppColors.primary
-                              : Colors.black87)),
-                  const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey[600])),
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: selected ? AppColors.primary : null)),
+                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 ],
               ),
             ),
-            Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_off,
-              color: selected ? AppColors.primary : Colors.grey,
-            ),
+            Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, color: selected ? AppColors.primary : Colors.grey),
           ],
         ),
       ),
     );
   }
 
-  Widget _qualityChip(String value, String label) {
-    final sel = _quality == value;
-    return GestureDetector(
-      onTap: () => setState(() => _quality = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: sel ? AppColors.primary : Colors.grey[200],
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: sel ? Colors.white : Colors.black87,
-                fontWeight:
-                    sel ? FontWeight.bold : FontWeight.normal)),
-      ),
-    );
-  }
+  Widget _sectionTitle(String text) => Text(
+    text, 
+    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+  );
 
-  Widget _lookChip(String value, String label) {
-    final sel = _lookingFor.contains(value);
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          sel ? _lookingFor.remove(value) : _lookingFor.add(value);
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: sel ? AppColors.secondary : Colors.grey[200],
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: sel ? Colors.white : Colors.black87,
-                fontWeight:
-                    sel ? FontWeight.bold : FontWeight.normal)),
-      ),
-    );
-  }
-
-  Widget _pricingCard(String value, String title, String price) {
-    final sel      = _pricing == value;
-    final isFree   = value == 'free';
-    final color    = isFree ? AppColors.success : AppColors.secondary;
-    return GestureDetector(
-      onTap: () => setState(() => _pricing = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: sel ? color.withOpacity(0.1) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: sel ? color : Colors.grey.shade300,
-              width: sel ? 2 : 1),
-        ),
-        child: Column(
-          children: [
-            Text(title,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: sel ? color : Colors.grey[700])),
-            const SizedBox(height: 4),
-            Text(price,
-                style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: sel ? color : Colors.grey[700])),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────
-  //  TAB 3 – WATCH (reuse Live Now)
-  // ─────────────────────────────────────────────────
   Widget _buildWatchTab() => _buildLiveNowTab();
+  
+  Widget _buildHelpTab() => SingleChildScrollView(
+    padding: const EdgeInsets.all(20),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(_t('Need Help?', 'सहायता चाहिए?'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        _faqItem(
+          _t('How to start a live stream?', 'लाइव स्ट्रीम कैसे शुरू करें?'),
+          _t('1. Grant camera/microphone permissions\n2. Fill in stream details\n3. Accept terms\n4. Click "Start Live Stream"', 
+             '1. कैमरा/माइक्रोफोन अनुमति दें\n2. स्ट्रीम विवरण भरें\n3. नियम स्वीकार करें\n4. "लाइव स्ट्रीम शुरू करें" क्लिक करें'),
+        ),
+        _faqItem(
+          _t('What equipment do I need?', 'क्या उपकरण चाहिए?'),
+          _t('• Smartphone with good camera\n• Stable internet (5Mbps+)\n• Good lighting\n• External mic (optional)', 
+             '• अच्छे कैमरे वाला स्मार्टफोन\n• स्थिर इंटरनेट (5Mbps+)\n• अच्छी रोशनी\n• बाहरी माइक (वैकल्पिक)'),
+        ),
+        _faqItem(
+          _t('How to earn from streams?', 'स्ट्रीम से कैसे कमाएं?'),
+          _t('Set your stream as "Paid" and set the price. Viewers will pay to watch your stream.', 
+             'अपनी स्ट्रीम को "सशुल्क" सेट करें और मूल्य निर्धारित करें। दर्शक आपकी स्ट्रीम देखने के लिए भुगतान करेंगे।'),
+        ),
+        _faqItem(
+          _t('Stream quality settings', 'स्ट्रीम गुणवत्ता सेटिंग्स'),
+          _t('• 720p - Good for mobile data\n• 1080p - Best for WiFi\n• 4K - Requires very fast internet', 
+             '• 720p - मोबाइल डेटा के लिए अच्छा\n• 1080p - WiFi के लिए सर्वश्रेष्ठ\n• 4K - बहुत तेज़ इंटरनेट चाहिए'),
+        ),
+        _faqItem(
+          _t('Having technical issues?', 'तकनीकी समस्या?'),
+          _t('Contact support: support@scores11.com\nOr call: +91-XXXXXXXXXX', 
+             'सहायता से संपर्क करें: support@scores11.com\nया कॉल करें: +91-XXXXXXXXXX'),
+        ),
+      ],
+    ),
+  );
 
-  // ─────────────────────────────────────────────────
-  //  TAB 4 – HELP
-  // ─────────────────────────────────────────────────
-  Widget _buildHelpTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // What You Get
-          _sectionTitle(_t('🎁 What You Get', '🎁 आपको क्या मिलेगा')),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 160,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _getCard('📡', _t('Live Streaming', 'लाइव स्ट्रीमिंग'),
-                    _t('Broadcast to thousands', 'हजारों को प्रसारित करें')),
-                _getCard('💬', _t('Live Chat', 'लाइव चैट'),
-                    _t('Interact with viewers', 'दर्शकों से बातचीत करें')),
-                _getCard('👥', _t('Find Players', 'खिलाड़ी खोजें'),
-                    _t('Recruit for your team', 'टीम के लिए भर्ती करें')),
-                _getCard('🏆', _t('Earn Money', 'पैसे कमाएं'),
-                    _t('Paid streams & gifts', 'सशुल्क स्ट्रीम')),
-                _getCard('📊', _t('Analytics', 'विश्लेषण'),
-                    _t('Track your growth', 'अपनी वृद्धि ट्रैक करें')),
-              ],
-            ),
+  Widget _faqItem(String q, String a) => Card(
+    margin: const EdgeInsets.only(bottom: 12),
+    elevation: 1,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: ExpansionTile(
+      title: Text(q, style: const TextStyle(fontWeight: FontWeight.w600)),
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            a,
+            style: TextStyle(color: Colors.grey[700], height: 1.5),
           ),
-
-          const SizedBox(height: 24),
-
-          // What You Need
-          _sectionTitle(
-              _t('🛠️ What You Need', '🛠️ आपको क्या चाहिए')),
-          const SizedBox(height: 12),
-          _needItem('📱', _t('Smartphone', 'स्मार्टफोन'),
-              _t('Any modern phone with camera',
-                 'कैमरे वाला कोई भी आधुनिक फोन')),
-          _needItem('🌐', _t('Internet', 'इंटरनेट'),
-              _t('Stable connection (5+ Mbps)', 'स्थिर कनेक्शन (5+ Mbps)')),
-          _needItem('🔋', _t('Power', 'पावर'),
-              _t('Charging recommended while live',
-                 'लाइव के दौरान चार्जिंग सुझाई जाती है')),
-          _needItem('💡', _t('Lighting', 'रोशनी'),
-              _t('Good lighting for clear video',
-                 'स्पष्ट वीडियो के लिए अच्छी रोशनी')),
-
-          const SizedBox(height: 24),
-
-          // FAQ
-          _sectionTitle(_t('❓ FAQ', '❓ अक्सर पूछे जाने वाले सवाल')),
-          const SizedBox(height: 12),
-          _faqItem(
-            _t('How do I start streaming?',
-               'स्ट्रीमिंग कैसे शुरू करें?'),
-            _t('Go to "Go Live" tab → select type → add title → tap Start Streaming.',
-               '"लाइव जाएं" टैब पर जाएं → प्रकार चुनें → शीर्षक जोड़ें → "स्ट्रीमिंग शुरू करें" दबाएं।'),
-          ),
-          _faqItem(
-            _t('Which camera should I choose?',
-               'कौन सा कैमरा चुनें?'),
-            _t('Use "Mobile Camera" for quick streams. Choose "Professional Camera" for high-quality DSLR/external camera setup.',
-               'त्वरित स्ट्रीम के लिए "मोबाइल कैमरा" चुनें। उच्च गुणवत्ता DSLR के लिए "प्रोफेशनल कैमरा" चुनें।'),
-          ),
-          _faqItem(
-            _t('How to earn money?',
-               'पैसे कैसे कमाएं?'),
-            _t('Select "Paid" pricing and set your amount. Viewers pay before joining your stream.',
-               '"सशुल्क" मूल्य निर्धारण चुनें और राशि तय करें। दर्शक शामिल होने से पहले भुगतान करते हैं।'),
-          ),
-          _faqItem(
-            _t('Can I stream cricket matches?',
-               'क्या मैं क्रिकेट मैच स्ट्रीम कर सकता हूं?'),
-            _t('Yes! Use "Live Session" type to commentate and stream live matches.',
-               'हां! लाइव मैचों की कमेंट्री के लिए "लाइव सेशन" प्रकार चुनें।'),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Premium banner
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark]),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.workspace_premium,
-                        color: Colors.amber, size: 30),
-                    const SizedBox(width: 8),
-                    Text(
-                        _t('Go Premium', 'प्रीमियम लें'),
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                    _t('Unlock all features!',
-                       'सभी सुविधाएं अनलॉक करें!'),
-                    style: const TextStyle(color: Colors.white70)),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10))),
-                    child: Text(
-                        _t('Purchase Plan', 'प्लान खरीदें'),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _getCard(String emoji, String title, String sub) =>
-      Container(
-        width: 140,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [
-            AppColors.primary.withOpacity(0.08),
-            AppColors.secondary.withOpacity(0.08),
-          ]),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 34)),
-            const SizedBox(height: 8),
-            Text(title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 13),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 4),
-            Text(sub,
-                style: TextStyle(
-                    fontSize: 11, color: Colors.grey[600]),
-                textAlign: TextAlign.center),
-          ],
-        ),
-      );
-
-  Widget _needItem(String emoji, String title, String desc) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 48, height: 48,
-              decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12)),
-              child: Center(
-                  child:
-                      Text(emoji, style: const TextStyle(fontSize: 22))),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style:
-                          const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(desc,
-                      style: TextStyle(
-                          color: Colors.grey[600], fontSize: 12)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _faqItem(String q, String a) => ExpansionTile(
-        title: Text(q,
-            style: const TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 14)),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(a, style: TextStyle(color: Colors.grey[700], fontSize: 13))
-        ],
-      );
-}
-
-// ─────────────────────────────────────────────────────────
-//  LIVE STREAM PLAYER SCREEN
-// ─────────────────────────────────────────────────────────
-class LiveStreamPlayerScreen extends StatefulWidget {
-  final LiveStreamModel stream;
-  const LiveStreamPlayerScreen({super.key, required this.stream});
-
-  @override
-  State<LiveStreamPlayerScreen> createState() =>
-      _LiveStreamPlayerScreenState();
-}
-
-class _LiveStreamPlayerScreenState
-    extends State<LiveStreamPlayerScreen> {
-  bool _showScorecard = true;
-
-  final _score = {
-    'team1':    {'name': 'India',     'score': '245/6', 'overs': '42.3'},
-    'team2':    {'name': 'Australia', 'score': '180/2', 'overs': '28.1'},
-    'bat1':     {'name': 'Virat Kohli',   'runs': 67, 'balls': 89, 'fours': 5, 'sixes': 1},
-    'bat2':     {'name': 'Rohit Sharma',  'runs': 42, 'balls': 51, 'fours': 4, 'sixes': 2},
-    'bowler':   {'name': 'Starc', 'overs': '7.3', 'runs': 45, 'wickets': 2},
-    'lastOver': [0, 1, 4, 0, 6, 2],
-    'venue':    'Wankhede Stadium, Mumbai',
-    'format':   'ODI - World Cup',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Video area
-            Expanded(
-              flex: _showScorecard ? 2 : 5,
-              child: Stack(
-                children: [
-                  // Placeholder video
-                  Container(
-                    color: Colors.black,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.live_tv,
-                              size: 72, color: Colors.white38),
-                          const SizedBox(height: 12),
-                          Text(widget.stream.title,
-                              style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 16),
-                              textAlign: TextAlign.center),
-                          const SizedBox(height: 4),
-                          const Text('● LIVE',
-                              style: TextStyle(
-                                  color: AppColors.error,
-                                  fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Top gradient + controls
-                  Positioned(
-                    top: 0, left: 0, right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black87,
-                            Colors.transparent
-                          ],
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back,
-                                color: Colors.white),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          Expanded(
-                            child: Text(widget.stream.title,
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                          ),
-                          _livePill(),
-                          const SizedBox(width: 8),
-                          Text('${widget.stream.viewerCount} 👁',
-                              style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12)),
-                          const SizedBox(width: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Bottom controls
-                  Positioned(
-                    bottom: 0, left: 0, right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Colors.black87,
-                            Colors.transparent
-                          ],
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _ctrl(Icons.thumb_up_outlined,
-                              '${widget.stream.likes}'),
-                          _ctrl(Icons.share_outlined, 'Share'),
-                          _ctrl(Icons.chat_bubble_outline, 'Chat'),
-                          GestureDetector(
-                            onTap: () => setState(
-                                () => _showScorecard =
-                                    !_showScorecard),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _showScorecard
-                                      ? Icons.scoreboard
-                                      : Icons.scoreboard_outlined,
-                                  color: _showScorecard
-                                      ? Colors.amber
-                                      : Colors.white,
-                                  size: 24,
-                                ),
-                                const SizedBox(height: 4),
-                                Text('Score',
-                                    style: TextStyle(
-                                        color: _showScorecard
-                                            ? Colors.amber
-                                            : Colors.white,
-                                        fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Scorecard
-            if (_showScorecard)
-              Expanded(
-                flex: 3,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(20)),
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        // Match info
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                              color: AppColors.primary
-                                  .withOpacity(0.08),
-                              borderRadius:
-                                  BorderRadius.circular(12)),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.sports_cricket,
-                                  color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                        _score['format'] as String,
-                                        style: const TextStyle(
-                                            fontWeight:
-                                                FontWeight.bold)),
-                                    Text(
-                                        _score['venue'] as String,
-                                        style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 12)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _teamRow(_score['team1'] as Map, true),
-                        _teamRow(_score['team2'] as Map, false),
-                        const SizedBox(height: 12),
-                        const Text('Current Batsmen',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        _batsmanRow(
-                            _score['bat1'] as Map, true),
-                        _batsmanRow(
-                            _score['bat2'] as Map, false),
-                        const SizedBox(height: 12),
-                        const Text('Current Bowler',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        _bowlerRow(_score['bowler'] as Map),
-                        const SizedBox(height: 12),
-                        const Text('Last Over',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: (_score['lastOver'] as List)
-                              .map((b) => _ballBubble(b as int))
-                              .toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _livePill() => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-            color: AppColors.error,
-            borderRadius: BorderRadius.circular(4)),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.circle, color: Colors.white, size: 7),
-            SizedBox(width: 4),
-            Text('LIVE',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold)),
-          ],
-        ),
-      );
-
-  Widget _ctrl(IconData icon, String label) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 24),
-          const SizedBox(height: 4),
-          Text(label,
-              style:
-                  const TextStyle(color: Colors.white, fontSize: 12)),
-        ],
-      );
-
-  Widget _teamRow(Map t, bool isLead) => Container(
-        padding: const EdgeInsets.all(12),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: isLead
-              ? AppColors.success.withOpacity(0.08)
-              : Colors.grey[100],
-          borderRadius: BorderRadius.circular(12),
-          border: isLead
-              ? Border.all(color: AppColors.success)
-              : null,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-                child: Text(t['name'] as String,
-                    style: TextStyle(
-                        fontWeight: isLead
-                            ? FontWeight.bold
-                            : FontWeight.normal))),
-            Text(t['score'] as String,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: isLead
-                        ? AppColors.success
-                        : Colors.black)),
-            const SizedBox(width: 6),
-            Text('(${t['overs']})',
-                style: TextStyle(color: Colors.grey[600])),
-            if (isLead) ...[
-              const SizedBox(width: 8),
-              _livePill(),
-            ],
-          ],
-        ),
-      );
-
-  Widget _batsmanRow(Map b, bool isStrike) => Container(
-        padding: const EdgeInsets.all(12),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(12)),
-        child: Row(
-          children: [
-            Icon(
-                isStrike
-                    ? Icons.sports_cricket
-                    : Icons.sports_cricket_outlined,
-                color: AppColors.primary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(b['name'] as String,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold)),
-                  Text(
-                      '${b['fours']} fours  ${b['sixes']} sixes',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey[600])),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('${b['runs']}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20)),
-                Text('${b['balls']} balls',
-                    style: TextStyle(
-                        fontSize: 12, color: Colors.grey[600])),
-              ],
-            ),
-          ],
-        ),
-      );
-
-  Widget _bowlerRow(Map b) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-            color: AppColors.secondary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12)),
-        child: Row(
-          children: [
-            const Icon(Icons.sports_score,
-                color: AppColors.secondary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(b['name'] as String,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold)),
-                  Text('${b['overs']} overs',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey[600])),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('${b['runs']} runs',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold)),
-                Text('${b['wickets']} wkts',
-                    style: const TextStyle(
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13)),
-              ],
-            ),
-          ],
-        ),
-      );
-
-  Widget _ballBubble(int runs) => Container(
-        width: 38, height: 38,
-        margin: const EdgeInsets.only(right: 8),
-        decoration: BoxDecoration(
-          color: runs == 4
-              ? Colors.blue
-              : runs == 6
-                  ? Colors.purple
-                  : runs == 0
-                      ? Colors.red[700]
-                      : Colors.orange,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text('$runs',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14)),
-        ),
-      );
+      ],
+    ),
+  );
 }

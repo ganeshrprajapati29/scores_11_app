@@ -52,6 +52,7 @@ import 'features/subscription/subscription_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/discovery/discovery_screen.dart';
 import 'features/blogs/blogs_screen.dart';
+import 'features/live_stream/live_player_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -102,6 +103,7 @@ class Cric11App extends StatelessWidget {
           '/match-detail': (context) => const MatchDetailScreen(matchId: ''),
           '/create-match': (context) => const CreateMatchScreen(),
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
+          
           '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
           '/scorecard': (context) => const MatchDetailScreen(matchId: ''),
           
@@ -152,6 +154,8 @@ class Cric11App extends StatelessWidget {
           
           // Other Routes
           '/go-live': (context) => const GoLiveScreen(),
+          '/live-player': (context) => LivePlayerScreen(streamId: ''),
+          '/live-match': (context) => LivePlayerScreen(streamId: ''),
           '/discover': (context) => const DiscoveryScreen(),
           '/stats': (context) => const HomeScreen(),
           '/history': (context) => const HomeScreen(),

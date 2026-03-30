@@ -39,7 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       duration: const Duration(milliseconds: 300),
     );
     _screens = [
-      HomeTab(key: const ValueKey('home-tab')),
+const HomeTab(key: ValueKey('home-tab')),
       MatchListScreen(key: const ValueKey('match-list')),
       TournamentListScreen(key: const ValueKey('tournament-list')),
       TeamListScreen(key: const ValueKey('team-list')),
@@ -566,9 +566,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
-// ==================== Home Tab ====================
 class HomeTab extends StatelessWidget {
-  const HomeTab({super.key});
+  const HomeTab({Key? key = const ValueKey('home-tab')});
 
   @override
   Widget build(BuildContext context) {
@@ -587,12 +586,15 @@ class HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Welcome hero
+  // Welcome hero
           _buildWelcomeHero(context),
           const SizedBox(height: 20),
+          
+          // Auto-scrolling banner carousel ✅\n          const SizedBox(height: 220),\n          const _BannerCarousel(),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
+
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

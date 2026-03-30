@@ -1,4 +1,5 @@
-﻿import 'package:shared_preferences/shared_preferences.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserService {
   static const String _userIdKey = 'user_id';
@@ -18,9 +19,15 @@ class UserService {
   }
 
   // Get user ID
-  static Future<String?> getUserId() async {
+static Future<String?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_userIdKey);
+    String? userId = prefs.getString(_userIdKey);
+    if (userId == null || userId.isEmpty) {
+      debugPrint('⚠️ No user ID found, using demo for notifications');
+      await createDemoUser();
+      userId = 'demo_user_123';
+    }
+    return userId;
   }
 
   // Get user name

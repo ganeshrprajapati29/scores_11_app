@@ -1,5 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../../data/models/team_model.dart';
+import '../../../data/services/team_service.dart';
 
 class TeamListScreen extends StatefulWidget {
   const TeamListScreen({super.key});
@@ -9,17 +11,16 @@ class TeamListScreen extends StatefulWidget {
 }
 
 class _TeamListScreenState extends State<TeamListScreen> {
-  List<Map<String, dynamic>> _teams = [];
+  List<Team> _teams = [];
   bool _isLoading = true;
-  int _page = 1;
-  bool _hasMore = true;
   bool _isLoadingMore = false;
   final ScrollController _scrollController = ScrollController();
+  final TeamService _teamService = TeamService();
 
   @override
   void initState() {
     super.initState();
-    _loadTeams();
+    _loadMyTeams();
     _scrollController.addListener(_onScroll);
   }
 
@@ -29,38 +30,24 @@ class _TeamListScreenState extends State<TeamListScreen> {
     super.dispose();
   }
 
-  Future<void> _loadTeams() async {
+  Future<void> _loadMyTeams() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 500)); // Mock API delay
-    setState(() {
-      _teams = [
-        {
-          'id': '1',
-          'name': 'Mumbai Indians',
-          'logo': 'https://via.placeholder.com/60x60/ff0000/ffffff?text=MI',
-          'city': 'Mumbai',
-          'wins': 8,
-          'losses': 2,
-        },
-        {
-          'id': '2',
-          'name': 'Chennai Super Kings',
-          'logo': 'https://via.placeholder.com/60x60/yellow/000000?text=CSK',
-          'city': 'Chennai',
-          'wins': 7,
-          'losses': 3,
-        },
-        {
-          'id': '3',
-          'name': 'Royal Challengers Bangalore',
-          'logo': 'https://via.placeholder.com/60x60/0000ff/ffffff?text=RCB',
-          'city': 'Bengaluru',
-          'wins': 6,
-          'losses': 4,
-        },
-      ];
-      _isLoading = false;
-    });
+    try {
+      final teams = await _teamService.getMyTeams();
+      setState(() {
+        _teams = teams;
+        _isLoading = false;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading teams: $e'), backgroundColor: Colors.red),
+      );
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    // Pagination future expansion
   }
 
   void _onScroll() {
@@ -69,21 +56,11 @@ class _TeamListScreenState extends State<TeamListScreen> {
     }
   }
 
-  Future<void> _loadMore() async {
-    if (_isLoadingMore || !_hasMore) return;
-    setState(() => _isLoadingMore = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    setState(() {
-      _isLoadingMore = false;
-      _hasMore = false; // Mock no more data
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Teams'),
+        title: const Text('My Teams'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
@@ -96,35 +73,45 @@ class _TeamListScreenState extends State<TeamListScreen> {
       body: _isLoading
         ? const Center(child: CircularProgressIndicator())
         : RefreshIndicator(
-            onRefresh: _loadTeams,
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: _teams.length + (_hasMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _teams.length) {
-                  return _isLoadingMore
-                    ? const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    : const SizedBox.shrink();
-                }
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: NetworkImage(_teams[index]['logo']),
-                      onBackgroundImageError: (_, __) {},
-                      child: const Icon(Icons.sports_cricket),
-                    ),
-                    title: Text(_teams[index]['name']),
-                    subtitle: Text('${_teams[index]['city']} • ${_teams[index]['wins']}W-${_teams[index]['losses']}L'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () => Navigator.pushNamed(context, '/team-detail', arguments: _teams[index]['id']),
+            onRefresh: _loadMyTeams,
+            child: _teams.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.sports_cricket, size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      const Text('No teams yet', style: TextStyle(fontSize: 18)),
+                      const SizedBox(height: 8),
+                      Text('Create your first cricket team!', style: TextStyle(color: Colors.grey[600])),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () => Navigator.pushNamed(context, '/create-team'),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Create Team'),
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
+                )
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _teams.length,
+                  itemBuilder: (context, index) {
+                    final team = _teams[index];
+                    return Card(
+                      child: ListTile(
+leading: team.logo?.url != null
+                          ? CircleAvatar(backgroundImage: NetworkImage(team.logo!.url!))
+                          : const CircleAvatar(child: Icon(Icons.sports_cricket)),
+                        title: Text(team.name ?? 'Unnamed Team'),
+                        subtitle: Text('${team.city ?? 'Unknown'}'),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () => Navigator.pushNamed(context, '/team-detail', arguments: team.id),
+                      ),
+                    );
+                  },
+                ),
           ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.pushNamed(context, '/create-team'),

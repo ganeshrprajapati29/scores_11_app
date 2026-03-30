@@ -23,20 +23,37 @@ class BlogModel extends Equatable {
 
   factory BlogModel.fromJson(Map<String, dynamic> json) {
     return BlogModel(
-      id: json['id']?.toString() ?? '',
+      // ✅ FIX 1: _id use karo
+      id: json['_id']?.toString() ?? '',
+
       title: json['title'] ?? 'Untitled',
-      author: json['author']?.toString(),
+
+      // ✅ FIX 2: author object handle
+      author: json['author'] is Map
+          ? json['author']['_id']?.toString()
+          : json['author']?.toString(),
+
       excerpt: json['excerpt'],
       content: json['content'],
-      imageUrl: json['image'] ?? json['imageUrl'],
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
-      updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt']) : null,
+
+      // ✅ FIX 3: image fix
+      imageUrl: json['image'] is Map
+          ? json['image']['url']
+          : json['image'] ?? json['imageUrl'],
+
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'])
+          : null,
+
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'])
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      '_id': id, // ✅ FIX
       'title': title,
       'author': author,
       'excerpt': excerpt,
@@ -48,5 +65,6 @@ class BlogModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, title, author, excerpt, content, imageUrl, createdAt, updatedAt];
+  List<Object?> get props =>
+      [id, title, author, excerpt, content, imageUrl, createdAt, updatedAt];
 }

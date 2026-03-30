@@ -1,12 +1,18 @@
-# Flutter Compilation Errors Fix - COMPLETE
+# Crick11 Flutter App Fix TODO
+## Status: Plan Approved ✅ - Fixing Build & Notification Errors
 
-## Fixed:
-- dashboard_provider.dart: Added dio import, removed mounted checks, fixed Provider.of
-- dashboard_screen.dart: Added UserModel import, fixed Provider.of, wrapped HomeTab QuickActionCards with Builder for context access
+### Current Task: Fix Flutter Build Errors (Blogs Type + User ID in Notifications)
 
-## Status: ✅ All compilation errors fixed
+**Steps:**
+- [x] 1. Create TODO.md ✅
+- [x] 2. Edit core/services/user_service.dart - Add userId fallback ✅
+- [x] 3. Edit providers/auth_provider.dart - Save user data to shared prefs after login ✅
+- [x] 4. Edit data/services/notification_service.dart - Safe unread count with ID check
+- [ ] 5. Run `flutter clean && flutter pub get`
+- [ ] 6. Test `flutter run --debug`
+- [ ] 7. Update TODOs & complete
 
-### Verification:
-Run: `cd cric11_app && flutter pub get && flutter analyze && flutter run`
+**Plan Details:**
+- Blogs_screen.dart already fixed (safe parsing)
+- Fix notification user ID missing post-login
 
-**Task Complete**

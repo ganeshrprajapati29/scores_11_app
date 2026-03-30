@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import '../../data/services/auth_service.dart';
-import '../../data/services/user_service.dart';
+
+import '../../core/services/user_service.dart';
 import '../../data/models/user_model.dart';
 import '../../core/constants/app_constants.dart';
 import 'dart:developer';
@@ -12,7 +13,7 @@ enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
-  final UserService _userService = UserService();
+
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   
   AuthStatus _status = AuthStatus.initial;
@@ -75,7 +76,7 @@ class AuthProvider extends ChangeNotifier {
           await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
         }
         
-        // Get user from response
+// Get user from response
         final userData = response['data']['user'];
         if (userData != null) {
           if (userData is UserModel) {
@@ -90,6 +91,15 @@ class AuthProvider extends ChangeNotifier {
           } catch (e) {
             debugPrint('Failed to fetch user profile after login: $e');
           }
+        }
+        
+        // ✅ Save to shared prefs for notifications
+        if (_user != null) {
+await UserService.saveUserData(
+            userId: _user!.id,
+            userName: _user!.name,
+            userEmail: _user!.email,
+          );
         }
         
         _status = AuthStatus.authenticated;
