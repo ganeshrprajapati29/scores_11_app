@@ -222,6 +222,7 @@ class _MatchListScreenState extends State<MatchListScreen>
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'match_list_create',
         onPressed: () {
           Navigator.pushNamed(context, '/create-match');
         },

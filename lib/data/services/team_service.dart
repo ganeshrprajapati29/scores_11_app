@@ -41,7 +41,8 @@ class TeamService {
         },
       );
       if (response.statusCode == 200) {
-        final List data = response.data['data'] ?? [];
+        dynamic rawData = response.data['data'];
+        final List data = rawData is List ? rawData : (rawData is Map ? [rawData] : []);
         final pagination = response.data['pagination'] ?? {};
         
         final teams = data.map((json) => Team.fromJson(json)).toList();
@@ -123,7 +124,8 @@ class TeamService {
         queryParameters: {'q': query, 'limit': limit.toString()},
       );
       if (response.statusCode == 200) {
-        final List data = response.data['data'] ?? [];
+        dynamic rawData = response.data['data'];
+        final List data = rawData is List ? rawData : (rawData is Map ? [rawData] : []);
         return data.map((json) => Team.fromJson(json)).toList();
       }
       throw Exception(response.data['message'] ?? 'Failed to search teams');

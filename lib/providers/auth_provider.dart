@@ -79,17 +79,20 @@ class AuthProvider extends ChangeNotifier {
 // Get user from response
         final userData = response['data']['user'];
         if (userData != null) {
-          if (userData is UserModel) {
-            _user = userData;
-          } else if (userData is Map<String, dynamic>) {
-            _user = UserModel.fromJson(userData);
+          // ✅ FIXED: Safe parsing for List vs Map
+          dynamic parsedData = userData;
+          if (userData is List) {
+            parsedData = userData.isNotEmpty ? userData.first : null;
           }
-        } else {
-          // Try to fetch complete user profile
-          try {
-            _user = await _authService.getCurrentUser();
-          } catch (e) {
-            debugPrint('Failed to fetch user profile after login: $e');
+          if (parsedData is Map<String, dynamic>) {
+            _user = UserModel.fromJson(parsedData as Map<String, dynamic>);
+          } else {
+            // Fallback fetch
+            try {
+              _user = await _authService.getCurrentUser();
+            } catch (e) {
+              debugPrint('Failed to fetch user profile after login: $e');
+            }
           }
         }
         
@@ -164,13 +167,15 @@ await UserService.saveUserData(
           await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
         }
         
-        // Get user from response
+        // ✅ FIXED: Safe parsing for register too
         final userData = response['data']['user'];
         if (userData != null) {
-          if (userData is UserModel) {
-            _user = userData;
-          } else if (userData is Map<String, dynamic>) {
-            _user = UserModel.fromJson(userData);
+          dynamic parsedData = userData;
+          if (userData is List) {
+            parsedData = userData.isNotEmpty ? userData.first : null;
+          }
+          if (parsedData is Map<String, dynamic>) {
+            _user = UserModel.fromJson(parsedData as Map<String, dynamic>);
           }
         }
         

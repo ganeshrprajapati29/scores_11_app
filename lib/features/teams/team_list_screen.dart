@@ -114,6 +114,7 @@ leading: team.logo?.url != null
                 ),
           ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'team_list_create_${DateTime.now().millisecondsSinceEpoch}',
         onPressed: () => Navigator.pushNamed(context, '/create-team'),
         icon: const Icon(Icons.add),
         label: const Text('Create Team'),

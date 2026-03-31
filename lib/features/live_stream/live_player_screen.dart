@@ -467,6 +467,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
             bottom: 16,
             right: 16,
             child: FloatingActionButton(
+              heroTag: 'live_player_chat',
               mini: true,
               onPressed: _showChatPanel,
               child: const Icon(Icons.chat),

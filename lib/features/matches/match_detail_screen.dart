@@ -246,6 +246,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> with SingleTicker
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'match_detail_go_live',
         onPressed: () {
           Navigator.pushNamed(context, '/live-match', arguments: widget.matchId);
         },

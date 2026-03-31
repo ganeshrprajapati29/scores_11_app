@@ -128,6 +128,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> with SingleTi
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'community_feed_post_${DateTime.now().millisecondsSinceEpoch}',
         onPressed: () {
           Navigator.pushNamed(context, '/create-post');
         },
@@ -387,11 +388,11 @@ class _FeedTabState extends State<_FeedTab> {
           ),
           
           // Images
-          if (post['images'] != null && (post['images'] as List).isNotEmpty) ...[
+          if ((post['images'] as List?)?.whereType<String>().toList().isNotEmpty ?? false) ...[
             const SizedBox(height: 12),
-            if ((post['images'] as List).length == 1)
+            if (((post['images'] as List?)?.whereType<String>().toList() ?? []).length == 1)
               Image.network(
-                post['images'][0],
+                (post['images'] as List?)?.first ?? '',
                 height: 200,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -405,7 +406,7 @@ class _FeedTabState extends State<_FeedTab> {
               SizedBox(
                 height: 200,
                 child: Row(
-                  children: (post['images'] as List).map((img) => Expanded(
+                  children: ((post['images'] as List?)?.whereType<String>() ?? []).map((img) => Expanded(
                     child: Image.network(img, fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
                         color: Colors.grey[200],

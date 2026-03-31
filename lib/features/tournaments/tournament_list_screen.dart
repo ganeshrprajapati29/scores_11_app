@@ -203,6 +203,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'tournament_list_create',
         onPressed: () {
           Navigator.pushNamed(context, '/create-tournament');
         },

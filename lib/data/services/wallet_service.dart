@@ -9,10 +9,11 @@ class WalletService {
   /// Get wallet balance
   Future<Wallet> getWalletBalance() async {
     try {
-      final data = await _apiClient.executeWithRetry(
+      final responseData = await _apiClient.executeWithRetry(
         () => _apiClient.get('${ApiConfig.wallet}'),
         maxRetries: 3
-      ) as Map<String, dynamic>;
+      );
+      final data = responseData is Map<String, dynamic> ? responseData : (responseData['data'] as Map<String, dynamic>? ?? {});
       return Wallet.fromJson(data);
     } catch (e) {
       debugPrint('Wallet balance error (fallback): $e');
@@ -29,7 +30,6 @@ class WalletService {
     }
   }
 
-
   /// Get all transactions
   Future<List<Transaction>> getTransactions({int page = 1, int limit = 20, String? type}) async {
     try {
@@ -39,17 +39,17 @@ class WalletService {
         if (type != null) 'type': type,
       };
       
-      final data = await _apiClient.executeWithRetry(
+      final responseData = await _apiClient.executeWithRetry(
         () => _apiClient.get('${ApiConfig.wallet}/transactions', queryParameters: queryParams),
         maxRetries: 3
-      ) as List;
-      return data.map((json) => Transaction.fromJson(json)).toList();
+      );
+      final data = responseData is List ? responseData : (responseData['data'] as List? ?? []);
+    return (data as List<Map<String, dynamic>>).map((json) => Transaction.fromJson(json)).toList();
     } catch (e) {
       debugPrint('Wallet transactions error (empty fallback): $e');
       return [];
     }
   }
-
 
   /// Add funds to wallet
   Future<Wallet> addFunds(Map<String, dynamic> data) async {
@@ -79,7 +79,7 @@ class WalletService {
       },
     );
     final List<dynamic> data = response.data['data'] ?? [];
-    return data.map((json) => Transaction.fromJson(json)).toList();
+    return data.cast<Map<String, dynamic>>().map((json) => Transaction.fromJson(json)).toList();
   }
 
   /// Get wallet statement
@@ -119,7 +119,7 @@ class WalletService {
   Future<List<Transaction>> getContestTransactions(String contestId) async {
     final response = await _apiClient.get('${ApiConfig.wallet}/transactions/contest/$contestId');
     final List<dynamic> data = response.data['data'] ?? [];
-    return data.map((json) => Transaction.fromJson(json)).toList();
+    return data.cast<Map<String, dynamic>>().map((json) => Transaction.fromJson(json)).toList();
   }
 }
 
