@@ -13,7 +13,12 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   final _formKey = GlobalKey<FormState>();
   final _teamNameController = TextEditingController();
   final _teamCityController = TextEditingController();
-  final _descriptionController = TextEditingController();
+    final _descriptionController = TextEditingController();
+    final _shortNameController = TextEditingController();
+    final _coachController = TextEditingController();
+    final _homeGroundController = TextEditingController();
+    final _stateController = TextEditingController();
+    final _countryController = TextEditingController(text: 'India');
 
   bool _isLoading = false;
   final TeamService _teamService = TeamService();
@@ -26,9 +31,13 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     try {
       await _teamService.createTeam(
         name: _teamNameController.text.trim(),
+        shortName: _shortNameController.text.trim().isNotEmpty ? _shortNameController.text.trim() : null,
         city: _teamCityController.text.trim(),
+        state: _stateController.text.trim().isNotEmpty ? _stateController.text.trim() : null,
+        homeGround: _homeGroundController.text.trim().isNotEmpty ? _homeGroundController.text.trim() : null,
+        coach: _coachController.text.trim().isNotEmpty ? _coachController.text.trim() : null,
         description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
-        country: 'India',
+        country: _countryController.text,
       );
 
       if (mounted) {
@@ -39,7 +48,12 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
             duration: const Duration(seconds: 2),
           ),
         );
-        Navigator.pushNamedAndRemoveUntil(context, '/my-teams', (route) => false);
+        final newTeamId = await _teamService.getMyTeams().then((teams) => teams.isNotEmpty ? teams.first.id : null);
+        if (newTeamId != null) {
+          Navigator.pushNamed(context, '/players/search', arguments: {'teamId': newTeamId});
+        } else {
+          Navigator.pushNamedAndRemoveUntil(context, '/my-teams', (route) => false);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -114,11 +128,47 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
+                      controller: _shortNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Short Name (Optional)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.short_text),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
                       controller: _teamCityController,
                       decoration: const InputDecoration(
                         labelText: 'City',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.location_city),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _stateController,
+                      decoration: const InputDecoration(
+                        labelText: 'State',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.map),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _homeGroundController,
+                      decoration: const InputDecoration(
+                        labelText: 'Home Ground',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.stadium),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _coachController,
+                      decoration: const InputDecoration(
+                        labelText: 'Coach Name',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -172,8 +222,13 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   @override
   void dispose() {
     _teamNameController.dispose();
+    _shortNameController.dispose();
     _teamCityController.dispose();
+    _stateController.dispose();
+    _homeGroundController.dispose();
+    _coachController.dispose();
     _descriptionController.dispose();
+    _countryController.dispose();
     super.dispose();
   }
 }

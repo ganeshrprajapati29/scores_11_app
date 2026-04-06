@@ -1,5 +1,3 @@
-﻿// lib/providers/dashboard_provider.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
@@ -9,6 +7,9 @@ import '../data/services/dashboard_service.dart';
 import '../core/services/api_client.dart';
 import '../core/config/api_config.dart';
 import 'dart:developer';
+import '../../data/services/blog_service.dart';
+import '../../data/services/community_service.dart';
+import '../../data/models/blog_model.dart';
 
 class DashboardProvider extends ChangeNotifier {
   DashboardData? _dashboardData;
@@ -38,7 +39,16 @@ class DashboardProvider extends ChangeNotifier {
     liveMatches: 0,
   );
 
+  List<BlogModel> get recentBlogs => _recentBlogs;
+  List<Map<String, dynamic>> get recentPosts => _recentPosts;
+  bool get hasRecentBlogs => recentBlogs.isNotEmpty;
+  bool get hasRecentPosts => recentPosts.isNotEmpty;
+
   final DashboardService _dashboardService = DashboardService();
+  final BlogService _blogService = BlogService();
+  final CommunityService _communityService = CommunityService();
+  List<BlogModel> _recentBlogs = [];
+  List<Map<String, dynamic>> _recentPosts = [];
 
   /// Load dashboard data (main method)
   Future<void> loadDashboard() async {
@@ -69,6 +79,11 @@ class DashboardProvider extends ChangeNotifier {
       
       // Service now handles retry + returns safe empty data
       _dashboardData = await _dashboardService.getDashboardOverview();
+      
+      // Load recent blogs & community posts for dashboard
+      _recentBlogs = await _blogService.getBlogs(page: 1, limit: 5);
+      _recentPosts = await _communityService.getPostsList(page: 1, limit: 5);
+      debugPrint('📚 Recent content: ${_recentBlogs.length} blogs, ${_recentPosts.length} posts');
       
       if (_dashboardData != null && 
           (_dashboardData!.liveMatches.isNotEmpty || 
@@ -230,6 +245,14 @@ class DashboardProvider extends ChangeNotifier {
   /// Check if there are tournaments
   bool get hasTournaments => (_dashboardData?.latestTournaments.isNotEmpty ?? false);
 
+  /// Get first live match ID for scorecard navigation
+  String? getFirstLiveMatchId() {
+    if (liveMatches.isNotEmpty) {
+      return liveMatches.first.id;
+    }
+    return null;
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -257,3 +280,4 @@ class DashboardProviderWrapper extends StatelessWidget {
     return child;
   }
 }
+

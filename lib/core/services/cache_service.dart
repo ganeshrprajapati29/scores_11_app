@@ -1,7 +1,5 @@
 import 'dart:convert';
-
 import 'package:shared_preferences/shared_preferences.dart';
-
 
 /// Cache service for local data storage using SharedPreferences
 /// 
@@ -105,6 +103,16 @@ class CacheService {
     final data = _prefs?.getString(key);
     if (data == null) return null;
     return jsonDecode(data);
+  }
+
+  /// Clear specific match cache (used by MatchService after score updates)
+  Future<void> clearMatchCache(String matchId) async {
+    final key = 'match_detail_$matchId';
+    await _prefs?.remove(key);
+    await _prefs?.remove('${key}_time');
+    // Also clear live score cache for this match
+    await _prefs?.remove('live_score_$matchId');
+    await _prefs?.remove('scorecard_$matchId');
   }
 
   // ==================== PLAYER STATS CACHE ====================
@@ -226,6 +234,52 @@ class CacheService {
     return jsonDecode(data);
   }
 
+  // ==================== SCORE CACHE (Live Updates) ====================
+
+  /// Cache live score
+  Future<void> cacheLiveScore(String matchId, Map<String, dynamic> score) async {
+    final key = 'live_score_$matchId';
+    await _prefs?.setString(key, jsonEncode(score));
+    await _prefs?.setInt('${key}_time', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  /// Get cached live score
+  Map<String, dynamic>? getCachedLiveScore(String matchId, {int ttlMinutes = 1}) {
+    final key = 'live_score_$matchId';
+    final cacheTime = _prefs?.getInt('${key}_time');
+    if (cacheTime == null) return null;
+    
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final diff = now - cacheTime;
+    if (diff > (ttlMinutes * 60 * 1000)) return null;
+
+    final data = _prefs?.getString(key);
+    if (data == null) return null;
+    return jsonDecode(data);
+  }
+
+  /// Cache scorecard
+  Future<void> cacheScorecard(String matchId, Map<String, dynamic> scorecard) async {
+    final key = 'scorecard_$matchId';
+    await _prefs?.setString(key, jsonEncode(scorecard));
+    await _prefs?.setInt('${key}_time', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  /// Get cached scorecard
+  Map<String, dynamic>? getCachedScorecard(String matchId, {int ttlMinutes = 10}) {
+    final key = 'scorecard_$matchId';
+    final cacheTime = _prefs?.getInt('${key}_time');
+    if (cacheTime == null) return null;
+    
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final diff = now - cacheTime;
+    if (diff > (ttlMinutes * 60 * 1000)) return null;
+
+    final data = _prefs?.getString(key);
+    if (data == null) return null;
+    return jsonDecode(data);
+  }
+
   // ==================== CACHE MANAGEMENT ====================
 
   /// Clear all cache
@@ -238,6 +292,7 @@ class CacheService {
     await _prefs?.remove(matchesCacheKey);
     await _prefs?.remove(matchesCacheTimeKey);
     await _prefs?.remove(liveMatchesCacheKey);
+    await _prefs?.remove('live_matches_cache_time');
   }
 
   /// Clear player stats cache only
@@ -252,7 +307,27 @@ class CacheService {
     await _prefs?.remove(tournamentCacheTimeKey);
   }
 
-  /// Get cache size (approximate)
+  /// Clear teams cache only
+  Future<void> clearTeamsCache() async {
+    await _prefs?.remove(teamsCacheKey);
+    await _prefs?.remove('teams_cache_time');
+  }
+
+  /// Clear all match-related caches (for a specific match or all)
+  Future<void> clearAllMatchCaches() async {
+    final keys = _prefs?.getKeys() ?? {};
+    for (final key in keys) {
+      if (key.startsWith('match_detail_') || 
+          key.startsWith('live_score_') || 
+          key.startsWith('scorecard_')) {
+        await _prefs?.remove(key);
+        await _prefs?.remove('${key}_time');
+      }
+    }
+    await clearMatchesCache();
+  }
+
+  /// Get cache size (approximate in bytes)
   Future<int> getCacheSize() async {
     final keys = _prefs?.getKeys() ?? {};
     int size = 0;
@@ -264,5 +339,12 @@ class CacheService {
     }
     return size;
   }
-}
 
+  /// Get cache keys (for debugging)
+  Future<Set<String>> getCacheKeys() async {
+    return _prefs?.getKeys() ?? {};
+  }
+
+  /// Check if cache is initialized
+  bool get isInitialized => _prefs != null;
+}

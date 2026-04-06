@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../../data/models/team_model.dart';
 import '../../../data/services/team_service.dart';
@@ -15,27 +16,32 @@ class _TeamListScreenState extends State<TeamListScreen> {
   bool _isLoading = true;
   bool _isLoadingMore = false;
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
   final TeamService _teamService = TeamService();
 
   @override
   void initState() {
     super.initState();
-    _loadMyTeams();
+    _loadTeams();
     _scrollController.addListener(_onScroll);
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadMyTeams() async {
+  Future<void> _loadTeams({String? search}) async {
     setState(() => _isLoading = true);
     try {
-      final teams = await _teamService.getMyTeams();
+      final paginated = await _teamService.getTeams(search: search ?? _searchController.text.trim());
       setState(() {
-        _teams = teams;
+        _teams = paginated.teams;
         _isLoading = false;
       });
     } catch (e) {
@@ -47,7 +53,10 @@ class _TeamListScreenState extends State<TeamListScreen> {
   }
 
   Future<void> _loadMore() async {
-    // Pagination future expansion
+    if (_isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+    // Add pagination logic here
+    setState(() => _isLoadingMore = false);
   }
 
   void _onScroll() {
@@ -56,65 +65,127 @@ class _TeamListScreenState extends State<TeamListScreen> {
     }
   }
 
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _loadTeams();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Teams'),
+        title: const Text('All Teams'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
+            icon: const Icon(Icons.refresh),
+            onPressed: () => _loadTeams(),
           ),
         ],
       ),
-      body: _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : RefreshIndicator(
-            onRefresh: _loadMyTeams,
-            child: _teams.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.sports_cricket, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      const Text('No teams yet', style: TextStyle(fontSize: 18)),
-                      const SizedBox(height: 8),
-                      Text('Create your first cricket team!', style: TextStyle(color: Colors.grey[600])),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () => Navigator.pushNamed(context, '/create-team'),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Create Team'),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _teams.length,
-                  itemBuilder: (context, index) {
-                    final team = _teams[index];
-                    return Card(
-                      child: ListTile(
-leading: team.logo?.url != null
-                          ? CircleAvatar(backgroundImage: NetworkImage(team.logo!.url!))
-                          : const CircleAvatar(child: Icon(Icons.sports_cricket)),
-                        title: Text(team.name ?? 'Unnamed Team'),
-                        subtitle: Text('${team.city ?? 'Unknown'}'),
-                        trailing: const Icon(Icons.arrow_forward_ios),
-                        onTap: () => Navigator.pushNamed(context, '/team-detail', arguments: team.id),
-                      ),
-                    );
-                  },
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search teams...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+              ),
+            ),
           ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: () => _loadTeams(),
+                    child: _teams.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.sports_cricket, size: 64, color: Colors.grey),
+                                const SizedBox(height: 16),
+                                const Text('No teams found', style: TextStyle(fontSize: 18)),
+                                const SizedBox(height: 8),
+                                Text('Try searching or create new team!', style: TextStyle(color: Colors.grey[600])),
+                                const SizedBox(height: 24),
+                                ElevatedButton.icon(
+                                  onPressed: () => Navigator.pushNamed(context, '/create-team'),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Create Team'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _teams.length,
+                            itemBuilder: (context, index) {
+                              final team = _teams[index];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: ListTile(
+                                  leading: team.logo?.url != null
+                                      ? CircleAvatar(
+                                          backgroundImage: NetworkImage(team.logo!.url!),
+                                        )
+                                      : CircleAvatar(
+                                          backgroundColor: AppColors.primary.withOpacity(0.2),
+                                          child: Text(
+                                            team.name.isNotEmpty ? team.name[0].toUpperCase() : 'T',
+                                            style: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                  title: Text(
+                                    team.name ?? 'Unnamed Team',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (team.city != null) Text('${team.city}, ${team.state ?? ''}'),
+                                      Text('${team.players.length} players'),
+                                      if (team.stats != null) Text('Win Rate: ${team.stats!.winPercentage.toStringAsFixed(1)}%'),
+                                    ],
+                                  ),
+                                  trailing: const Icon(Icons.arrow_forward_ios),
+                                  onTap: () => Navigator.pushNamed(
+                                    context, 
+                                    '/team-detail', 
+                                    arguments: team.id,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'team_list_create_${DateTime.now().millisecondsSinceEpoch}',
+        heroTag: 'create_team_${DateTime.now().millisecondsSinceEpoch}',
         onPressed: () => Navigator.pushNamed(context, '/create-team'),
         icon: const Icon(Icons.add),
         label: const Text('Create Team'),

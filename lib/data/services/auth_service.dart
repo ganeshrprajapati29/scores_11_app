@@ -68,11 +68,11 @@ class AuthService {
       }
       return {'success': false, 'message': response.data['message'] ?? 'Registration failed'};
     } on DioException catch (e) {
-      debugPrint('❌ LOGIN DioException: type=${e.type}, message=${e.message}, status=${e.response?.statusCode}, response=${e.response?.data}');
+      debugPrint('❌ REGISTER DioException: type=${e.type}, message=${e.message}, status=${e.response?.statusCode}, response=${e.response?.data}');
       final message = _handleDioError(e);
       return {'success': false, 'message': message};
     } catch (e) {
-      debugPrint('❌ LOGIN Unknown error: $e');
+      debugPrint('❌ REGISTER Unknown error: $e');
       return {'success': false, 'message': e.toString()};
     }
   }
@@ -149,6 +149,49 @@ class AuthService {
     }
   }
   
+  /// Get user stats with proper error handling and type safety
+  Future<dynamic> getUserStats() async {
+    try {
+      debugPrint('📊 Fetching user stats from API...');
+      final response = await _apiClient.get('/user/stats');
+      
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        final data = responseData is Map ? responseData['data'] : null;
+        
+        if (data != null) {
+          debugPrint('✅ User stats fetched successfully');
+          debugPrint('📊 User stats type: ${data.runtimeType}');
+          
+          // Return data as-is - let the provider handle the type conversion
+          return data;
+        } else {
+          debugPrint('⚠️ User stats data is null');
+          return null;
+        }
+      } else {
+        debugPrint('⚠️ User stats API returned status code: ${response.statusCode}');
+        return null;
+      }
+    } on DioException catch (e) {
+      debugPrint('❌ Dio error fetching user stats: ${e.type}');
+      if (e.response != null) {
+        debugPrint('❌ Response status: ${e.response?.statusCode}');
+        debugPrint('❌ Response data: ${e.response?.data}');
+        
+        // If 404, stats endpoint might not exist yet - that's fine
+        if (e.response?.statusCode == 404) {
+          debugPrint('⚠️ User stats endpoint not found (404) - this is normal if not implemented yet');
+          return null;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ Unexpected error fetching user stats: $e');
+      return null;
+    }
+  }
+
   // Helper method to handle Dio errors
   String _handleDioError(DioException e) {
     debugPrint('🔍 Handling DioError: ${e.type} | ${e.message}');
@@ -294,5 +337,23 @@ class AuthService {
   Future<bool> isLoggedIn() async {
     final token = await _apiClient.getAccessToken();
     return token != null;
+  }
+  
+  /// Get user profile with stats (combined endpoint if available)
+  Future<Map<String, dynamic>> getUserProfileWithStats() async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.auth}/profile');
+      if (response.statusCode == 200) {
+        final data = _convertToMap(response.data['data']);
+        return {
+          'success': true,
+          'data': data,
+        };
+      }
+      return {'success': false, 'message': 'Failed to get profile'};
+    } catch (e) {
+      debugPrint('❌ Error getting user profile with stats: $e');
+      return {'success': false, 'message': e.toString()};
+    }
   }
 }

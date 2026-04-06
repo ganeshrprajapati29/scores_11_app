@@ -1,5 +1,4 @@
-﻿import 'core/services/user_service.dart';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/config/theme_config.dart';
 import 'core/services/cache_service.dart';
@@ -32,6 +31,8 @@ import 'features/teams/team_list_screen.dart';
 import 'features/teams/team_detail_screen.dart';
 import 'features/teams/create_team_screen.dart';
 import 'features/players/player_search_screen.dart';
+import 'features/players/player_list_screen.dart';
+import 'features/players/create_player_screen.dart';
 import 'features/leaderboard/top_batsman_screen.dart';
 import 'features/store/store_home_screen.dart';
 import 'features/store/product_detail_screen.dart';
@@ -53,10 +54,12 @@ import 'features/notifications/notifications_screen.dart';
 import 'features/discovery/discovery_screen.dart';
 import 'features/blogs/blogs_screen.dart';
 import 'features/live_stream/live_player_screen.dart';
+import 'features/profile/connections_screen.dart';
+import 'features/chat/chat_list_screen.dart';
+import 'features/chat/chat_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
   runApp(const Cric11App());
 }
 
@@ -91,71 +94,73 @@ class Cric11App extends StatelessWidget {
           '/reset-password': (context) => const ResetPasswordScreen(),
           '/complete-profile': (context) => const CompleteProfileScreen(),
           '/phone-login': (context) => const PhoneLoginScreen(),
-          
+
           // Main Screens
           '/dashboard': (context) => const DashboardScreen(),
           '/home': (context) => const HomeScreen(),
           '/profile': (context) => const ProfileScreen(),
           '/cricket-profile': (context) => const CricketProfileScreen(),
-          
+
           // Match Routes
           '/matches': (context) => const MatchListScreen(),
           '/match-detail': (context) => const MatchDetailScreen(matchId: ''),
           '/create-match': (context) => const CreateMatchScreen(),
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
-          
           '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
           '/scorecard': (context) => const MatchDetailScreen(matchId: ''),
-          
+
           // Team Routes
           '/teams': (context) => const TeamListScreen(),
           '/team-detail': (context) => const TeamDetailScreen(teamId: ''),
           '/create-team': (context) => const CreateTeamScreen(),
           '/my-teams': (context) => const TeamListScreen(),
-          
+
           // Tournament Routes
           '/tournaments': (context) => const TournamentListScreen(),
           '/tournament-detail': (context) => const TournamentDetailScreen(tournamentId: ''),
-          '/create-tournament': (context) => CreateTournamentScreen(),
+          '/create-tournament': (context) => const CreateTournamentScreen(),
           '/points-table': (context) => const PointsTableScreen(tournamentId: ''),
           '/fixtures': (context) => const FixturesScreen(tournamentId: ''),
           '/my-tournaments': (context) => const TournamentListScreen(),
-          
+
           // Player Routes
-          '/players': (context) => const PlayerSearchScreen(),
+          '/players': (context) => const PlayerListScreen(),
+          '/players/search': (context) => const PlayerSearchScreen(),
+          '/create-player': (context) => const CreatePlayerScreen(),
+          '/players/list': (context) => const PlayerListScreen(),
           '/player-search': (context) => const PlayerSearchScreen(),
           '/player-profile': (context) => const CricketProfileScreen(),
           '/compare-players': (context) => const PlayerSearchScreen(),
-          
+
           // Leaderboard Routes
           '/leaderboard': (context) => const TopBatsmanScreen(),
           '/top-batsman': (context) => const TopBatsmanScreen(),
           '/top-bowler': (context) => const TopBatsmanScreen(),
           '/mvp-rankings': (context) => const TopBatsmanScreen(),
           '/team-rankings': (context) => const TopBatsmanScreen(),
-          
+
           // Community Routes
           '/community': (context) => const CommunityFeedScreen(),
           '/create-post': (context) => const CreatePostScreen(),
           '/post-detail': (context) => const PostDetailScreen(postId: ''),
-          
+
           // Store Routes
           '/store': (context) => const StoreHomeScreen(),
           '/product-detail': (context) => const ProductDetailScreen(productId: ''),
           '/cart': (context) => const CartScreen(),
           '/checkout': (context) => const CheckoutScreen(),
           '/orders': (context) => const OrdersScreen(),
-          
+
           // Wallet & Subscription
           '/wallet': (context) => const WalletScreen(),
           '/subscription': (context) => const SubscriptionScreen(),
           '/subscription-plans': (context) => const SubscriptionScreen(),
           '/payment': (context) => const CheckoutScreen(),
-          
+
           // Other Routes
           '/go-live': (context) => const GoLiveScreen(),
-          '/live-player': (context) => LivePlayerScreen(streamId: ''),
-          '/live-match': (context) => LivePlayerScreen(streamId: ''),
+          '/live-player': (context) => const LivePlayerScreen(streamId: ''),
+          '/live-match': (context) => const LivePlayerScreen(streamId: ''),
           '/discover': (context) => const DiscoveryScreen(),
           '/stats': (context) => const HomeScreen(),
           '/history': (context) => const HomeScreen(),
@@ -167,26 +172,17 @@ class Cric11App extends StatelessWidget {
           '/settings/privacy': (context) => const PrivacySettingsScreen(),
           '/settings/preferences': (context) => const PreferencesScreen(),
           '/settings/security': (context) => const SecurityScreen(),
-          '/testing': (context) => TestingScreen(),
+          '/testing': (context) => const TestingScreen(),
           '/change-password': (context) => const AppSettingsScreen(),
           '/support': (context) => const AppSettingsScreen(),
           '/notifications': (context) => const NotificationsScreen(),
+          '/connections': (context) => const ConnectionsScreen(),
+          '/chats': (context) => const ChatListScreen(),
+          '/chat': (context) => const ChatScreen(userId: '', userName: ''),
           '/my-cricket': (context) => const HomeScreen(),
-          
-          // Additional Routes from Drawer/Shortcuts
-          '/my-teams': (context) => const TeamListScreen(),
-          '/my-tournaments': (context) => const TournamentListScreen(),
-          '/create-team': (context) => const CreateTeamScreen(),
-          '/create-match': (context) => const CreateMatchScreen(),
-          '/player-profile': (context) => const PlayerSearchScreen(),
-          '/community': (context) => const CommunityFeedScreen(),
-          '/store': (context) => const StoreHomeScreen(),
-          '/messages': (context) => const HomeScreen(),
-          '/chat': (context) => const HomeScreen(),
           '/blogs': (context) => const BlogsScreen(),
         },
       ),
     );
   }
 }
-

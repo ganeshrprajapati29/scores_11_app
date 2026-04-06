@@ -13,7 +13,14 @@ import '../../core/constants/app_routes.dart';
 import '../profile/profile_screen.dart';
 import '../../features/matches/match_list_screen.dart';
 import '../../features/tournaments/tournament_list_screen.dart';
+import '../../data/services/blog_service.dart';
+import '../../data/services/community_service.dart';
+import '../../data/models/blog_model.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../features/teams/team_list_screen.dart';
+
+import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/widgets/profile_avatar.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -39,7 +46,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       duration: const Duration(milliseconds: 300),
     );
     _screens = [
-const HomeTab(key: ValueKey('home-tab')),
+      const HomeTab(key: ValueKey('home-tab')),
       MatchListScreen(key: const ValueKey('match-list')),
       TournamentListScreen(key: const ValueKey('tournament-list')),
       TeamListScreen(key: const ValueKey('team-list')),
@@ -157,9 +164,11 @@ const HomeTab(key: ValueKey('home-tab')),
             'Scores11',
             style: TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              fontSize: 20,
               letterSpacing: 0.5,
+              backgroundColor: Colors.transparent,
+              
             ),
           ),
         ],
@@ -227,6 +236,17 @@ const HomeTab(key: ValueKey('home-tab')),
             child: const Icon(Icons.search_rounded, color: Colors.white, size: 20),
           ),
           onPressed: () => Navigator.pushNamed(context, '/players'),
+        ),
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 20),
+          ),
+          onPressed: () => Navigator.pushNamed(context, '/chats'),
         ),
         const SizedBox(width: 4),
       ],
@@ -403,6 +423,7 @@ const HomeTab(key: ValueKey('home-tab')),
                     setState(() => _currentIndex = 0);
                   },
                 ),
+                
                 _buildDrawerItem(
                   icon: Icons.sports_cricket,
                   title: 'Matches',
@@ -412,6 +433,7 @@ const HomeTab(key: ValueKey('home-tab')),
                     setState(() => _currentIndex = 1);
                   },
                 ),
+                
                 _buildDrawerItem(
                   icon: Icons.emoji_events_rounded,
                   title: 'Tournaments',
@@ -419,6 +441,14 @@ const HomeTab(key: ValueKey('home-tab')),
                   onTap: () {
                     Navigator.pop(context);
                     setState(() => _currentIndex = 2);
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.people_rounded,
+                  title: 'Players',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/players');
                   },
                 ),
                 _buildDrawerItem(
@@ -430,6 +460,56 @@ const HomeTab(key: ValueKey('home-tab')),
                     setState(() => _currentIndex = 3);
                   },
                 ),
+                _buildDrawerItem(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  title: 'Chats',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/chats');
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.emoji_people_outlined,
+                  title: 'Scorercards',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/scorecards');
+                  },
+                ),
+                
+                _buildDrawerItem(
+                  icon: Icons.notifications_outlined,
+                  title: 'Notifications',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/notifications');
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.article_outlined,
+                  title: 'Live Matches',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/live-matches');
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.article_outlined,
+                  title: 'Blogs',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/blogs');
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.forum_outlined,
+                  title: 'Community',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/community');
+                  },
+                ),
+                
                 _buildDrawerItem(
                   icon: Icons.person_rounded,
                   title: 'Profile',
@@ -457,6 +537,12 @@ const HomeTab(key: ValueKey('home-tab')),
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Divider(height: 1),
                 ),
+                _buildDrawerItem(
+                  icon: Icons.privacy_tip_outlined,
+                  title: 'Privacy Policy',
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.privacyPolicy),
+                ),
+                
                 _buildDrawerItem(
                   icon: Icons.logout_rounded,
                   title: 'Logout',
@@ -567,7 +653,7 @@ const HomeTab(key: ValueKey('home-tab')),
 }
 
 class HomeTab extends StatelessWidget {
-  const HomeTab({Key? key = const ValueKey('home-tab')});
+  const HomeTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -586,15 +672,17 @@ class HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-  // Welcome hero
+          // Welcome hero
           _buildWelcomeHero(context),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           
-          // Auto-scrolling banner carousel ✅\n          const SizedBox(height: 220),\n          const _BannerCarousel(),
+          // Auto-scrolling banner carousel (admin managed)
+          const _BannerCarousel(),
+
+          const SizedBox(height: 24),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -614,14 +702,20 @@ class HomeTab extends StatelessWidget {
                   const SizedBox(height: 12),
                   _buildLiveMatchesSection(dashboardProvider.liveMatches),
                   const SizedBox(height: 24),
+
                 ],
+
 
                 // Trending Players
                 if (dashboardProvider.hasTrendingPlayers) ...[
                   _buildSectionHeader('Trending Players', Icons.trending_up, color: Colors.orange),
+
                   const SizedBox(height: 12),
                   _buildTrendingPlayersSection(dashboardProvider.trendingPlayers),
                   const SizedBox(height: 24),
+                  _buildSectionHeader('Trending Teams', Icons.trending_up, color: Colors.green),
+                  const SizedBox(height: 12),
+                  
                 ],
 
                 // Upcoming Matches
@@ -629,9 +723,247 @@ class HomeTab extends StatelessWidget {
                   _buildSectionHeader('Upcoming Matches', Icons.schedule),
                   const SizedBox(height: 12),
                   _buildUpcomingMatchesSection(dashboardProvider.upcomingMatches),
+                  const SizedBox(height: 24),
+                ],
+
+                // Recent Blogs
+                if (dashboardProvider.hasRecentBlogs) ...[
+                  _buildSectionHeader('Recent Blogs', Icons.article_outlined, color: const Color(0xFF00897B)),
+                  const SizedBox(height: 12),
+                  _buildRecentBlogsSection(dashboardProvider.recentBlogs),
+                  const SizedBox(height: 24),
+                ],
+
+                // Community Posts
+                if (dashboardProvider.hasRecentPosts) ...[
+                  _buildSectionHeader('Community Posts', Icons.comment_outlined, color: const Color(0xFF1976D2)),
+                  const SizedBox(height: 12),
+                  _buildRecentPostsSection(dashboardProvider.recentPosts),
                 ],
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentBlogsSection(List<BlogModel> blogs) {
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: blogs.length,
+        itemBuilder: (context, index) {
+          final blog = blogs[index];
+          return _RecentBlogCard(blog: blog);
+        },
+      ),
+    );
+  }
+
+  Widget _buildRecentPostsSection(List<Map<String, dynamic>> posts) {
+    return SizedBox(
+      height: 180,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: posts.length,
+        itemBuilder: (context, index) {
+          final post = posts[index];
+          return _RecentPostCard(post: post);
+        },
+      ),
+    );
+  }
+
+  Widget _RecentBlogCard({required BlogModel blog}) {
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(
+                    imageUrl: blog.imageUrl ?? '',
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.article_outlined, color: Colors.grey),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.article_outlined, color: Colors.grey),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                      ),
+                    ),
+                    child: Text(
+                      blog.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            blog.excerpt ?? '',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 11,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (blog.author != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              'by ${blog.author}',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _RecentPostCard({required Map<String, dynamic> post}) {
+    final content = post['content'] ?? '';
+    final userName = post['userName'] ?? 'User';
+    final image = (post['images'] as List?)?.isNotEmpty == true ? post['images'][0] : null;
+
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: Colors.blue.withOpacity(0.2),
+                child: Text(
+                  userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      userName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      post['timeAgo'] ?? 'recent',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Text(
+              content,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.3,
+              ),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (image != null) ...[
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: CachedNetworkImage(
+                imageUrl: image,
+                height: 60,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorWidget: (context, url, error) => Container(
+                  height: 60,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.image, size: 24, color: Colors.grey),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.thumb_up_outlined, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(
+                '${post['likes'] ?? 0}',
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
+              const Spacer(),
+              Icon(Icons.comment_outlined, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(
+                '${post['comments'] ?? 0}',
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
+            ],
           ),
         ],
       ),
@@ -815,6 +1147,37 @@ class HomeTab extends StatelessWidget {
           children: [
             Expanded(
               child: _QuickActionCard(
+                icon: Icons.forum_outlined,
+                title: 'Community',
+                color: const Color(0xFF1976D2),
+                onTap: () => Navigator.pushNamed(context, '/community'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: 'Chats',
+                color: const Color(0xFF00796B),
+                onTap: () => Navigator.pushNamed(context, '/chats'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.notifications_outlined,
+                title: 'Notifications',
+                color: const Color(0xFF00796B),
+                onTap: () => Navigator.pushNamed(context, '/notifications'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionCard(
                 icon: Icons.person_search_rounded,
                 title: 'Find Players',
                 color: const Color(0xFF2E7D32),
@@ -835,13 +1198,18 @@ class HomeTab extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-              child: _QuickActionCard(
-                icon: Icons.analytics_outlined,
-                title: 'Scorecard',
-                color: Colors.orange,
-                onTap: () => Navigator.pushNamed(context, '/scorecard'),
-              ),
+            Consumer<DashboardProvider>(
+              builder: (context, provider, child) {
+                final firstMatchId = provider.getFirstLiveMatchId();
+                return Expanded(
+                  child: _QuickActionCard(
+                    icon: Icons.analytics_outlined,
+                    title: 'Scorecard',
+                    color: Colors.orange,
+                    onTap: () => Navigator.pushNamed(context, '/scorecard'), // Provider auto-selects first live
+                  ),
+                );
+              },
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -888,6 +1256,156 @@ class HomeTab extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: matches.length > 5 ? 5 : matches.length,
       itemBuilder: (context, index) => _UpcomingMatchCard(match: matches[index]),
+    );
+  }
+}
+
+// ==================== Banner Carousel ====================
+
+class _BannerCarousel extends StatefulWidget {
+  const _BannerCarousel({super.key});
+
+  @override
+  State<_BannerCarousel> createState() => _BannerCarouselState();
+}
+
+class _BannerCarouselState extends State<_BannerCarousel> {
+  final PageController _pageController = PageController(viewportFraction: 0.92);
+  int _currentIndex = 0;
+  late Timer _timer;
+  final List<String> _bannerImages = [
+    'https://static.vecteezy.com/system/resources/thumbnails/023/406/904/small/cricket-championship-banner-design-with-3d-red-ball-wicket-stumps-helmet-on-green-and-blue-playground-view-vector.jpg',
+    'https://www.shutterstock.com/image-vector/illustration-batsman-playing-cricket-championship-600nw-2481429069.jpg', 
+    'https://t4.ftcdn.net/jpg/02/53/94/65/360_F_253946510_p1P2Izhc8XTglKaj025hTfFHxJwzVfIB.jpg',
+    'https://static.vecteezy.com/system/resources/thumbnails/023/419/300/small/t20-cricket-fever-is-back-concept-with-cartoon-cricketer-players-in-action-pose-and-abstract-waves-on-blue-halftone-background-vector.jpg',
+    'https://img.freepik.com/premium-vector/banner-with-cricket-tournaments-bat_1302-18992.jpg?semt=ais_incoming&w=740&q=80',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 3), (Timer timer) {
+      if (_currentIndex < _bannerImages.length - 1) {
+        _currentIndex++;
+      } else {
+        _currentIndex = 0;
+      }
+      _pageController.animateToPage(
+        _currentIndex,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 200,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemCount: _bannerImages.length,
+            itemBuilder: (context, index) {
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  image: DecorationImage(
+                    image: CachedNetworkImageProvider(_bannerImages[index]),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              );
+            },
+          ),
+          // Overlay
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.4),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // CTA Text
+          Positioned(
+            bottom: 20,
+            left: 24,
+            right: 24,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Join Live Contests Now!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(color: Colors.black54, offset: Offset(1, 1), blurRadius: 2),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/tournaments');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  ),
+                  child: const Text('Play Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+          // Dots Indicator
+          Positioned(
+            bottom: 60,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_bannerImages.length, (index) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: _currentIndex == index ? 24 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _currentIndex == index ? Colors.white : Colors.white.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

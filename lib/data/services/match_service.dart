@@ -466,5 +466,210 @@ class MatchService {
       rethrow;
     }
   }
-}
 
+  // ========== SCORING METHODS ==========
+
+  /// Initialize match for scoring (set batting order)
+  Future<void> initializeMatch(String matchId, List<Map<String, dynamic>> battingOrder) async {
+    try {
+      final response = await _apiClient.post('/scoring/match/$matchId/initialize', 
+        data: {'battingOrder': battingOrder});
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception(response.data['message'] ?? 'Failed to initialize match');
+      }
+      _cacheService.clearMatchCache(matchId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Add a ball to the match (score update)
+  Future<Map<String, dynamic>> addBall(String matchId, Map<String, dynamic> ballData) async {
+    try {
+      final response = await _apiClient.post('/scoring/match/$matchId/ball', data: ballData);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Clear cache for this match after score update
+        _cacheService.clearMatchCache(matchId);
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to add ball');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Start a new innings
+  Future<void> startInnings(String matchId, int inningsNumber) async {
+    try {
+      final response = await _apiClient.post('/scoring/match/$matchId/innings/start',
+        data: {'inningsNumber': inningsNumber});
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception(response.data['message'] ?? 'Failed to start innings');
+      }
+      _cacheService.clearMatchCache(matchId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// End current innings
+  Future<void> endInnings(String matchId) async {
+    try {
+      final response = await _apiClient.post('/scoring/match/$matchId/innings/end');
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception(response.data['message'] ?? 'Failed to end innings');
+      }
+      _cacheService.clearMatchCache(matchId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// End the match
+  Future<void> endMatch(String matchId) async {
+    try {
+      final response = await _apiClient.post('/scoring/match/$matchId/end');
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception(response.data['message'] ?? 'Failed to end match');
+      }
+      _cacheService.clearMatchCache(matchId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Set the striker (on-strike batsman)
+  Future<void> setStriker(String matchId, String batsmanId) async {
+    try {
+      final response = await _apiClient.patch('/scoring/match/$matchId/striker',
+        data: {'batsmanId': batsmanId});
+      if (response.statusCode != 200) {
+        throw Exception(response.data['message'] ?? 'Failed to set striker');
+      }
+      _cacheService.clearMatchCache(matchId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Set the non-striker
+  Future<void> setNonStriker(String matchId, String batsmanId) async {
+    try {
+      final response = await _apiClient.patch('/scoring/match/$matchId/non-striker',
+        data: {'batsmanId': batsmanId});
+      if (response.statusCode != 200) {
+        throw Exception(response.data['message'] ?? 'Failed to set non-striker');
+      }
+      _cacheService.clearMatchCache(matchId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Set the current bowler
+  Future<void> setBowler(String matchId, String bowlerId) async {
+    try {
+      final response = await _apiClient.patch('/scoring/match/$matchId/bowler',
+        data: {'bowlerId': bowlerId});
+      if (response.statusCode != 200) {
+        throw Exception(response.data['message'] ?? 'Failed to set bowler');
+      }
+      _cacheService.clearMatchCache(matchId);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get partnership details
+  Future<Map<String, dynamic>> getPartnership(String matchId) async {
+    try {
+      final response = await _apiClient.get('/scoring/match/$matchId/partnership');
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get partnership');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get fall of wickets
+  Future<List<dynamic>> getFallOfWickets(String matchId) async {
+    try {
+      final response = await _apiClient.get('/scoring/match/$matchId/fall-of-wickets');
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? [];
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get fall of wickets');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get over summary for a specific over
+  Future<Map<String, dynamic>> getOverSummary(String matchId, int overNumber) async {
+    try {
+      final response = await _apiClient.get('/scoring/match/$matchId/over-summary/$overNumber');
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get over summary');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get all overs summary data
+  Future<List<Map<String, dynamic>>> getOverSummaryData(String matchId) async {
+    try {
+      final response = await _apiClient.get('/scoring/match/$matchId/over-summary-data');
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        return data.cast<Map<String, dynamic>>();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get over summary data');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Update match result manually (scoring)
+  Future<Map<String, dynamic>> updateMatchResult(String matchId, Map<String, dynamic> resultData) async {
+    try {
+      final response = await _apiClient.post('/scoring/match/$matchId/result', data: resultData);
+      if (response.statusCode == 200) {
+        _cacheService.clearMatchCache(matchId);
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update result');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get match scoring data with full details
+  Future<Map<String, dynamic>> getMatchScoring(String matchId) async {
+    try {
+      final response = await _apiClient.get('/scoring/match/$matchId/scoring');
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get match scoring');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get match timeline from scoring
+  Future<Map<String, dynamic>> getScoringMatchTimeline(String matchId) async {
+    try {
+      final response = await _apiClient.get('/scoring/match/$matchId/timeline');
+      if (response.statusCode == 200) {
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get match timeline');
+    } catch (e) {
+      rethrow;
+    }
+  }
+}

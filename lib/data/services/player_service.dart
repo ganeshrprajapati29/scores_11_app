@@ -149,5 +149,48 @@ class PlayerService {
   void clearCache() {
     _cacheService.clearAll();
   }
+
+  /// Create new player
+  Future<Player> createPlayer({
+    required String name,
+    String? role,
+    String? battingStyle,
+    String? bowlingStyle,
+    String? team,
+    int? jerseyNumber,
+    String? phone,
+    String? dateOfBirth,
+    String? nationality,
+    Map<String, dynamic>? stats,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.baseUrl}/players',
+        data: {
+          'name': name,
+          if (role != null) 'role': role,
+          if (battingStyle != null) 'battingStyle': battingStyle,
+          if (bowlingStyle != null) 'bowlingStyle': bowlingStyle,
+          if (team != null) 'team': team,
+          if (jerseyNumber != null) 'jerseyNumber': jerseyNumber,
+          if (phone != null) 'phone': phone,
+          if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+          if (nationality != null) 'nationality': nationality,
+          if (stats != null) 'stats': stats,
+        },
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        _cacheService.clearAll();
+        return Player.fromJson(response.data['data']);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to create player');
+    } on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
+    } catch (e) {
+      throw Exception('Failed to create player: $e');
+    }
+  }
 }
 

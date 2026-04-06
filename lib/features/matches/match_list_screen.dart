@@ -66,19 +66,23 @@ class _MatchListScreenState extends State<MatchListScreen>
     
     setState(() => _isLoading = true);
     try {
-      // Load first page (20 matches per page)
-      final liveResult = await _matchService.getMatches(page: 1, status: 'LIVE');
-      final upcomingResult = await _matchService.getMatches(page: 1, status: 'SCHEDULED');
-      final completedResult = await _matchService.getMatches(page: 1, status: 'COMPLETED');
+      // Live matches using dedicated endpoint
+      final liveMatches = await _matchService.getLiveMatches();
+      
+      // Upcoming matches using dedicated endpoint
+      final upcomingMatches = await _matchService.getUpcomingMatches();
+      
+      // Completed matches using dedicated endpoint
+      final completedMatches = await _matchService.getCompletedMatches();
       
       setState(() {
-        _liveMatches = liveResult.matches;
-        _upcomingMatches = upcomingResult.matches;
-        _completedMatches = completedResult.matches;
+        _liveMatches = liveMatches;
+        _upcomingMatches = upcomingMatches;
+        _completedMatches = completedMatches;
         
-        _hasMoreLive = liveResult.hasMore;
-        _hasMoreUpcoming = upcomingResult.hasMore;
-        _hasMoreCompleted = completedResult.hasMore;
+        _hasMoreLive = _liveMatches.length >= 20;
+        _hasMoreUpcoming = _upcomingMatches.length >= 20;
+        _hasMoreCompleted = _completedMatches.length >= 20;
         
         _isLoading = false;
       });

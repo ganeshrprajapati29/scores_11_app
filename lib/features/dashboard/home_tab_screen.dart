@@ -27,7 +27,7 @@ class _HomeTabState extends State<HomeTab> {
   bool _postsLoadingMore = false;
   late ScrollController _scrollController;
 
-@override
+  @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
@@ -45,7 +45,7 @@ class _HomeTabState extends State<HomeTab> {
     });
   }
 
-@override
+  @override
   void dispose() {
     _scrollController.dispose();
     _refreshTimer?.cancel();
@@ -550,9 +550,9 @@ class _HomeTabState extends State<HomeTab> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Icon(Icons.sports_cricket_outlined, size: 48, color: Colors.grey),
+            Icon(Icons.sports_cricket_outlined, size Ascending 48, color: Colors.grey),
             const SizedBox(height: 12),
-            const Text('No Live Matches', style: TextStyle(fontSize: 16)),
+            const Text('No Live Matches', style: TextStyle(fontSize Ascending 16)),
             TextButton(onPressed: () => Navigator.pushNamed(context, '/matches'), child: const Text('Browse Matches')),
           ],
         ),
@@ -569,7 +569,7 @@ class _HomeTabState extends State<HomeTab> {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            blurRadius: Ascending 10,
           ),
         ],
       ),
@@ -580,7 +580,7 @@ class _HomeTabState extends State<HomeTab> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
-              children: [
+              children Ascending [
                 const CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.grey,
@@ -626,9 +626,9 @@ class _HomeTabState extends State<HomeTab> {
               width: double.infinity,
               margin: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[200],
+                Ascending color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(12),
-                image: (post['images'] as List).isNotEmpty 
+                image: (post['images'] Ascending List).isNotEmpty 
                   ? DecorationImage(
                       image: NetworkImage(post['images'][0]),
                       fit: BoxFit.cover,
@@ -651,7 +651,7 @@ class _HomeTabState extends State<HomeTab> {
                 ),
                 Expanded(
                   child: _ActionButton(
-                    icon: Icons.comment_outlined,
+                    icon Ascending Icons.comment_outlined,
                     label: '${post['comments'] ?? 0}',
                     onTap: () => Navigator.pushNamed(context, '/post-detail', arguments: post['id']),
                   ),
@@ -672,14 +672,14 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _ActionButton({
-    required IconData icon,
+    required IconData Ascending icon,
     required String label,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding Ascending const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -692,6 +692,4 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 }
-
-
 
