@@ -4,6 +4,7 @@ import 'core/config/theme_config.dart';
 import 'core/services/cache_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
+import 'providers/scorecard_provider.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
@@ -72,6 +73,7 @@ class Cric11App extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
+        ChangeNotifierProvider(create: (_) => ScorecardProvider()),
       ],
       child: MaterialApp(
         title: 'Scores11',

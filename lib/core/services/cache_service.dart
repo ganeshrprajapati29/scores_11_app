@@ -2,12 +2,6 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Cache service for local data storage using SharedPreferences
-/// 
-/// Supports:
-/// - Match data caching
-/// - Player stats caching
-/// - Tournament data caching
-/// - General API response caching
 class CacheService {
   static final CacheService _instance = CacheService._internal();
   factory CacheService() => _instance;
@@ -39,7 +33,7 @@ class CacheService {
     if (cacheTime == null) return false;
     final now = DateTime.now().millisecondsSinceEpoch;
     final diff = now - cacheTime;
-    return diff < (ttlMinutes * 60 * 1000); // Convert to milliseconds
+    return diff < (ttlMinutes * 60 * 1000);
   }
 
   /// Update cache timestamp
@@ -49,13 +43,11 @@ class CacheService {
 
   // ==================== MATCH CACHE ====================
 
-  /// Cache matches data
   Future<void> cacheMatches(List<Map<String, dynamic>> matches) async {
     await _prefs?.setString(matchesCacheKey, jsonEncode(matches));
     _updateCacheTime(matchesCacheTimeKey);
   }
 
-  /// Get cached matches
   List<Map<String, dynamic>>? getCachedMatches({int ttlMinutes = 5}) {
     if (!_isCacheValid(matchesCacheTimeKey, ttlMinutes: ttlMinutes)) {
       return null;
@@ -66,13 +58,11 @@ class CacheService {
     return decoded.cast<Map<String, dynamic>>();
   }
 
-  /// Cache live matches
   Future<void> cacheLiveMatches(List<Map<String, dynamic>> matches) async {
     await _prefs?.setString(liveMatchesCacheKey, jsonEncode(matches));
     _updateCacheTime('live_matches_cache_time');
   }
 
-  /// Get cached live matches (shorter TTL for live data)
   List<Map<String, dynamic>>? getCachedLiveMatches({int ttlMinutes = 1}) {
     if (!_isCacheValid('live_matches_cache_time', ttlMinutes: ttlMinutes)) {
       return null;
@@ -83,14 +73,12 @@ class CacheService {
     return decoded.cast<Map<String, dynamic>>();
   }
 
-  /// Cache single match detail
   Future<void> cacheMatchDetail(String matchId, Map<String, dynamic> match) async {
     final key = 'match_detail_$matchId';
     await _prefs?.setString(key, jsonEncode(match));
     await _prefs?.setInt('${key}_time', DateTime.now().millisecondsSinceEpoch);
   }
 
-  /// Get cached match detail
   Map<String, dynamic>? getCachedMatchDetail(String matchId, {int ttlMinutes = 5}) {
     final key = 'match_detail_$matchId';
     final cacheTime = _prefs?.getInt('${key}_time');
@@ -105,26 +93,22 @@ class CacheService {
     return jsonDecode(data);
   }
 
-  /// Clear specific match cache (used by MatchService after score updates)
   Future<void> clearMatchCache(String matchId) async {
     final key = 'match_detail_$matchId';
     await _prefs?.remove(key);
     await _prefs?.remove('${key}_time');
-    // Also clear live score cache for this match
     await _prefs?.remove('live_score_$matchId');
     await _prefs?.remove('scorecard_$matchId');
   }
 
   // ==================== PLAYER STATS CACHE ====================
 
-  /// Cache player stats
   Future<void> cachePlayerStats(String playerId, Map<String, dynamic> stats) async {
     final key = '${playerStatsCacheKey}_$playerId';
     await _prefs?.setString(key, jsonEncode(stats));
     _updateCacheTime(playerStatsCacheTimeKey);
   }
 
-  /// Get cached player stats
   Map<String, dynamic>? getCachedPlayerStats(String playerId, {int ttlMinutes = 30}) {
     final key = '${playerStatsCacheKey}_$playerId';
     if (!_isCacheValid(playerStatsCacheTimeKey, ttlMinutes: ttlMinutes)) {
@@ -135,13 +119,11 @@ class CacheService {
     return jsonDecode(data);
   }
 
-  /// Cache player list
   Future<void> cachePlayers(List<Map<String, dynamic>> players) async {
     await _prefs?.setString('players_list_cache', jsonEncode(players));
     _updateCacheTime('players_list_cache_time');
   }
 
-  /// Get cached players list
   List<Map<String, dynamic>>? getCachedPlayers({int ttlMinutes = 15}) {
     if (!_isCacheValid('players_list_cache_time', ttlMinutes: ttlMinutes)) {
       return null;
@@ -154,13 +136,11 @@ class CacheService {
 
   // ==================== TOURNAMENT CACHE ====================
 
-  /// Cache tournament data
   Future<void> cacheTournaments(List<Map<String, dynamic>> tournaments) async {
     await _prefs?.setString(tournamentCacheKey, jsonEncode(tournaments));
     _updateCacheTime(tournamentCacheTimeKey);
   }
 
-  /// Get cached tournaments
   List<Map<String, dynamic>>? getCachedTournaments({int ttlMinutes = 30}) {
     if (!_isCacheValid(tournamentCacheTimeKey, ttlMinutes: ttlMinutes)) {
       return null;
@@ -171,14 +151,12 @@ class CacheService {
     return decoded.cast<Map<String, dynamic>>();
   }
 
-  /// Cache tournament detail
   Future<void> cacheTournamentDetail(String tournamentId, Map<String, dynamic> tournament) async {
     final key = 'tournament_detail_$tournamentId';
     await _prefs?.setString(key, jsonEncode(tournament));
     await _prefs?.setInt('${key}_time', DateTime.now().millisecondsSinceEpoch);
   }
 
-  /// Get cached tournament detail
   Map<String, dynamic>? getCachedTournamentDetail(String tournamentId, {int ttlMinutes = 30}) {
     final key = 'tournament_detail_$tournamentId';
     final cacheTime = _prefs?.getInt('${key}_time');
@@ -195,13 +173,11 @@ class CacheService {
 
   // ==================== TEAM CACHE ====================
 
-  /// Cache teams
   Future<void> cacheTeams(List<Map<String, dynamic>> teams) async {
     await _prefs?.setString(teamsCacheKey, jsonEncode(teams));
     _updateCacheTime('teams_cache_time');
   }
 
-  /// Get cached teams
   List<Map<String, dynamic>>? getCachedTeams({int ttlMinutes = 30}) {
     if (!_isCacheValid('teams_cache_time', ttlMinutes: ttlMinutes)) {
       return null;
@@ -212,14 +188,12 @@ class CacheService {
     return decoded.cast<Map<String, dynamic>>();
   }
 
-  /// Cache team detail
   Future<void> cacheTeamDetail(String teamId, Map<String, dynamic> team) async {
     final key = 'team_detail_$teamId';
     await _prefs?.setString(key, jsonEncode(team));
     await _prefs?.setInt('${key}_time', DateTime.now().millisecondsSinceEpoch);
   }
 
-  /// Get cached team detail
   Map<String, dynamic>? getCachedTeamDetail(String teamId, {int ttlMinutes = 30}) {
     final key = 'team_detail_$teamId';
     final cacheTime = _prefs?.getInt('${key}_time');
@@ -236,14 +210,12 @@ class CacheService {
 
   // ==================== SCORE CACHE (Live Updates) ====================
 
-  /// Cache live score
   Future<void> cacheLiveScore(String matchId, Map<String, dynamic> score) async {
     final key = 'live_score_$matchId';
     await _prefs?.setString(key, jsonEncode(score));
     await _prefs?.setInt('${key}_time', DateTime.now().millisecondsSinceEpoch);
   }
 
-  /// Get cached live score
   Map<String, dynamic>? getCachedLiveScore(String matchId, {int ttlMinutes = 1}) {
     final key = 'live_score_$matchId';
     final cacheTime = _prefs?.getInt('${key}_time');
@@ -258,14 +230,12 @@ class CacheService {
     return jsonDecode(data);
   }
 
-  /// Cache scorecard
   Future<void> cacheScorecard(String matchId, Map<String, dynamic> scorecard) async {
     final key = 'scorecard_$matchId';
     await _prefs?.setString(key, jsonEncode(scorecard));
     await _prefs?.setInt('${key}_time', DateTime.now().millisecondsSinceEpoch);
   }
 
-  /// Get cached scorecard
   Map<String, dynamic>? getCachedScorecard(String matchId, {int ttlMinutes = 10}) {
     final key = 'scorecard_$matchId';
     final cacheTime = _prefs?.getInt('${key}_time');
@@ -282,12 +252,10 @@ class CacheService {
 
   // ==================== CACHE MANAGEMENT ====================
 
-  /// Clear all cache
   Future<void> clearAll() async {
     await _prefs?.clear();
   }
 
-  /// Clear matches cache only
   Future<void> clearMatchesCache() async {
     await _prefs?.remove(matchesCacheKey);
     await _prefs?.remove(matchesCacheTimeKey);
@@ -295,25 +263,21 @@ class CacheService {
     await _prefs?.remove('live_matches_cache_time');
   }
 
-  /// Clear player stats cache only
   Future<void> clearPlayerStatsCache() async {
     await _prefs?.remove(playerStatsCacheKey);
     await _prefs?.remove(playerStatsCacheTimeKey);
   }
 
-  /// Clear tournament cache only
   Future<void> clearTournamentCache() async {
     await _prefs?.remove(tournamentCacheKey);
     await _prefs?.remove(tournamentCacheTimeKey);
   }
 
-  /// Clear teams cache only
   Future<void> clearTeamsCache() async {
     await _prefs?.remove(teamsCacheKey);
     await _prefs?.remove('teams_cache_time');
   }
 
-  /// Clear all match-related caches (for a specific match or all)
   Future<void> clearAllMatchCaches() async {
     final keys = _prefs?.getKeys() ?? {};
     for (final key in keys) {
@@ -327,7 +291,6 @@ class CacheService {
     await clearMatchesCache();
   }
 
-  /// Get cache size (approximate in bytes)
   Future<int> getCacheSize() async {
     final keys = _prefs?.getKeys() ?? {};
     int size = 0;
@@ -340,11 +303,9 @@ class CacheService {
     return size;
   }
 
-  /// Get cache keys (for debugging)
   Future<Set<String>> getCacheKeys() async {
     return _prefs?.getKeys() ?? {};
   }
 
-  /// Check if cache is initialized
   bool get isInitialized => _prefs != null;
 }

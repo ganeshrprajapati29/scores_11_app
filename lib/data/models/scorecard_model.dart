@@ -106,33 +106,41 @@ class BowlerStats extends Equatable {
     'economy': economy,
   };
 
+  // Add this inside BowlerStats class
+  String get oversDisplay {
+    final oversInt = overs.floor();
+    final ballsInt = ((overs - oversInt) * 6).round();
+    return '$oversInt.$ballsInt';
+  }
+
   @override
   List<Object?> get props => [playerId, playerName, overs, maidens, runs, wickets, economy];
 }
 
 /// Fall of wicket
+// Update FallOfWicket class
 class FallOfWicket extends Equatable {
   final int wicket;
   final String batsman;
   final int runs;
-  final String partnership;
+  final String overs;  // Change from 'partnership' to 'overs'
 
   const FallOfWicket({
     required this.wicket,
     required this.batsman,
     required this.runs,
-    required this.partnership,
+    required this.overs,  // Change parameter name
   });
 
   factory FallOfWicket.fromJson(Map<String, dynamic> json) => FallOfWicket(
-    wicket: json['wicket'] ?? 0,
-    batsman: json['batsman'] ?? '',
+    wicket: json['wicketNumber'] ?? json['wicket'] ?? 0,
+    batsman: json['batsman'] is Map ? json['batsman']['playerName'] ?? '' : json['batsman'] ?? '',
     runs: json['runs'] ?? 0,
-    partnership: json['partnership'] ?? '0.0',
+    overs: json['overs'] ?? json['partnership'] ?? '0.0',
   );
 
   @override
-  List<Object?> get props => [wicket, batsman, runs, partnership];
+  List<Object?> get props => [wicket, batsman, runs, overs];
 }
 
 /// Complete scorecard response

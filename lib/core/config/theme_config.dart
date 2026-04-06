@@ -333,13 +333,13 @@ class AppGradients {
   );
   
   static LinearGradient get card => LinearGradient(
-          colors: AppColors.cardGradient,
+    colors: AppColors.cardGradient.colors,
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static LinearGradient get cardDark => LinearGradient(
-    colors: AppColors.cardGradientDark,
+    colors: AppColors.cardGradientDark.colors,
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
