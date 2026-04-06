@@ -28,6 +28,7 @@ import 'features/matches/match_detail_screen.dart';
 import 'features/matches/live_match_screen.dart';
 import 'features/matches/score_entry_screen.dart';
 import 'features/matches/create_match_screen.dart';
+import 'features/matches/scorecard_screen.dart';
 import 'features/teams/team_list_screen.dart';
 import 'features/teams/team_detail_screen.dart';
 import 'features/teams/create_team_screen.dart';
@@ -105,11 +106,14 @@ class Cric11App extends StatelessWidget {
 
           // Match Routes
           '/matches': (context) => const MatchListScreen(),
-          '/match-detail': (context) => const MatchDetailScreen(matchId: ''),
+'/match-detail': (context) => MatchDetailScreen(matchId: ModalRoute.of(context)!.settings.arguments as String),
           '/create-match': (context) => const CreateMatchScreen(),
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
-          '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
-          '/scorecard': (context) => const MatchDetailScreen(matchId: ''),
+'/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
+          '/scorecard': (context) => ScorecardScreen(
+            matchId: ModalRoute.of(context)!.settings.arguments as String? ?? '',
+          ),
+
 
           // Team Routes
           '/teams': (context) => const TeamListScreen(),

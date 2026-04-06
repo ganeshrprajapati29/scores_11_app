@@ -54,8 +54,18 @@ class ScorecardProvider extends ChangeNotifier {
       final match = await _matchService.getMatchById(matchId, forceRefresh: forceRefresh);
       final scorecardData = await _matchService.getFullScorecard(matchId);
       
+      Map<String, dynamic> safeScorecardData;
+      if (scorecardData is Map<String, dynamic>) {
+        safeScorecardData = scorecardData;
+      } else if (scorecardData is List && scorecardData.isNotEmpty) {
+        final firstItem = scorecardData[0];
+        safeScorecardData = firstItem as Map<String, dynamic>;
+      } else {
+        safeScorecardData = <String, dynamic>{};
+      }
+      
       _match = match;
-      _scorecard = FullScorecard.fromJson(scorecardData);
+      _scorecard = FullScorecard.fromJson(safeScorecardData);
       
       _cacheService.cacheScorecard(matchId, scorecardData);
       _hasData = true;

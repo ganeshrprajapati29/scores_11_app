@@ -6,15 +6,33 @@ import '../../../core/widgets/custom_appbar.dart';
 import '../../../data/models/scorecard_model.dart';
 import '../../../data/models/match_model.dart';
 
-class ScorecardScreen extends StatelessWidget {
+class ScorecardScreen extends StatefulWidget {
   final String matchId;
 
   const ScorecardScreen({super.key, required this.matchId});
 
+@override
+  _ScorecardScreenState createState() => _ScorecardScreenState();
+}
+
+class _ScorecardScreenState extends State<ScorecardScreen> {
+  ScorecardProvider? _provider;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _provider = Provider.of<ScorecardProvider>(context, listen: false);
+      if (_provider != null) {
+        _provider!.loadScorecard(widget.matchId);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ScorecardProvider()..loadScorecard(matchId),
+    return ChangeNotifierProvider.value(
+      value: _provider,
       child: Scaffold(
         appBar: CustomAppBar(
           title: 'Scorecard',
@@ -23,7 +41,7 @@ class ScorecardScreen extends StatelessWidget {
             Consumer<ScorecardProvider>(
               builder: (context, provider, child) => IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: provider.isLoading ? null : () => provider.refreshScorecard(matchId),
+                onPressed: provider.isLoading ? null : () => provider.refreshScorecard(widget.matchId),
               ),
             ),
           ],
@@ -60,7 +78,7 @@ class ScorecardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                      onPressed: provider.isLoading ? null : () => provider.refreshScorecard(matchId),
+                      onPressed: provider.isLoading ? null : () => provider.refreshScorecard(widget.matchId),
                       icon: const Icon(Icons.refresh),
                       label: const Text('Retry'),
                     ),
@@ -71,12 +89,12 @@ class ScorecardScreen extends StatelessWidget {
 
             if (!provider.hasData || provider.scorecard == null) {
               return RefreshIndicator(
-                onRefresh: () => provider.refreshScorecard(matchId),
+                onRefresh: () => provider.refreshScorecard(widget.matchId),
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(32),
                   children: [
-                    Icon(Icons.sports_scoreboard, size: 80, color: Colors.grey),
+                    Icon(Icons.scoreboard, size: 80, color: Colors.grey),
                     const SizedBox(height: 16),
                     Text(
                       'No scorecard data available',
@@ -98,7 +116,7 @@ class ScorecardScreen extends StatelessWidget {
             final match = scorecard.match;
             
             return RefreshIndicator(
-              onRefresh: () => provider.refreshScorecard(matchId),
+              onRefresh: () => provider.refreshScorecard(widget.matchId),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
@@ -360,7 +378,8 @@ class ScorecardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBattingTable(List<BatsmanStats> batting, Innings innings) {
+  Widget _buildBattingTable(List<dynamic> batting, Innings innings) {
+    final List<BatsmanStats> batsmanStats = batting.cast<BatsmanStats>(); // Safe cast
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -420,7 +439,7 @@ class ScorecardScreen extends StatelessWidget {
                       ),
                       if (player.dismissal != null && player.dismissal != 'not_out')
                         Text(
-                          player.dismissalDisplay,
+                          player.dismissal ?? 'out',
                           style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                         ),
                     ],
@@ -462,7 +481,9 @@ class ScorecardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBowlingTable(List<BowlerStats> bowling, Innings innings) {
+  Widget _buildBowlingTable(List<dynamic> bowling, Innings innings) {
+    final List<BowlerStats> bowlerStats = bowling.cast<BowlerStats>(); // Safe cast
+    if (bowlerStats.isEmpty) return const SizedBox.shrink();
     if (bowling.isEmpty) return const SizedBox.shrink();
     
     return Container(

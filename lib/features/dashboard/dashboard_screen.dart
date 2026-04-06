@@ -1206,7 +1206,7 @@ class HomeTab extends StatelessWidget {
                     icon: Icons.analytics_outlined,
                     title: 'Scorecard',
                     color: Colors.orange,
-                    onTap: () => Navigator.pushNamed(context, '/scorecard'), // Provider auto-selects first live
+onTap: () => Navigator.pushNamed(context, '/scorecard', arguments: firstMatchId ?? ''),
                   ),
                 );
               },

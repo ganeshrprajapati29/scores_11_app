@@ -180,11 +180,16 @@ class MatchService {
     try {
       final response = await _apiClient.get('${ApiConfig.baseUrl}/scoring/match/$matchId/scorecard');
       if (response.statusCode == 200) {
-        return response.data['data'] ?? {};
+        dynamic data = response.data['data'];
+        if (data is List && data.isNotEmpty) {
+          data = data.first;
+        }
+        return data as Map<String, dynamic> ?? {};
       }
       throw Exception(response.data['message'] ?? 'Failed to get scorecard');
     } catch (e) {
-      rethrow;
+      print('getFullScorecard error: $e');
+      return {};
     }
   }
 
