@@ -59,6 +59,7 @@ import 'features/live_stream/live_player_screen.dart';
 import 'features/profile/connections_screen.dart';
 import 'features/chat/chat_list_screen.dart';
 import 'features/chat/chat_screen.dart';
+import 'features/players/player_profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,7 +82,18 @@ class Cric11App extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.light,
+themeMode: ThemeMode.light,
+        onGenerateRoute: (RouteSettings settings) {
+          if (settings.name!.startsWith('/player-profile/')) {
+            final parts = settings.name!.split('/');
+            final playerId = parts.length > 2 ? parts[2] : '';
+            return MaterialPageRoute(
+              builder: (context) => PlayerProfileScreen(playerId: playerId),
+              settings: settings,
+            );
+          }
+          return null;
+        },
         home: const SplashScreen(),
         routes: {
           // Auth Routes
@@ -117,7 +129,8 @@ class Cric11App extends StatelessWidget {
 
           // Team Routes
           '/teams': (context) => const TeamListScreen(),
-          '/team-detail': (context) => const TeamDetailScreen(teamId: ''),
+          '/team-detail': (context) => TeamDetailScreen(teamId: ModalRoute.of(context)!.settings.arguments as String),
+
           '/create-team': (context) => const CreateTeamScreen(),
           '/my-teams': (context) => const TeamListScreen(),
 
@@ -135,7 +148,11 @@ class Cric11App extends StatelessWidget {
           '/create-player': (context) => const CreatePlayerScreen(),
           '/players/list': (context) => const PlayerListScreen(),
           '/player-search': (context) => const PlayerSearchScreen(),
-          '/player-profile': (context) => const CricketProfileScreen(),
+          '/player-profile': (context) {
+  final routeName = ModalRoute.of(context)!.settings.name ?? '/player-profile';
+  final playerId = routeName.split('/').last;
+  return PlayerProfileScreen(playerId: playerId.isEmpty ? 'default' : playerId);
+},
           '/compare-players': (context) => const PlayerSearchScreen(),
 
           // Leaderboard Routes
@@ -187,6 +204,8 @@ class Cric11App extends StatelessWidget {
           '/chat': (context) => const ChatScreen(userId: '', userName: ''),
           '/my-cricket': (context) => const HomeScreen(),
           '/blogs': (context) => const BlogsScreen(),
+          '/discovery': (context) => const DiscoveryScreen(),
+          
         },
       ),
     );

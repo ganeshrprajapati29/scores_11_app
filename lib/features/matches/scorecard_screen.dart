@@ -11,28 +11,15 @@ class ScorecardScreen extends StatefulWidget {
 
   const ScorecardScreen({super.key, required this.matchId});
 
-@override
+  @override
   _ScorecardScreenState createState() => _ScorecardScreenState();
 }
 
 class _ScorecardScreenState extends State<ScorecardScreen> {
-  ScorecardProvider? _provider;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _provider = Provider.of<ScorecardProvider>(context, listen: false);
-      if (_provider != null) {
-        _provider!.loadScorecard(widget.matchId);
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: _provider,
+    return ChangeNotifierProvider(
+      create: (_) => ScorecardProvider()..loadScorecard(widget.matchId),
       child: Scaffold(
         appBar: CustomAppBar(
           title: 'Scorecard',
@@ -433,9 +420,13 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        player.playerName,
-                        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                      Flexible(
+                        child: Text(
+                          player.playerName,
+                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                       if (player.dismissal != null && player.dismissal != 'not_out')
                         Text(

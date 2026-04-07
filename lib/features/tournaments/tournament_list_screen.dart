@@ -1,8 +1,8 @@
-﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/config/theme_config.dart';
-import '../../data/models/tournament_model.dart';
 import '../../data/services/tournament_service.dart';
+import '../../data/models/tournament_model.dart';
 import 'tournament_detail_screen.dart';
 
 class TournamentListScreen extends StatefulWidget {
@@ -16,24 +16,25 @@ class _TournamentListScreenState extends State<TournamentListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TournamentService _tournamentService = TournamentService();
-  
-  // Pagination state for each tab
+
+  // Tournament lists for each tab
   List<Tournament> _liveTournaments = [];
   List<Tournament> _upcomingTournaments = [];
   List<Tournament> _completedTournaments = [];
-  
+
+  // Pagination state
   int _livePage = 1;
   int _upcomingPage = 1;
   int _completedPage = 1;
-  
+
   bool _liveHasMore = true;
   bool _upcomingHasMore = true;
   bool _completedHasMore = true;
-  
+
   bool _isLiveLoadingMore = false;
   bool _isUpcomingLoadingMore = false;
   bool _isCompletedLoadingMore = false;
-  
+
   bool _isLoading = true;
   String? _error;
 
@@ -53,19 +54,20 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   Future<void> _loadTournaments() async {
     setState(() => _isLoading = true);
     try {
-      final liveResult = await _tournamentService.getTournaments(status: 'IN_PROGRESS', page: 1);
-      final upcomingResult = await _tournamentService.getTournaments(status: 'PUBLISHED', page: 1);
-      final completedResult = await _tournamentService.getTournaments(status: 'COMPLETED', page: 1);
-      
+      // Load first page for each tab in parallel
+      final liveResult = await _tournamentService.getTournaments(status: 'LIVE');
+      final upcomingResult = await _tournamentService.getTournaments(status: 'UPCOMING');
+      final completedResult = await _tournamentService.getTournaments(status: 'COMPLETED');
+
       setState(() {
         _liveTournaments = liveResult.tournaments;
         _upcomingTournaments = upcomingResult.tournaments;
         _completedTournaments = completedResult.tournaments;
-        
+
         _liveHasMore = liveResult.hasMore;
         _upcomingHasMore = upcomingResult.hasMore;
         _completedHasMore = completedResult.hasMore;
-        
+
         _isLoading = false;
         _error = null;
       });
@@ -76,18 +78,17 @@ class _TournamentListScreenState extends State<TournamentListScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Error loading tournaments: $e')),
         );
       }
     }
   }
 
-  /// Load more live tournaments
   Future<void> _loadMoreLive() async {
     if (_isLiveLoadingMore || !_liveHasMore) return;
-    
+
     setState(() => _isLiveLoadingMore = true);
-    
+
     try {
       _livePage++;
       final result = await _tournamentService.getTournaments(status: 'LIVE', page: _livePage);
@@ -109,12 +110,11 @@ class _TournamentListScreenState extends State<TournamentListScreen>
     }
   }
 
-  /// Load more upcoming tournaments
   Future<void> _loadMoreUpcoming() async {
     if (_isUpcomingLoadingMore || !_upcomingHasMore) return;
-    
+
     setState(() => _isUpcomingLoadingMore = true);
-    
+
     try {
       _upcomingPage++;
       final result = await _tournamentService.getTournaments(status: 'UPCOMING', page: _upcomingPage);
@@ -136,12 +136,11 @@ class _TournamentListScreenState extends State<TournamentListScreen>
     }
   }
 
-  /// Load more completed tournaments
   Future<void> _loadMoreCompleted() async {
     if (_isCompletedLoadingMore || !_completedHasMore) return;
-    
+
     setState(() => _isCompletedLoadingMore = true);
-    
+
     try {
       _completedPage++;
       final result = await _tournamentService.getTournaments(status: 'COMPLETED', page: _completedPage);
@@ -167,7 +166,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Tournaments'),
+        title: const Text('Tournaments'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -178,37 +177,50 @@ class _TournamentListScreenState extends State<TournamentListScreen>
         ),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _TournamentList(
-                  tournaments: _liveTournaments,
-                  isLoadingMore: _isLiveLoadingMore,
-                  hasMore: _liveHasMore,
-                  loadMore: _loadMoreLive,
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Error: $_error'),
+                      ElevatedButton(
+                        onPressed: _loadTournaments,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _TournamentList(
+                      tournaments: _liveTournaments,
+                      isLoadingMore: _isLiveLoadingMore,
+                      hasMore: _liveHasMore,
+                      loadMore: _loadMoreLive,
+                    ),
+                    _TournamentList(
+                      tournaments: _upcomingTournaments,
+                      isLoadingMore: _isUpcomingLoadingMore,
+                      hasMore: _upcomingHasMore,
+                      loadMore: _loadMoreUpcoming,
+                    ),
+                    _TournamentList(
+                      tournaments: _completedTournaments,
+                      isLoadingMore: _isCompletedLoadingMore,
+                      hasMore: _completedHasMore,
+                      loadMore: _loadMoreCompleted,
+                    ),
+                  ],
                 ),
-                _TournamentList(
-                  tournaments: _upcomingTournaments,
-                  isLoadingMore: _isUpcomingLoadingMore,
-                  hasMore: _upcomingHasMore,
-                  loadMore: _loadMoreUpcoming,
-                ),
-                _TournamentList(
-                  tournaments: _completedTournaments,
-                  isLoadingMore: _isCompletedLoadingMore,
-                  hasMore: _completedHasMore,
-                  loadMore: _loadMoreCompleted,
-                ),
-              ],
-            ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'tournament_list_create',
         onPressed: () {
           Navigator.pushNamed(context, '/create-tournament');
         },
-        icon: Icon(Icons.add),
-        label: Text('Create Tournament'),
+        icon: const Icon(Icons.add),
+        label: const Text('Create Tournament'),
         backgroundColor: AppColors.primary,
       ),
     );
@@ -233,7 +245,7 @@ class _TournamentList extends StatefulWidget {
 }
 
 class _TournamentListState extends State<_TournamentList> {
-  late ScrollController _scrollController;
+  late final ScrollController _scrollController;
 
   @override
   void initState() {
@@ -249,34 +261,39 @@ class _TournamentListState extends State<_TournamentList> {
     super.dispose();
   }
 
-  /// Detect when user scrolls to bottom and load more
   void _onScroll() {
-    if (_scrollController.position.pixels >= 
+    if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       widget.loadMore();
     }
   }
 
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.emoji_events_outlined, size: 64, color: AppColors.textHint),
+          const SizedBox(height: 16),
+          Text(
+            'No tournaments found',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.tournaments.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.emoji_events, size: 64, color: AppColors.textHint),
-            SizedBox(height: 16),
-            Text(
-              'No tournaments found',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-            ),
-          ],
-        ),
-      );
+      return _buildEmptyState();
     }
 
     return RefreshIndicator(
-      onRefresh: () async {},
+      onRefresh: () async {
+        // Trigger parent reload via context if needed
+      },
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
@@ -284,7 +301,7 @@ class _TournamentListState extends State<_TournamentList> {
         itemBuilder: (context, index) {
           if (index == widget.tournaments.length) {
             return widget.isLoadingMore
-                ? Padding(
+                ? const Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(child: CircularProgressIndicator()),
                   )
@@ -304,7 +321,7 @@ class _TournamentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLive = tournament.status == 'LIVE';
+    final isLive = tournament.isLive;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -315,9 +332,7 @@ class _TournamentCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => TournamentDetailScreen(
-                tournamentId: tournament.id,
-              ),
+              builder: (context) => TournamentDetailScreen(tournamentId: tournament.id),
             ),
           );
         },
@@ -332,13 +347,11 @@ class _TournamentCard extends StatelessWidget {
                 gradient: LinearGradient(
                   colors: isLive
                       ? AppColors.liveGradient
-                      : [AppColors.primary, AppColors.primaryDark],
+                      : [AppColors.primary, AppColors.primaryDark ?? AppColors.primary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               ),
               child: Stack(
                 children: [
@@ -348,7 +361,7 @@ class _TournamentCard extends StatelessWidget {
                     child: Icon(
                       Icons.emoji_events,
                       size: 100,
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: Colors.white.withOpacity(0.2),
                     ),
                   ),
                   Padding(
@@ -357,12 +370,9 @@ class _TournamentCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (isLive)
+                        if (isLive) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(4),
@@ -370,9 +380,8 @@ class _TournamentCard extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.circle,
-                                    color: AppColors.live, size: 8),
-                                SizedBox(width: 4),
+                                Icon(Icons.circle, color: AppColors.live, size: 8),
+                                const SizedBox(width: 4),
                                 Text(
                                   'LIVE',
                                   style: TextStyle(
@@ -384,14 +393,17 @@ class _TournamentCard extends StatelessWidget {
                               ],
                             ),
                           ),
-                        const SizedBox(height: 8),
+                          const SizedBox(height: 8),
+                        ],
                         Text(
-                          tournament.name,
+                          tournament.name ?? 'Unnamed Tournament',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -409,7 +421,7 @@ class _TournamentCard extends StatelessWidget {
                     children: [
                       _InfoChip(
                         icon: Icons.sports_cricket,
-                        label: tournament.format,
+                        label: tournament.format ?? 'T20',
                       ),
                       const SizedBox(width: 8),
                       _InfoChip(
@@ -421,78 +433,29 @@ class _TournamentCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today,
-                          size: 14, color: AppColors.textSecondary),
+                      Icon(Icons.calendar_today, size: 14, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
                       Text(
                         tournament.startDate != null
                             ? '${tournament.startDate!.day}/${tournament.startDate!.month}/${tournament.startDate!.year}'
-                            : 'Date not set',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
+                            : 'Date TBD',
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                       ),
-                      const SizedBox(width: 16),
-                      Icon(Icons.location_on,
-                          size: 14, color: AppColors.textSecondary),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          tournament.venue ?? 'Venue not set',
+                      const Spacer(),
+                      if (tournament.isPaid) ...[
+                        Icon(Icons.paid, size: 14, color: AppColors.secondary),
+                        const SizedBox(width: 4),
+                        Text(
+                          '\$${tournament.entryFee?.toStringAsFixed(0) ?? '0'}',
                           style: const TextStyle(
-                            color: AppColors.textSecondary,
+                            color: AppColors.secondary,
+                            fontWeight: FontWeight.w600,
                             fontSize: 12,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
+                      ],
                     ],
                   ),
-                  if (tournament.isPaid) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.secondary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.attach_money,
-                              size: 14, color: AppColors.secondary),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Entry: \$${tournament.entryFee?.toStringAsFixed(0) ?? "0"}',
-                            style: const TextStyle(
-                              color: AppColors.secondary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (tournament.prizeMoney != null) ...[
-                            const SizedBox(width: 12),
-                            Icon(Icons.emoji_events,
-                                size: 14, color: AppColors.secondary),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Prize: \$${tournament.prizeMoney?.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                color: AppColors.secondary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -514,7 +477,7 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
+        color: AppColors.primary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -535,7 +498,4 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
-
-
-
 

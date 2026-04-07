@@ -50,7 +50,7 @@ class Player extends Equatable {
   factory Player.fromJson(Map<String, dynamic> json) {
     return Player(
       id: json['_id'] ?? json['id'] ?? '',
-      name: json['name'] ?? '',
+name: json['playerName'] ?? json['user']?['name'] ?? json['name'] ?? '',
       email: json['email'],
       phone: json['phone'],
       photo: json['photo'],
@@ -62,7 +62,8 @@ class Player extends Equatable {
       bowlingStyle: json['bowlingStyle'],
       playerRole: json['playerRole'],
       jerseyNumber: json['jerseyNumber'],
-      team: json['team'] is String ? json['team'] : json['team']?['_id'],
+team: json['team'] is String ? json['team'] : json['team']?['_id'],
+      teamName: json['team']?['name'] ?? json['team']?['shortName'] ?? json['teamName'],
       country: json['country'],
       stats: json['stats'] != null ? PlayerStats.fromJson(json['stats']) : null,
       isActive: json['isActive'] ?? true,

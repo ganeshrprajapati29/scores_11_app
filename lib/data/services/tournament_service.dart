@@ -1,3 +1,4 @@
+import 'dart:math';
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../models/tournament_model.dart';
@@ -34,28 +35,31 @@ class TournamentService {
     String? status,
   }) async {
     try {
-      final data = await _apiClient.executeWithRetry(
-        () => _apiClient.get('${ApiConfig.tournaments}', queryParameters: {
-          'page': page,
-          'limit': limit,
-          if (status != null) 'status': status,
-        }),
-        maxRetries: 3
-      ) as Map<String, dynamic>;
-      
-      final List tournamentsList = data['tournaments'] ?? data['data'] ?? [];
-      final pagination = data['pagination'] ?? {};
-      
-      final tournaments = tournamentsList.map((json) => Tournament.fromJson(json)).toList();
-      
-      return PaginatedTournaments(
-        tournaments: tournaments,
-        page: pagination['page'] ?? page,
-        limit: pagination['limit'] ?? limit,
-        total: pagination['total'] ?? tournaments.length,
-        totalPages: pagination['pages'] ?? 1,
-        hasMore: page < (pagination['pages'] ?? 1),
-      );
+      final response = await _apiClient.get(ApiConfig.tournaments, queryParameters: {
+        'page': page.toString(),
+        'limit': limit.toString(),
+        if (status != null) 'status': status,
+      });
+
+      if (response.statusCode == 200) {
+        final data = response.data['data'] ?? {};
+        final List<dynamic> tournamentJson = data['tournaments'] ?? [];
+        final List<Tournament> tournaments = tournamentJson
+            .map((json) => Tournament.fromJson(json))
+            .toList();
+        final Map<String, dynamic> pagination = data['pagination'] ?? {};
+
+        return PaginatedTournaments(
+          tournaments: tournaments,
+          page: page,
+          limit: limit,
+          total: pagination['total'] ?? tournaments.length,
+          totalPages: pagination['pages'] ?? 1,
+          hasMore: page < (pagination['pages'] ?? 1),
+        );
+      }
+      // Fallback to mock data on API failure
+      return _getMockTournaments(page, limit);
     } catch (e) {
       debugPrint('Tournament service error (fallback): $e');
       return PaginatedTournaments(
@@ -70,7 +74,7 @@ class TournamentService {
   }
 
 
-  PaginatedTournaments _getMockTournaments(int page, int limit) {
+PaginatedTournaments _getMockTournaments(int page, int limit) {
     final mockData = [
       Tournament(
         id: 'mock1',
@@ -126,12 +130,58 @@ class TournamentService {
         updatedAt: DateTime.now(),
         isPaid: true,
       ),
+      // Add more mock data for pagination testing
+      Tournament(
+        id: 'mock4',
+        name: 'International T20 Series',
+        shortName: 'INTL',
+        organizer: 'International Cricket Council',
+        format: 'T20',
+        type: 'LEAGUE',
+        status: 'LIVE',
+        totalTeams: 2,
+        entryFee: 0,
+        prizeMoney: 1000000,
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 30)),
+        createdAt: DateTime.now().subtract(const Duration(days: 10)),
+        updatedAt: DateTime.now(),
+        venue: 'M Chinnaswamy Stadium',
+        isPaid: false,
+      ),
+      Tournament(
+        id: 'mock5',
 
+        name: "Women's Premier League",
+        shortName: 'WPL',
+        organizer: 'Mock Women Cricket',
+        format: 'T20',
+
+        type: 'LEAGUE',
+        status: 'UPCOMING',
+        totalTeams: 5,
+        entryFee: 75,
+        prizeMoney: 20000,
+        startDate: DateTime.now().add(const Duration(days: 15)),
+        endDate: DateTime.now().add(const Duration(days: 45)),
+        createdAt: DateTime.now().subtract(const Duration(days: 5)),
+        updatedAt: DateTime.now(),
+        venue: 'Arun Jaitley Stadium',
+        isPaid: true,
+      ),
     ];
 
-    final start = (page - 1) * limit;
-    final end = start + limit;
-    final List<Tournament> pageData = mockData.sublist(start, end > mockData.length ? mockData.length : end);
+    final int startIndex = (page - 1) * limit;
+    final int endIndex = min(startIndex + limit, mockData.length);
+    final List<Tournament> pageData;
+    
+    if (startIndex >= mockData.length) {
+      pageData = [];
+    } else if (endIndex > mockData.length) {
+      pageData = mockData.sublist(startIndex);
+    } else {
+      pageData = mockData.sublist(startIndex, endIndex);
+    }
     
     return PaginatedTournaments(
       tournaments: pageData,
@@ -139,7 +189,7 @@ class TournamentService {
       limit: limit,
       total: mockData.length,
       totalPages: (mockData.length / limit).ceil(),
-      hasMore: page * limit < mockData.length,
+      hasMore: endIndex < mockData.length,
     );
   }
 
@@ -349,7 +399,8 @@ class TournamentService {
     }
   }
 
-  /// Get points table
+  /// Get points table (TODO: implement PointsTable model)
+  /*
   Future<List<PointsTable>> getPointsTable(String tournamentId) async {
     try {
       final response = await _apiClient.get(
@@ -364,6 +415,7 @@ class TournamentService {
       rethrow;
     }
   }
+  */
 
   /// Add team to tournament
   Future<Tournament> addTeam(String tournamentId, String teamId) async {

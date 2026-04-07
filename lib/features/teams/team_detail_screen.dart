@@ -30,7 +30,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
   List<Player> _filteredPlayers = [];
   final TextEditingController _playerSearchController = TextEditingController();
   bool _isLoading = true;
-  bool _isPlayerLoading = false;
+  bool _isPlayersLoading = false;
   String? _error;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -59,29 +59,40 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
     super.dispose();
   }
 
-  Future<void> _loadTeam() async {
-    try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
-      final team = await _teamService.getTeamById(widget.teamId);
-      final playersData = team.players ?? [];
-      final players = playersData.map((p) => Player.fromJson(p as Map<String, dynamic>)).toList();
-      setState(() {
-        _team = team;
-        _players = players;
-        _filteredPlayers = players;
-        _isLoading = false;
-      });
-      _animationController.forward();
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+Future<void> _loadTeam() async {
+      try {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+
+        // Fetch team first
+        final team = await _teamService.getTeamById(widget.teamId);
+        setState(() {
+          _team = team;
+        });
+
+        // Fetch players separately using dedicated endpoint
+        setState(() {
+          _isPlayersLoading = true;
+        });
+        final players = await _playerService.getPlayersByTeam(widget.teamId);
+        setState(() {
+          _players = players;
+          _filteredPlayers = players;
+          _isLoading = false;
+          _isPlayersLoading = false;
+        });
+
+        _animationController.forward();
+      } catch (e) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+          _isPlayersLoading = false;
+        });
+      }
     }
-  }
 
   void _filterPlayers() {
     final query = _playerSearchController.text.toLowerCase();
@@ -101,7 +112,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
       appBar: CustomAppBar(
         title: _team?.name ?? 'Team Details',
       ),
-      body: _isLoading
+body: (_isLoading || _isPlayersLoading)
           ? const CustomLoader()
           : _error != null
               ? _buildErrorState()

@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:provider/provider.dart';
+import 'dart:async';
 import '../data/services/match_service.dart';
 import '../data/models/scorecard_model.dart';
 import '../data/models/match_model.dart';
@@ -8,7 +8,7 @@ import '../core/services/cache_service.dart';
 class ScorecardProvider extends ChangeNotifier {
   final MatchService _matchService = MatchService();
   final CacheService _cacheService = CacheService();
-
+  Timer? _refreshTimer;
   FullScorecard? _scorecard;
   Match? _match;
   bool _isLoading = false;
@@ -70,14 +70,19 @@ class ScorecardProvider extends ChangeNotifier {
       _cacheService.cacheScorecard(matchId, scorecardData);
       _hasData = true;
       _lastUpdated = DateTime.now();
+      
+      if (match != null && match.status == 'live') {
+        _cancelRefreshTimer();
+        _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+          refreshScorecard(matchId);
+        });
+      }
     } catch (e) {
       debugPrint('❌ Scorecard load error: $e');
-      _error = e.toString();
+      _error = 'No scorecard data available. Check backend server. Error: ${e.toString()}';
       _hasData = false;
-      
-      if (kDebugMode) {
-        _loadStaticFallback(matchId);
-      }
+      // ✅ REMOVED FALLBACK - show real error to debug
+      // _loadStaticFallback(matchId);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -95,15 +100,16 @@ class ScorecardProvider extends ChangeNotifier {
       _match = Match(
         id: matchId,
         team1: 'Mumbai Indians',
-        team2: 'Chennai Super Kings',
+        team2: 'Royal Challengers Bangalore',
+        venue: const Venue(name: 'Nassau County Stadium', city: 'New York'),
         scheduledDate: now,
-        score: const MatchScore(
-          team1: TeamScore(runs: 185, wickets: 4, overs: '20.0'),
-          team2: TeamScore(runs: 142, wickets: 7, overs: '19.3'),
+        score: MatchScore(
+          team1: const TeamScore(runs: 0, wickets: 0, overs: '0.0'),
+          team2: const TeamScore(runs: 0, wickets: 0, overs: '0.0'),
         ),
         format: 'T20',
         matchType: 'LEAGUE',
-        status: 'COMPLETED',
+        status: 'live',
         createdAt: now,
         updatedAt: now,
       );
@@ -114,137 +120,24 @@ class ScorecardProvider extends ChangeNotifier {
           Innings(
             inningsNumber: 1,
             battingTeam: 'Mumbai Indians',
-            bowlingTeam: 'Chennai Super Kings',
-            totalRuns: 185,
-            totalWickets: 4,
-            totalOvers: 20.0,
-            totalBalls: 120,
-            extras: const Extras(wides: 8, noBalls: 2, byes: 4, legByes: 2, total: 16),
-            isCompleted: true,
-          ),
-          Innings(
-            inningsNumber: 2,
-            battingTeam: 'Chennai Super Kings',
-            bowlingTeam: 'Mumbai Indians',
-            totalRuns: 142,
-            totalWickets: 7,
-            totalOvers: 19.3,
-            totalBalls: 117,
-            extras: const Extras(wides: 6, noBalls: 1, byes: 3, legByes: 1, total: 11),
-            isCompleted: true,
+            bowlingTeam: 'Royal Challengers Bangalore',
+            totalRuns: 0,
+            totalWickets: 0,
+            totalOvers: 0.0,
+            extras: const Extras(wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0),
+            isCompleted: false,
           ),
         ],
-        batting: [
-          [
-            BatsmanStats(
-              playerId: '1',
-              playerName: 'Rohit Sharma',
-              runs: 72,
-              balls: 45,
-              fours: 8,
-              sixes: 3,
-              strikeRate: 160.0,
-              dismissal: 'c Jadeja b Deshpande',
-            ),
-            BatsmanStats(
-              playerId: '2',
-              playerName: 'Ishan Kishan',
-              runs: 45,
-              balls: 30,
-              fours: 6,
-              sixes: 2,
-              strikeRate: 150.0,
-              dismissal: 'b Pathirana',
-            ),
-            BatsmanStats(
-              playerId: '3',
-              playerName: 'Hardik Pandya',
-              runs: 35,
-              balls: 20,
-              fours: 3,
-              sixes: 3,
-              strikeRate: 175.0,
-              dismissal: null,
-            ),
-          ],
-          [
-            BatsmanStats(
-              playerId: '4',
-              playerName: 'Ruturaj Gaikwad',
-              runs: 52,
-              balls: 38,
-              fours: 5,
-              sixes: 2,
-              strikeRate: 136.8,
-              dismissal: 'c Kishan b Bumrah',
-            ),
-            BatsmanStats(
-              playerId: '5',
-              playerName: 'MS Dhoni',
-              runs: 28,
-              balls: 15,
-              fours: 2,
-              sixes: 2,
-              strikeRate: 186.7,
-              dismissal: null,
-            ),
-          ],
-        ],
-        bowling: [
-          [
-            const BowlerStats(
-              playerId: '6',
-              playerName: 'Deepak Chahar',
-              overs: 4.0,
-              maidens: 0,
-              runs: 32,
-              wickets: 1,
-              economy: 8.0,
-            ),
-            const BowlerStats(
-              playerId: '7',
-              playerName: 'Ravindra Jadeja',
-              overs: 4.0,
-              maidens: 0,
-              runs: 38,
-              wickets: 1,
-              economy: 9.5,
-            ),
-          ],
-          [
-            const BowlerStats(
-              playerId: '8',
-              playerName: 'Jasprit Bumrah',
-              overs: 4.0,
-              maidens: 0,
-              runs: 28,
-              wickets: 3,
-              economy: 7.0,
-            ),
-            const BowlerStats(
-              playerId: '9',
-              playerName: 'Hardik Pandya',
-              overs: 3.3,
-              maidens: 0,
-              runs: 32,
-              wickets: 1,
-              economy: 9.14,
-            ),
-          ],
-        ],
-        fallOfWickets: [
-          const FallOfWicket(wicket: 1, batsman: 'Ishan Kishan', runs: 85, overs: '10.2'),
-          const FallOfWicket(wicket: 2, batsman: 'Rohit Sharma', runs: 120, overs: '14.3'),
-          const FallOfWicket(wicket: 3, batsman: 'Ruturaj Gaikwad', runs: 52, overs: '8.3'),
-          const FallOfWicket(wicket: 4, batsman: 'Shivam Dube', runs: 95, overs: '12.2'),
-        ],
+        batting: [],
+        bowling: [],
+        fallOfWickets: [],
         partnerships: [],
       );
       
       _hasData = true;
-      debugPrint('✅ Static fallback data loaded successfully');
+      debugPrint('✅ Clean fallback loaded');
     } catch (e) {
-      debugPrint('❌ Static fallback error: $e');
+      debugPrint('❌ Fallback error: $e');
       _hasData = false;
     }
   }
@@ -253,4 +146,16 @@ class ScorecardProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  void _cancelRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _cancelRefreshTimer();
+    super.dispose();
+  }
 }
+

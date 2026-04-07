@@ -190,7 +190,12 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
                             ),
                           ),
                         ),
-                        title: Text(player.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        title: Text(
+                          player.name.isNotEmpty ? player.name : 'Unknown Player',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -205,7 +210,15 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
                           children: [
                             IconButton(
                               icon: const Icon(Icons.visibility),
-                              onPressed: () => Navigator.pushNamed(context, '/player-profile/${player.id}'),
+                              onPressed: () async {
+                                try {
+                                  Navigator.pushNamed(context, '/player-profile/${player.id}');
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Navigation error: $e')),
+                                  );
+                                }
+                              },
                             ),
                             IconButton(
                               icon: const Icon(Icons.edit),
@@ -213,7 +226,15 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
                             ),
                           ],
                         ),
-                        onTap: () => Navigator.pushNamed(context, '/player-profile/${player.id}'),
+                        onTap: () async {
+                          try {
+                            Navigator.pushNamed(context, '/player-profile/${player.id}');
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Navigation error: $e')),
+                            );
+                          }
+                        },
                       ),
                     );
                   },

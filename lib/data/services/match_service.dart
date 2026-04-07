@@ -2,6 +2,7 @@ import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/cache_service.dart';
 import '../models/match_model.dart';
+import 'package:flutter/foundation.dart';
 
 /// Pagination response wrapper
 class PaginatedMatches {
@@ -187,10 +188,7 @@ class MatchService {
         return data as Map<String, dynamic> ?? {};
       }
       throw Exception(response.data['message'] ?? 'Failed to get scorecard');
-    } catch (e) {
-      print('getFullScorecard error: $e');
-      return {};
-    }
+    } catch (e) {      debugPrint('getFullScorecard error: $e');      return {};    }
   }
 
   /// Get live matches - uses dedicated endpoint
