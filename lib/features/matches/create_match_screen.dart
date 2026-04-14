@@ -10,6 +10,10 @@ import '../../../data/services/match_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../core/services/api_client.dart';
 import '../../../core/utils/validators.dart';
+import '../../../data/services/team_service.dart';
+import '../../../data/services/tournament_service.dart';
+import '../../../data/models/team_model.dart';
+import '../../../data/models/tournament_model.dart';
 
 class CreateMatchScreen extends StatefulWidget {
   const CreateMatchScreen({super.key});
@@ -24,14 +28,35 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
   final _team2Controller = TextEditingController();
   final _venueController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final TextEditingController _venueCityController = TextEditingController();
+  final TextEditingController _team1SearchController = TextEditingController();
+  final TextEditingController _team2SearchController = TextEditingController();
 
   String _format = 'T20';
   String _matchType = 'LEAGUE';
   DateTime? _scheduledDate;
-  DateTime? _startTime;
+  TimeOfDay? _selectedTimeOfDay;
   bool _isLoading = false;
+  bool _loadingTeams = true;
+  bool _loadingTournaments = false;
 
-  final MatchService _matchService = MatchService();
+  List<Team> _allTeams = [];
+  List<Team> _filteredTeams1 = [];
+  List<Team> _filteredTeams2 = [];
+  List<Tournament> _tournaments = []; 
+
+  String? _selectedTeam1Id;
+  Team? _selectedTeam1;
+  String? _selectedTeam2Id;
+  Team? _selectedTeam2;
+  String? _selectedTournamentId;
+
+  String _team1Search = '';
+  String _team2Search = '';
+
+final MatchService _matchService = MatchService();
+  final TeamService _teamService = TeamService();
+  final TournamentService _tournamentService = TournamentService();
 
   Future<void> _selectDate() async {
     final date = await showDatePicker(
@@ -45,38 +70,81 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
     }
   }
 
-  Future<void> _selectTime() async {
+Future<void> _selectTime() async {
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: _selectedTimeOfDay ?? TimeOfDay.now(),
     );
     if (time != null) {
-      setState(() => _startTime = DateTime.now().add(
-        Duration(hours: time.hour, minutes: time.minute),
-      ));
+      setState(() => _selectedTimeOfDay = time);
     }
   }
 
-  Future<void> _createMatch() async {
+Future<void> _createMatch() async {
+    if (_selectedTeam1Id == null || _selectedTeam2Id == null || _scheduledDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select both teams and date')),
+      );
+      return;
+    }
+    if (_selectedTeam1Id == _selectedTeam2Id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Team1 and Team2 must be different')),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
+    // Validate teams exist before API call
     setState(() => _isLoading = true);
+    try {
+      debugPrint('🔍 Validating Team1: $_selectedTeam1Id');
+      await _teamService.getTeamById(_selectedTeam1Id!);
+      debugPrint('✅ Team1 valid');
+      
+      debugPrint('🔍 Validating Team2: $_selectedTeam2Id');
+      await _teamService.getTeamById(_selectedTeam2Id!);
+      debugPrint('✅ Team2 valid');
+    } catch (teamError) {
+      debugPrint('❌ Team validation failed: $teamError');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid team selected. Please refresh and try again. Error: $teamError')),
+        );
+      }
+      setState(() => _isLoading = false);
+      return;
+    }
 
     try {
+      final scheduledDateTime = DateTime(
+        _scheduledDate!.year,
+        _scheduledDate!.month,
+        _scheduledDate!.day,
+        _selectedTimeOfDay?.hour ?? 10,
+        _selectedTimeOfDay?.minute ?? 0,
+      );
+
+      debugPrint('📅 Creating match: ${_selectedTeam1!.name} vs ${_selectedTeam2!.name}');
+      debugPrint('   Tournament: ${_selectedTournamentId ?? "None"}');
+      debugPrint('   Date: $scheduledDateTime');
+      
       final match = await _matchService.createMatch(
-        team1: _team1Controller.text.trim(),
-        team2: _team2Controller.text.trim(),
+        team1: _selectedTeam1Id!,
+        team2: _selectedTeam2Id!,
+        tournament: _selectedTournamentId,
+        scheduledDate: scheduledDateTime,
         format: _format,
         matchType: _matchType,
         venueName: _venueController.text.trim(),
-        scheduledDate: _scheduledDate!,
-        overs: 20,
+        venueCity: _venueCityController.text.trim().isEmpty ? null : _venueCityController.text.trim(),
+        overs: _format == 'T20' ? 20 : _format == 'ODI' ? 50 : 90,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Match created successfully!'),
+            content: const Text('Match scheduled successfully!'),
             backgroundColor: Colors.green,
             action: SnackBarAction(
               label: 'View',
@@ -91,9 +159,10 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
+      debugPrint('💥 Match creation failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Error creating match: $e')),
         );
       }
     } finally {
@@ -101,6 +170,74 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+@override
+  void initState() {
+    super.initState();
+    _loadTeams();
+    _loadTournaments();
+    _team1SearchController.addListener(_filterTeams1);
+    _team2SearchController.addListener(_filterTeams2);
+  }
+
+  @override
+  void dispose() {
+    _team1SearchController.dispose();
+    _team2SearchController.dispose();
+    _venueCityController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTeams() async {
+    setState(() => _loadingTeams = true);
+    try {
+      final result = await _teamService.getTeams(page: 1, limit: 100);
+      setState(() {
+        _allTeams = result.teams;
+        _filteredTeams1 = result.teams;
+        _filteredTeams2 = result.teams;
+        _loadingTeams = false;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load teams: $e')));
+      setState(() => _loadingTeams = false);
+    }
+  }
+
+  Future<void> _loadTournaments() async {
+    setState(() => _loadingTournaments = true);
+    try {
+      final result = await _tournamentService.getTournaments(page: 1, limit: 50);
+      setState(() {
+        _tournaments = result.tournaments;
+      });
+    } catch (e) {
+      // Optional, ignore missing tournaments
+    } finally {
+      setState(() => _loadingTournaments = false);
+    }
+  }
+
+  void _filterTeams1() {
+    final query = _team1SearchController.text.toLowerCase();
+    setState(() {
+      _filteredTeams1 = _allTeams.where((team) =>
+        team.name.toLowerCase().contains(query) ||
+        (team.shortName ?? '').toLowerCase().contains(query)
+      ).toList();
+    });
+  }
+
+  void _filterTeams2() {
+    final query = _team2SearchController.text.toLowerCase();
+    setState(() {
+      _filteredTeams2 = _allTeams.where((team) =>
+        team.name.toLowerCase().contains(query) ||
+        (team.shortName ?? '').toLowerCase().contains(query) ||
+        (_selectedTeam1Id == null || team.id != _selectedTeam1Id)
+      ).toList();
+    });
   }
 
   @override
@@ -118,28 +255,127 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Team 1 vs Team 2
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        controller: _team1Controller,
-                        labelText: 'Team 1 *',
-                        prefixIcon: Icons.flag,
-                        validator: Validators.required,
+// Team Selection Section
+                if (_loadingTeams)
+                  const Center(child: CircularProgressIndicator())
+                else ...[
+                  // Team 1 Selector
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Team 1 *', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      CustomTextField(
+                        controller: _team1SearchController,
+                        labelText: 'Search Team 1',
+                        prefixIcon: Icons.search,
+                        suffixIcon: _selectedTeam1 != null 
+                          ? IconButton(icon: Icon(Icons.clear), onPressed: () {
+                              setState(() {
+                                _selectedTeam1 = null;
+                                _selectedTeam1Id = null;
+                                _team1SearchController.clear();
+                              });
+                            })
+                          : null,
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: CustomTextField(
-                        controller: _team2Controller,
-                        labelText: 'Team 2 *',
-                        prefixIcon: Icons.flag,
-                        validator: Validators.required,
+                      const SizedBox(height: 8),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: _selectedTeam1 != null 
+                          ? ListTile(
+                              leading: CircleAvatar(child: Text(_selectedTeam1!.shortName ?? '?')),
+                              title: Text(_selectedTeam1!.name),
+                              subtitle: Text(_selectedTeam1!.city ?? ''),
+                              trailing: Icon(Icons.check_circle, color: Colors.green),
+                            )
+                          : _filteredTeams1.isEmpty
+                            ? const ListTile(title: Text('No teams found'))
+                            : ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: _filteredTeams1.length,
+                                itemBuilder: (context, index) {
+                                  final team = _filteredTeams1[index];
+                                  return ListTile(
+                                    leading: CircleAvatar(child: Text(team.shortName ?? '?')),
+                                    title: Text(team.name),
+                                    subtitle: Text(team.city ?? ''),
+                                    onTap: () => setState(() {
+                                      _selectedTeam1 = team;
+                                      _selectedTeam1Id = team.id;
+                                      _team1SearchController.text = team.name;
+                                      _filteredTeams1.clear(); // Close dropdown
+                                    }),
+                                  );
+                                },
+                              ),
                       ),
-                    ),
-                  ],
-                ),
+                      if (_selectedTeam1 == null) const SizedBox(height: 16),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  // Team 2 Selector
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Team 2 *', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      CustomTextField(
+                        controller: _team2SearchController,
+                        labelText: 'Search Team 2',
+                        prefixIcon: Icons.search,
+                        suffixIcon: _selectedTeam2 != null 
+                          ? IconButton(icon: Icon(Icons.clear), onPressed: () {
+                              setState(() {
+                                _selectedTeam2 = null;
+                                _selectedTeam2Id = null;
+                                _team2SearchController.clear();
+                              });
+                            })
+                          : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: _selectedTeam2 != null 
+                          ? ListTile(
+                              leading: CircleAvatar(child: Text(_selectedTeam2!.shortName ?? '?')),
+                              title: Text(_selectedTeam2!.name),
+                              subtitle: Text(_selectedTeam2!.city ?? ''),
+                              trailing: Icon(Icons.check_circle, color: Colors.green),
+                            )
+                          : _filteredTeams2.isEmpty
+                            ? const ListTile(title: Text('No teams found'))
+                            : ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: _filteredTeams2.length,
+                                itemBuilder: (context, index) {
+                                  final team = _filteredTeams2[index];
+                                  return ListTile(
+                                    leading: CircleAvatar(child: Text(team.shortName ?? '?')),
+                                    title: Text(team.name),
+                                    subtitle: Text(team.city ?? ''),
+                                    onTap: () => setState(() {
+                                      _selectedTeam2 = team;
+                                      _selectedTeam2Id = team.id;
+                                      _team2SearchController.text = team.name;
+                                    }),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 24),
                 const SizedBox(height: 16),
 
                 // Format & Type
@@ -172,9 +408,10 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
                           border: OutlineInputBorder(),
                         ),
                         items: const [
-                          DropdownMenuItem(value: 'LEAGUE', child: Text('League')),
+DropdownMenuItem(value: 'LEAGUE', child: Text('League')),
                           DropdownMenuItem(value: 'FRIENDLY', child: Text('Friendly')),
                           DropdownMenuItem(value: 'KNOCKOUT', child: Text('Knockout')),
+                          DropdownMenuItem(value: 'FINAL', child: Text('Final')),
                         ],
                         onChanged: (value) => setState(() => _matchType = value ?? 'LEAGUE'),
                         validator: Validators.required,
@@ -184,6 +421,21 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
                 ),
                 const SizedBox(height: 16),
 
+// Tournament (Optional)
+                DropdownButtonFormField<String>(
+                  value: _selectedTournamentId,
+                  decoration: const InputDecoration(
+                    labelText: 'Tournament (Optional)',
+                    prefixIcon: Icon(Icons.emoji_events),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _tournaments.map((t) => DropdownMenuItem(
+                    value: t.id,
+                    child: Text(t.name),
+                  )).toList(),
+                  onChanged: (value) => setState(() => _selectedTournamentId = value),
+                ),
+                const SizedBox(height: 16),
                 // Date & Time
                 Row(
                   children: [
@@ -192,8 +444,12 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
                         onTap: _selectDate,
                         child: AbsorbPointer(
                           child: CustomTextField(
-                            controller: TextEditingController(text: _scheduledDate != null ? '${_scheduledDate!.day}/${_scheduledDate!.month}/${_scheduledDate!.year}' : ''),
-                            labelText: 'Date *',
+                            controller: TextEditingController(
+                              text: _scheduledDate != null 
+                                ? '${_scheduledDate!.day}/${_scheduledDate!.month}/${_scheduledDate!.year}' 
+                                : ''
+                            ),
+                            labelText: 'Scheduled Date *',
                             prefixIcon: Icons.calendar_today,
                             enabled: false,
                             validator: Validators.required,
@@ -207,8 +463,12 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
                         onTap: _selectTime,
                         child: AbsorbPointer(
                           child: CustomTextField(
-                            controller: TextEditingController(text: _startTime != null ? '${_startTime!.hour}:${_startTime!.minute.toString().padLeft(2, '0')}' : ''),
-                            labelText: 'Time *',
+                            controller: TextEditingController(
+                              text: _selectedTimeOfDay != null 
+                                ? '${_selectedTimeOfDay!.hour}:${_selectedTimeOfDay!.minute.toString().padLeft(2, '0')}' 
+                                : ''
+                            ),
+                            labelText: 'Start Time *',
                             prefixIcon: Icons.access_time,
                             enabled: false,
                             validator: Validators.required,
@@ -220,12 +480,23 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Venue
-                CustomTextField(
-                  controller: _venueController,
-                  labelText: 'Venue *',
-                  prefixIcon: Icons.location_on,
-                  validator: Validators.required,
+// Venue Details
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomTextField(
+                      controller: _venueController,
+                      labelText: 'Venue Name *',
+                      prefixIcon: Icons.location_on,
+                      validator: Validators.required,
+                    ),
+                    const SizedBox(height: 12),
+                    CustomTextField(
+                      controller: _venueCityController,
+                      labelText: 'City (Optional)',
+                      prefixIcon: Icons.location_city,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 

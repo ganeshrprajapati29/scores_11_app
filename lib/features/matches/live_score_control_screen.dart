@@ -148,7 +148,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildTossTab(),
+                _buildTossTab(),
                   _buildPlayingXiTab(),
                   _buildScoreEntryTab(),
                 ],

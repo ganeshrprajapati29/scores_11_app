@@ -141,9 +141,11 @@ class _HomeTabState extends State<HomeTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('🔴 Live Matches', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                TextButton(
-                  onPressed: () => Navigator.pushNamed(context, '/matches/live'),
-                  child: const Text('See All'),
+                Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/matches/live'),
+                    child: const Text('See All'),
+                  ),
                 ),
               ],
             ),
@@ -152,10 +154,12 @@ class _HomeTabState extends State<HomeTab> {
             if (provider.liveMatches.length > 3)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: TextButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, '/matches/live'),
-                  icon: const Icon(Icons.arrow_forward, size: 16),
-                  label: Text('View ${provider.liveMatches.length} Live Matches'),
+              Builder(
+                  builder: (context) => TextButton.icon(
+                    onPressed: () => Navigator.pushNamed(context, '/matches/live'),
+                    icon: const Icon(Icons.arrow_forward, size: 16),
+                    label: Text('View ${provider.liveMatches.length} Live Matches'),
+                  ),
                 ),
               )
             else if (provider.liveMatches.isEmpty)
@@ -239,7 +243,9 @@ class _HomeTabState extends State<HomeTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('📅 Upcoming', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                TextButton(onPressed: () => Navigator.pushNamed(context, '/matches'), child: const Text('See All')),
+                Builder(
+                  builder: (context) => TextButton(onPressed: () => Navigator.pushNamed(context, '/matches'), child: const Text('See All')),
+                ),
               ],
             ),
             const SizedBox(height: 12),

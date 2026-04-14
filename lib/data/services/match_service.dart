@@ -376,29 +376,42 @@ Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) as
     String? venueCity,
     int overs = 20,
   }) async {
+    final requestData = {
+      'team1': team1,
+      'team2': team2,
+      'scheduledDate': scheduledDate.toIso8601String(),
+      if (tournament != null) 'tournament': tournament,
+      'format': format,
+      'matchType': matchType,
+      'venue': {
+        'name': venueName ?? 'Stadium',
+        'city': venueCity,
+      },
+      'overs': overs,
+    };
+    
+    debugPrint('🚀 CREATE MATCH REQUEST: ${requestData.toString()}');
+    
     try {
       final response = await _apiClient.post(
         '${ApiConfig.matches}',
-        data: {
-          'team1': team1,
-          'team2': team2,
-          'scheduledDate': scheduledDate.toIso8601String(),
-          if (tournament != null) 'tournament': tournament,
-          'format': format,
-          'matchType': matchType,
-          'venue': {
-            'name': venueName ?? 'Stadium',
-            'city': venueCity,
-          },
-          'overs': overs,
-        },
+        data: requestData,
       );
+      
+      debugPrint('✅ CREATE MATCH RESPONSE: ${response.statusCode} - ${response.data.toString()}');
+      
       if (response.statusCode == 201 || response.statusCode == 200) {
         _cacheService.clearMatchesCache();
         return Match.fromJson(response.data['data']);
       }
       throw Exception(response.data['message'] ?? 'Failed to create match');
+    } on DioException catch (e) {
+      debugPrint('❌ CREATE MATCH DIO ERROR: ${e.response?.data}');
+      debugPrint('   Status: ${e.response?.statusCode}');
+      debugPrint('   Message: ${e.message}');
+      rethrow;
     } catch (e) {
+      debugPrint('❌ CREATE MATCH ERROR: $e');
       rethrow;
     }
   }

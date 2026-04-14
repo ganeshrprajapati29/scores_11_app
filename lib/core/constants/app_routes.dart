@@ -13,6 +13,7 @@ class AppRoutes {
   static const String liveMatch = '/live-match/:id';
   static const String scoreEntry = '/score-entry/:id';
   static const String scorecard = '/scorecard/:id';
+  static const String toss = '/toss/:id';
   
   // Tournaments
   static const String tournaments = '/tournaments';

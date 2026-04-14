@@ -50,6 +50,8 @@ import 'features/settings/notification_settings_screen.dart';
 import 'features/settings/privacy_settings_screen.dart';
 import 'features/settings/preferences_screen.dart';
 import 'features/settings/security_screen.dart';
+import 'features/settings/privacy_policy_screen.dart';
+import 'features/settings/help_support_screen.dart';
 import 'features/dashboard/testing_screen.dart';
 import 'features/wallet/wallet_screen.dart';
 import 'features/subscription/subscription_screen.dart';
@@ -61,6 +63,7 @@ import 'features/profile/connections_screen.dart';
 import 'features/chat/chat_list_screen.dart';
 import 'features/chat/chat_screen.dart';
 import 'features/players/player_profile_screen.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -159,6 +162,7 @@ themeMode: ThemeMode.light,
           '/compare-players': (context) => const PlayerSearchScreen(),
 
           // Leaderboard Routes
+          '/leaderboards': (context) => const TopBatsmanScreen(),
           '/leaderboard': (context) => const TopBatsmanScreen(),
           '/top-batsman': (context) => const TopBatsmanScreen(),
           '/top-bowler': (context) => const TopBatsmanScreen(),
@@ -198,6 +202,8 @@ themeMode: ThemeMode.light,
           '/settings/privacy': (context) => const PrivacySettingsScreen(),
           '/settings/preferences': (context) => const PreferencesScreen(),
           '/settings/security': (context) => const SecurityScreen(),
+          '/privacy-policy': (context) => const PrivacyPolicyScreen(),
+          '/help-support': (context) => const HelpSupportScreen(),
           '/testing': (context) => const TestingScreen(),
           '/change-password': (context) => const AppSettingsScreen(),
           '/support': (context) => const AppSettingsScreen(),
