@@ -61,7 +61,7 @@ name: json['playerName'] ?? json['user']?['name'] ?? json['name'] ?? '',
       battingStyle: json['battingStyle'],
       bowlingStyle: json['bowlingStyle'],
       playerRole: json['playerRole'],
-      jerseyNumber: json['jerseyNumber'],
+      jerseyNumber: (json['jerseyNumber'] as num?)?.toInt() ?? 0,
 team: json['team'] is String ? json['team'] : json['team']?['_id'],
       teamName: json['team']?['name'] ?? json['team']?['shortName'] ?? json['teamName'],
       country: json['country'],
@@ -154,21 +154,21 @@ class PlayerStats extends Equatable {
   });
 
   factory PlayerStats.fromJson(Map<String, dynamic> json) {
-    return PlayerStats(
-      matches: json['matches'] ?? 0,
-      innings: json['innings'] ?? 0,
-      runs: json['runs'] ?? 0,
-      highestScore: json['highestScore'] ?? 0,
+      return PlayerStats(
+      matches: (json['matches'] as num?)?.toInt() ?? 0,
+      innings: (json['innings'] as num?)?.toInt() ?? 0,
+      runs: (json['runs'] as num?)?.toInt() ?? 0,
+      highestScore: (json['highestScore'] as num?)?.toInt() ?? 0,
       average: (json['average'] ?? 0).toDouble(),
       strikeRate: (json['strikeRate'] ?? 0).toDouble(),
-      hundreds: json['hundreds'] ?? 0,
-      fifties: json['fifties'] ?? 0,
-      fours: json['fours'] ?? 0,
-      sixes: json['sixes'] ?? 0,
-      wickets: json['wickets'] ?? 0,
+      hundreds: (json['hundreds'] as num?)?.toInt() ?? 0,
+      fifties: (json['fifties'] as num?)?.toInt() ?? 0,
+      fours: (json['fours'] as num?)?.toInt() ?? 0,
+      sixes: (json['sixes'] as num?)?.toInt() ?? 0,
+      wickets: (json['wickets'] as num?)?.toInt() ?? 0,
       economy: (json['economy'] ?? 0).toDouble(),
-      bestBowlingRuns: json['bestBowlingRuns'] ?? 0,
-      bestBowlingWickets: json['bestBowlingWickets'] ?? 0,
+      bestBowlingRuns: (json['bestBowlingRuns'] as num?)?.toInt() ?? 0,
+      bestBowlingWickets: (json['bestBowlingWickets'] as num?)?.toInt() ?? 0,
     );
   }
 

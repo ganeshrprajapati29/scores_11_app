@@ -3,8 +3,8 @@ import '../../core/constants/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_loader.dart';
-import '../../data/models/wallet_model.dart';
 import '../../data/services/wallet_service.dart';
+import '../../data/models/wallet_model.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});

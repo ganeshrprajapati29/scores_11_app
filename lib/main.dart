@@ -5,6 +5,7 @@ import 'core/services/cache_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/scorecard_provider.dart';
+import 'providers/leaderboard_provider.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
@@ -76,6 +77,7 @@ class Cric11App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => ScorecardProvider()),
+        ChangeNotifierProvider(create: (_) => LeaderboardProvider()),
       ],
       child: MaterialApp(
         title: 'Scores11',
@@ -119,6 +121,7 @@ themeMode: ThemeMode.light,
           // Match Routes
           '/matches': (context) => const MatchListScreen(),
 '/match-detail': (context) => MatchDetailScreen(matchId: ModalRoute.of(context)!.settings.arguments as String),
+          '/live-matches': (context) => const MatchListScreen(),
           '/create-match': (context) => const CreateMatchScreen(),
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
 '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),

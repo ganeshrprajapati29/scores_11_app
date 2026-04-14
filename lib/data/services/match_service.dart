@@ -1,4 +1,6 @@
 import '../../core/config/api_config.dart';
+import 'package:dio/dio.dart';
+import '../models/match_model.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/cache_service.dart';
 import '../models/match_model.dart';
@@ -177,18 +179,66 @@ class MatchService {
   }
 
   /// Get full scorecard
-  Future<Map<String, dynamic>> getFullScorecard(String matchId) async {
+Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) async {
+    debugPrint('🔍 Loading scorecard for matchId: $matchId');
+    debugPrint('📡 Scorecard URL: ${ApiConfig.baseUrl}/scoring/match/$matchId/scorecard');
+    
+    // Skip scorecard for scheduled matches
+    if (match?.status == 'SCHEDULED') {
+      debugPrint('⏳ Match scheduled, skipping scorecard');
+      return _buildBasicScorecard(match!);
+    }
+
     try {
-      final response = await _apiClient.get('${ApiConfig.baseUrl}/scoring/match/$matchId/scorecard');
-      if (response.statusCode == 200) {
-        dynamic data = response.data['data'];
+      // Try scorecard with lenient status validation (don't throw 404)
+      final scorecardResponse = await _apiClient.get(
+        '${ApiConfig.baseUrl}/scoring/match/$matchId/scorecard',
+        options: Options(validateStatus: (status) => status! < 500),
+      );
+
+      if (scorecardResponse.statusCode == 200) {
+        dynamic data = scorecardResponse.data['data'] ?? scorecardResponse.data;
         if (data is List && data.isNotEmpty) {
           data = data.first;
         }
+        debugPrint('✅ Full scorecard loaded');
         return data as Map<String, dynamic> ?? {};
+      } else if (scorecardResponse.statusCode == 404) {
+        debugPrint('⚠️ Scorecard 404 - trying live score fallback');
       }
-      throw Exception(response.data['message'] ?? 'Failed to get scorecard');
-    } catch (e) {      debugPrint('getFullScorecard error: $e');      return {};    }
+    } catch (scorecardError) {
+      debugPrint('❌ Scorecard error: $scorecardError');
+    }
+
+    // Fallback 1: Try live score
+    try {
+      final liveResponse = await _apiClient.get('${ApiConfig.baseUrl}/scoring/match/$matchId/live');
+      if (liveResponse.statusCode == 200) {
+        debugPrint('✅ Live score fallback loaded');
+        return liveResponse.data['data'] ?? {};
+      }
+    } catch (liveError) {
+      debugPrint('❌ Live score error: $liveError');
+    }
+
+    // Fallback 2: Use basic match score
+    if (match != null) {
+      debugPrint('📊 Using basic match score fallback');
+      return _buildBasicScorecard(match);
+    }
+
+    debugPrint('⚠️ No scorecard data available');
+    return {};
+  }
+
+  Map<String, dynamic> _buildBasicScorecard(Match match) {
+    return {
+      'match': match.toJson(),
+      'innings': match.innings.map((i) => i.toJson()).toList(),
+      'score': match.score.toJson(),
+      'status': match.status,
+      'live': match.isLive,
+    };
   }
 
   /// Get live matches - uses dedicated endpoint

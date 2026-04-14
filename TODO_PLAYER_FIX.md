@@ -1,16 +1,20 @@
-# Player Navigation &amp; Name Fix TODO
+# Fix Player Creation: "string is not subtype of type int"
 
-Status: In Progress ✅ Step 1 Complete
+**Status**: ⏳ In Progress
 
-## Steps:
+## Steps from Approved Plan:
 
-1. ✅ Update `lib/data/models/player_model.dart` - Fixed name mapping (playerName → name, team names)
-2. ✅ Update `lib/main.dart` - Added onGenerateRoute for dynamic player-profile/:id routes
-3. ☐ Test: 
-   - cd cric11_app &amp;&amp; flutter pub get
-   - flutter run
-   - Navigate to Players → check names display properly
-   - Tap any player → profile opens without navigation error
-4. ✅ Complete
+- [x] 1. Update player_model.dart: Safe parse ALL numeric fields in Player.fromJson (jerseyNumber already safe, ensure team safe).
+- [x] 2. Update PlayerStats.fromJson: ALL int fields use (json['field'] as num?)?.toInt() ?? 0 instead of json['field'] ?? 0 to handle potential string numbers from backend response.
+- [ ] 3. Hot reload Flutter app (r in terminal or flutter run).
+- [ ] 4. Test player creation with jersey number input.
+- [ ] 5. Verify no type error, success snackbar shows.
+- [ ] 6. Update this TODO with [x] marks.
+- [ ] 7. attempt_completion
 
-**Next:** Edit main.dart
+**Root Cause**: Backend response numeric fields (stats.matches etc.) arrive as strings; unsafe assignment to int params causes runtime subtype error.
+
+**Files**: player_model.dart
+
+**Next**: Step 1-2 edits.
+

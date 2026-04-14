@@ -5,9 +5,11 @@ import '../../../core/config/theme_config.dart';
 import '../../../core/widgets/custom_appbar.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_textfield.dart';
+
 import '../../../data/services/tournament_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../core/utils/validators.dart';
+
 
 class CreateTournamentScreen extends StatefulWidget {
   const CreateTournamentScreen({super.key});
@@ -68,18 +70,16 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
     try {
       final tournament = await _tournamentService.createTournament(
         name: _nameController.text.trim(),
-        shortName: _shortNameController.text.trim(),
-        organizer: _organizerController.text.trim(),
+        shortName: _shortNameController.text.trim().isNotEmpty ? _shortNameController.text.trim() : null,
         format: _format,
         type: _type,
-        startDate: _startDate,
-        endDate: _endDate,
+        startDate: _startDate!,
+        endDate: _endDate!,
         venue: _venueController.text.trim(),
         totalTeams: int.tryParse(_totalTeamsController.text) ?? 10,
-        isPaid: _isPaid,
-        entryFee: double.tryParse(_entryFeeController.text) ?? 0.0,
-        prizeMoney: double.tryParse(_prizeMoneyController.text) ?? 0.0,
-        description: _descriptionController.text.trim(),
+        entryFee: double.tryParse(_entryFeeController.text) ?? null,
+        prizeMoney: double.tryParse(_prizeMoneyController.text) ?? null,
+        description: _descriptionController.text.trim().isNotEmpty ? _descriptionController.text.trim() : null,
       );
 
       if (mounted) {
@@ -108,6 +108,19 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+@override
+  void dispose() {
+    _nameController.dispose();
+    _shortNameController.dispose();
+    _organizerController.dispose();
+    _venueController.dispose();
+    _descriptionController.dispose();
+    _entryFeeController.dispose();
+    _prizeMoneyController.dispose();
+    _totalTeamsController.dispose();
+    super.dispose();
   }
 
   @override

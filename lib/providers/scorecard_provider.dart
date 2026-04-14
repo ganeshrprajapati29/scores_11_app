@@ -4,10 +4,12 @@ import '../data/services/match_service.dart';
 import '../data/models/scorecard_model.dart';
 import '../data/models/match_model.dart';
 import '../core/services/cache_service.dart';
+import '../../core/services/socket_service.dart';
 
 class ScorecardProvider extends ChangeNotifier {
   final MatchService _matchService = MatchService();
   final CacheService _cacheService = CacheService();
+  final SocketService _socketService = SocketService();
   Timer? _refreshTimer;
   FullScorecard? _scorecard;
   Match? _match;
@@ -15,6 +17,13 @@ class ScorecardProvider extends ChangeNotifier {
   String? _error;
   bool _hasData = false;
   DateTime? _lastUpdated;
+  List<dynamic> _recentBalls = [];
+  List<dynamic> _commentary = [];
+  bool _isLive = false;
+  
+  List<dynamic> get recentBalls => _recentBalls;
+  List<dynamic> get commentary => _commentary;
+  bool get isLive => _isLive;
 
   FullScorecard? get scorecard => _scorecard;
   Match? get match => _match;
@@ -52,7 +61,7 @@ class ScorecardProvider extends ChangeNotifier {
       }
 
       final match = await _matchService.getMatchById(matchId, forceRefresh: forceRefresh);
-      final scorecardData = await _matchService.getFullScorecard(matchId);
+      final scorecardData = await _matchService.getFullScorecard(matchId, match: match);
       
       Map<String, dynamic> safeScorecardData;
       if (scorecardData is Map<String, dynamic>) {
@@ -79,11 +88,18 @@ class ScorecardProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('❌ Scorecard load error: $e');
-      _error = 'No scorecard data available. Check backend server. Error: ${e.toString()}';
+      
+      String errorMsg;
+      if (e.toString().contains('404')) {
+        errorMsg = 'Scorecard not available yet for this match. Try live score or check later.';
+      } else if (e.toString().contains('SocketException')) {
+        errorMsg = 'Network error. Check your connection and try again.';
+      } else {
+        errorMsg = 'Scorecard load failed: ${e.toString().substring(0, 100)}';
+      }
+      
+      _error = errorMsg;
       _hasData = false;
-      // ✅ REMOVED FALLBACK - show real error to debug
-      // _loadStaticFallback(matchId);
-    } finally {
       _isLoading = false;
       notifyListeners();
     }

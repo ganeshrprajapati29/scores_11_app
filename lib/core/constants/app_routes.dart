@@ -58,6 +58,8 @@ class AppRoutes {
   static String liveMatchRoute(String id) => '/live-match/$id';
   static String scoreEntryRoute(String id) => '/score-entry/$id';
   static String scorecardRoute(String id) => '/scorecard/$id';
+  static const String liveScoreControl = '/live-control/:id';
+  static String liveScoreControlRoute(String id) => '/live-control/$id';
   static String pointsTableRoute(String id) => '/points-table/$id';
   static String productDetailRoute(String id) => '/product/$id';
   static String postDetailRoute(String id) => '/post/$id';

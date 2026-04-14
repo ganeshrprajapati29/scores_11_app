@@ -7,6 +7,8 @@ import '../../providers/scorecard_provider.dart';
 import '../../data/services/match_service.dart';
 import '../../data/models/scorecard_model.dart';
 import '../../data/models/match_model.dart';
+import '../matches/live_score_control_screen.dart';
+import '../../providers/auth_provider.dart';
 
 class MatchDetailScreen extends StatefulWidget {
   final String matchId;
@@ -73,9 +75,44 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> with SingleTicker
             ),
           ),
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => context.read<ScorecardProvider>().refreshScorecard(widget.matchId),
-          child: const Icon(Icons.refresh),
+        Consumer<AuthProvider>(
+          builder: (context, auth, child) {
+            return Stack(
+              children: [
+                if (auth.userRole == 'admin' || auth.userRole == 'umpire')
+                  Positioned(
+                    right: 16,
+                    bottom: 100,
+                    child: FloatingActionButton.extended(
+                      heroTag: 'liveControl',
+                      backgroundColor: AppColors.live,
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => LiveScoreControlScreen(
+                            matchId: widget.matchId,
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.sports_cricket, color: Colors.white),
+                      label: const Text(
+                        'Live Control',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                FloatingActionButton(
+                  heroTag: 'refresh',
+                  onPressed: () => context.read<ScorecardProvider>().refreshScorecard(widget.matchId),
+                  child: const Icon(Icons.refresh),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

@@ -476,7 +476,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Navigator.pushNamed(context, '/scorecards');
                   },
                 ),
-                
+                _buildDrawerItem(
+                  icon: Icons.leaderboard_outlined,
+                  title: 'Leaderboards',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/leaderboards');
+                  },
+                ),
                 _buildDrawerItem(
                   icon: Icons.notifications_outlined,
                   title: 'Notifications',
@@ -1178,10 +1185,74 @@ class HomeTab extends StatelessWidget {
           children: [
             Expanded(
               child: _QuickActionCard(
-                icon: Icons.person_search_rounded,
-                title: 'Find Players',
+                icon: Icons.person_add_rounded,
+                title: 'Create Player',
                 color: const Color(0xFF2E7D32),
+                onTap: () => Navigator.pushNamed(context, '/create-player'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.group_rounded,
+                title: 'Player',
+                color: const Color(0xFF1565C0),
                 onTap: () => Navigator.pushNamed(context, '/players'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.groups_rounded,
+                title: 'Teams',
+                color: const Color(0xFF2E7D32),
+                onTap: () => Navigator.pushNamed(context, '/teams'),
+              ),
+            ),
+           
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.leaderboard_rounded,
+                title: 'Leaderboard',
+                color: const Color(0xFF1976D2),
+                onTap: () => Navigator.pushNamed(context, '/leaderboard'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Consumer<DashboardProvider>(
+              builder: (context, provider, child) {
+                final firstMatchId = provider.getFirstLiveMatchId();
+                return Expanded(
+                  child: _QuickActionCard(
+                    icon: Icons.analytics_outlined,
+                    title: 'Scorecard',
+                    color: Colors.orange,
+                    onTap: () => Navigator.pushNamed(context, '/scorecard', arguments: firstMatchId ?? ''),
+                  ),
+                );
+              },
+            ),
+             const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.emoji_events_rounded,
+                title: 'Tournaments',
+                color: const Color(0xFFFF8F00),
+                onTap: () => Navigator.pushNamed(context, '/tournaments'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.article_outlined,
+                title: 'Live Matches',
+                color: const Color(0xFF00796B),
+                onTap: () => Navigator.pushNamed(context, '/live-matches'),
               ),
             ),
             const SizedBox(width: 10),
@@ -1198,20 +1269,6 @@ class HomeTab extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            Consumer<DashboardProvider>(
-              builder: (context, provider, child) {
-                final firstMatchId = provider.getFirstLiveMatchId();
-                return Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.analytics_outlined,
-                    title: 'Scorecard',
-                    color: Colors.orange,
-onTap: () => Navigator.pushNamed(context, '/scorecard', arguments: firstMatchId ?? ''),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 10),
             Expanded(
               child: _QuickActionCard(
                 icon: Icons.article_outlined,
@@ -1226,17 +1283,24 @@ onTap: () => Navigator.pushNamed(context, '/scorecard', arguments: firstMatchId 
     );
   }
 
-  Widget _buildLiveMatchesSection(List<LiveMatch> matches) {
-    return SizedBox(
-      height: 160,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        itemCount: matches.length,
-        itemBuilder: (context, index) => _LiveMatchCard(match: matches[index]),
-      ),
-    );
+Widget _buildLiveMatchesSection(List<LiveMatch> matches) {
+  if (matches.isEmpty) {
+    return const SizedBox.shrink();
   }
+  return Column(
+    children: [
+      _LiveScoreCarousel(matches: matches),
+      const SizedBox(height: 12),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          onPressed: () => Navigator.pushNamed(context, '/live-matches'),
+          child: const Text('View All Live'),
+        ),
+      ),
+    ],
+  );
+}
 
   Widget _buildTrendingPlayersSection(List<TrendingPlayer> players) {
     return SizedBox(
@@ -1260,8 +1324,107 @@ onTap: () => Navigator.pushNamed(context, '/scorecard', arguments: firstMatchId 
   }
 }
 
-// ==================== Banner Carousel ====================
+// ==================== Live Score Carousel ====================
+class _LiveScoreCarousel extends StatefulWidget {
+  final List<LiveMatch> matches;
+  const _LiveScoreCarousel({required this.matches, super.key});
 
+  @override
+  State<_LiveScoreCarousel> createState() => _LiveScoreCarouselState();
+}
+
+class _LiveScoreCarouselState extends State<_LiveScoreCarousel> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  late Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (widget.matches.isEmpty) return;
+      final nextIndex = (_currentIndex + 1) % widget.matches.length;
+      _pageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.matches.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return SizedBox(
+      height: 160,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemCount: widget.matches.length,
+            itemBuilder: (context, index) {
+              final match = widget.matches[index];
+              return GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/match/${match.id}'),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 12.0),
+                  child: _LiveMatchCard(match: match),
+                ),
+              );
+            },
+          ),
+          // Dots indicator
+          Positioned(
+            bottom: 8,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: widget.matches.asMap().entries.map((entry) {
+                return GestureDetector(
+                  onTap: () => _pageController.animateToPage(
+                    entry.key,
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeInOut,
+                  ),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: _currentIndex == entry.key ? 20 : 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _currentIndex == entry.key 
+                          ? AppColors.primary 
+                          : AppColors.primary.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==================== Banner Carousel ====================
 class _BannerCarousel extends StatefulWidget {
   const _BannerCarousel({super.key});
 

@@ -1,6 +1,9 @@
 import 'dart:math';
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import '../models/tournament_model.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
@@ -29,16 +32,23 @@ class TournamentService {
   final ApiClient _apiClient = ApiClient();
 
   /// Get tournaments with pagination support
-  Future<PaginatedTournaments> getTournaments({
+Future<PaginatedTournaments> getTournaments({
     int page = 1,
     int limit = 20,
     String? status,
   }) async {
+    final Map<String, String> statusMap = {
+      'LIVE': 'in_progress',
+      'UPCOMING': 'published',
+      'COMPLETED': 'completed',
+    };
+    final String? backendStatus = status != null ? statusMap[status] ?? status.toLowerCase() : null;
+
     try {
-      final response = await _apiClient.get(ApiConfig.tournaments, queryParameters: {
-        'page': page.toString(),
-        'limit': limit.toString(),
-        if (status != null) 'status': status,
+        final response = await _apiClient.get(ApiConfig.tournaments, queryParameters: {
+          'page': page.toString(),
+          'limit': limit.toString(),
+          if (backendStatus != null) 'status': backendStatus,
       });
 
       if (response.statusCode == 200) {
@@ -278,42 +288,50 @@ PaginatedTournaments _getMockTournaments(int page, int limit) {
   }
 
   /// Create a new tournament
-  Future<Tournament> createTournament({
+Future<Tournament> createTournament({
     required String name,
     String? shortName,
     String? description,
-    required String organizer,
-    String format = 'T20',
+    required String format,
     String type = 'LEAGUE',
-    DateTime? startDate,
-    DateTime? endDate,
+    required DateTime startDate,
+    required DateTime endDate,
     String? venue,
-    int totalTeams = 0,
-    int overs = 20,
-    bool isPaid = false,
+    int totalTeams = 10,
     double? entryFee,
     double? prizeMoney,
   }) async {
+    // Use current user ID from auth token (ApiClient handles automatically)
+    // For now use mock organizer ID - replace with real user ID extraction later
+    const String organizer = 'current_user_mock_id';
+
+    if (startDate == null) throw Exception('Start date required');
+    if (endDate == null) throw Exception('End date required');
     try {
-      final response = await _apiClient.post(
-        '${ApiConfig.tournaments}',
-        data: {
-          'name': name,
-          if (shortName != null) 'shortName': shortName,
-          if (description != null) 'description': description,
-          'organizer': organizer,
-          'format': format,
-          'type': type,
-          if (startDate != null) 'startDate': startDate.toIso8601String(),
-          if (endDate != null) 'endDate': endDate.toIso8601String(),
-          if (venue != null) 'venue': venue,
-          'totalTeams': totalTeams,
-          'overs': overs,
-          'isPaid': isPaid,
-          if (entryFee != null) 'entryFee': entryFee,
-          if (prizeMoney != null) 'prizeMoney': prizeMoney,
-        },
-      );
+        final Map<String, dynamic> venueObj = {
+          'name': venue ?? 'Default Stadium',
+          'city': 'Delhi',
+          'state': 'Delhi', 
+          'country': 'India',
+        };
+
+        final response = await _apiClient.post(
+          ApiConfig.tournaments,
+          data: {
+            'name': name,
+            if (shortName != null) 'shortName': shortName,
+            if (description != null) 'description': description,
+            'organizer': organizer,
+            'format': format,
+            'type': type,
+            'startDate': startDate.toIso8601String(),
+            'endDate': endDate.toIso8601String(),
+            'venue': venueObj,
+            'maxTeams': totalTeams,
+            if (entryFee != null) 'entryFee': entryFee,
+            if (prizeMoney != null) 'prizeMoney': prizeMoney,
+          },
+        );
       if (response.statusCode == 201 || response.statusCode == 200) {
         return Tournament.fromJson(response.data['data']);
       }

@@ -167,7 +167,7 @@ class PlayerService {
       final response = await _apiClient.post(
         '${ApiConfig.baseUrl}/players',
         data: {
-          'name': name,
+'playerName': name,
           if (role != null) 'role': role,
           if (battingStyle != null) 'battingStyle': battingStyle,
           if (bowlingStyle != null) 'bowlingStyle': bowlingStyle,

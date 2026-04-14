@@ -1,2 +1,0 @@
-# ScorecardProvider Fix Progress\n\n## Steps:\n- [x] 1. Create TODO file ✅\n- [x] 2. Edit `lib/features/matches/match_detail_screen.dart` to wrap Scaffold with ChangeNotifierProvider\n- [x] 3. Add AutomaticKeepAliveClientMixin and super.build(context)\n- [x] 4. Fix body: not using Expanded \n- [ ] 5. Hot restart and test navigation from MatchListScreen\n- [ ] 6. Verify no provider errors in tabs (Live Score, Batting, etc.)\n- [ ] 7. Mark complete and attempt_completion\n\n✅ Core edits complete. Perform hot-restart to test.
-

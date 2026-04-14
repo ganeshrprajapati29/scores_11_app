@@ -33,9 +33,9 @@ class LeaderboardService {
       'limit': limit,
       if (timeframe != null) 'timeframe': timeframe,
     };
-    final response = await _apiClient.get('/leaderboard/batsmen', queryParams: queryParams);
-    final List<dynamic> data = response['data'] ?? [];
-    final pagination = response['pagination'] ?? {};
+final response = await _apiClient.get('/leaderboard/batsmen', queryParameters: queryParams);
+    final List<dynamic> data = response.data['data'] ?? [];
+    final pagination = response.data['pagination'] ?? {};
     
     final entries = List<Map<String, dynamic>>.from(data);
     
@@ -66,9 +66,9 @@ class LeaderboardService {
       'limit': limit,
       if (timeframe != null) 'timeframe': timeframe,
     };
-    final response = await _apiClient.get('/leaderboard/bowlers', queryParams: queryParams);
-    final List<dynamic> data = response['data'] ?? [];
-    final pagination = response['pagination'] ?? {};
+final response = await _apiClient.get('/leaderboard/bowlers', queryParameters: queryParams);
+    final List<dynamic> data = response.data['data'] ?? [];
+    final pagination = response.data['pagination'] ?? {};
     
     final entries = List<Map<String, dynamic>>.from(data);
     
@@ -93,8 +93,8 @@ class LeaderboardService {
       'limit': limit.toString(),
       if (timeframe != null) 'timeframe': timeframe,
     };
-    final response = await _apiClient.get('/leaderboard/mvp', queryParams: queryParams);
-    final List<dynamic> data = response['data'] ?? [];
+    final response = await _apiClient.get('/leaderboard/mvp', queryParameters: queryParams);
+    final List<dynamic> data = response.data['data'] ?? [];
     return List<Map<String, dynamic>>.from(data);
   }
 
@@ -103,19 +103,19 @@ class LeaderboardService {
       'limit': limit.toString(),
       if (tournamentId != null) 'tournamentId': tournamentId,
     };
-    final response = await _apiClient.get('/leaderboard/teams', queryParams: queryParams);
-    final List<dynamic> data = response['data'] ?? [];
+    final response = await _apiClient.get('/leaderboard/teams', queryParameters: queryParams);
+    final List<dynamic> data = response.data['data'] ?? [];
     return List<Map<String, dynamic>>.from(data);
   }
 
   Future<Map<String, dynamic>> getPlayerRanking(String playerId) async {
     final response = await _apiClient.get('/leaderboard/player/$playerId');
-    return response['data'] ?? {};
+    return response.data['data'] ?? {};
   }
 
   Future<Map<String, dynamic>> getTeamRanking(String teamId) async {
     final response = await _apiClient.get('/leaderboard/team/$teamId');
-    return response['data'] ?? {};
+    return response.data['data'] ?? {};
   }
 
   Future<List<Map<String, dynamic>>> getAllRankings({String? type, int page = 1, int limit = 20}) async {
@@ -124,8 +124,8 @@ class LeaderboardService {
       'page': page.toString(),
       'limit': limit.toString(),
     };
-    final response = await _apiClient.get('/leaderboard', queryParams: queryParams);
-    final List<dynamic> data = response['data'] ?? [];
+    final response = await _apiClient.get('/leaderboard', queryParameters: queryParams);
+    final List<dynamic> data = response.data['data'] ?? [];
     return List<Map<String, dynamic>>.from(data);
   }
 }
