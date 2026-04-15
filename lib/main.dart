@@ -123,11 +123,19 @@ themeMode: ThemeMode.light,
 
           // Match Routes
           '/matches': (context) => const MatchListScreen(),
-'/match-detail': (context) => MatchDetailScreen(matchId: ModalRoute.of(context)!.settings.arguments as String),
+          '/match-detail': (context) {
+            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            return MatchDetailScreen(matchId: matchId);
+          },
+          '/match/:id': (context) {
+            final uri = Uri.parse(ModalRoute.of(context)!.settings.name!);
+            final matchId = uri.pathSegments.last;
+            return MatchDetailScreen(matchId: matchId);
+          },
           '/live-matches': (context) => const MatchListScreen(),
           '/create-match': (context) => const CreateMatchScreen(),
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
-'/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
+          '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
           '/scorecard': (context) => ScorecardScreen(
             matchId: ModalRoute.of(context)!.settings.arguments as String? ?? '',
           ),

@@ -75,20 +75,44 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final followersResult = await _userService.getFollowers();
       if (followersResult['success']) {
-        final data = jsonDecode(followersResult['data']);
+        dynamic rawData = followersResult['data'];
+        dynamic data;
+        if (rawData is String) {
+          data = jsonDecode(rawData);
+        } else if (rawData is Map) {
+          data = rawData;
+        } else {
+          data = {};
+        }
         setState(() => _followers = (data['followers'] as List?)?.length ?? 0);
       }
 
       final followingResult = await _userService.getFollowing();
       if (followingResult['success']) {
-        final data = jsonDecode(followingResult['data']);
+        dynamic rawData = followingResult['data'];
+        dynamic data;
+        if (rawData is String) {
+          data = jsonDecode(rawData);
+        } else if (rawData is Map) {
+          data = rawData;
+        } else {
+          data = {};
+        }
         setState(() => _following = (data['following'] as List?)?.length ?? 0);
       }
 
       final viewsResult = await _userService.getProfileViews();
       if (viewsResult['success']) {
-        final data = jsonDecode(viewsResult['data']);
-        setState(() => _profileViews = data['views'] ?? 0);
+        dynamic rawData = viewsResult['data'];
+        dynamic data;
+        if (rawData is String) {
+          data = jsonDecode(rawData);
+        } else if (rawData is Map) {
+          data = rawData;
+        } else {
+          data = {};
+        }
+        setState(() => _profileViews = (data['views'] as num?)?.toInt() ?? 0);
       }
     } catch (e) {
       debugPrint('Error loading user stats: $e');

@@ -59,7 +59,7 @@ class _LiveMatchCarouselState extends State<LiveMatchCarousel> {
             itemBuilder: (context, index) {
               final match = widget.matches[index];
               return GestureDetector(
-                onTap: () => Navigator.pushNamed(context, '/match/${match.id}'),
+                onTap: () => Navigator.pushNamed(context, '/match-detail/${match.id}'),
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 12.0),
                   child: LiveMatchCard(match: match),

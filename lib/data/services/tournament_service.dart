@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'dart:math' as math;
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import 'package:provider/provider.dart';
@@ -181,17 +181,15 @@ PaginatedTournaments _getMockTournaments(int page, int limit) {
       ),
     ];
 
-    final int startIndex = (page - 1) * limit;
-    final int endIndex = min(startIndex + limit, mockData.length);
-    final List<Tournament> pageData;
+    // ✅ FIXED: Safe pagination for String page/limit params
+    final int safePage = int.tryParse(page?.toString() ?? '1') ?? 1;
+    final int safeLimit = int.tryParse(limit?.toString() ?? '20') ?? 20;
+    final int startIndex = math.max(0, (safePage - 1) * safeLimit);
+    final int endIndex = math.min(startIndex + safeLimit, mockData.length);
     
-    if (startIndex >= mockData.length) {
-      pageData = [];
-    } else if (endIndex > mockData.length) {
-      pageData = mockData.sublist(startIndex);
-    } else {
-      pageData = mockData.sublist(startIndex, endIndex);
-    }
+    final List<Tournament> pageData = startIndex < mockData.length 
+        ? mockData.sublist(startIndex, math.min(endIndex, mockData.length))
+        : [];
     
     return PaginatedTournaments(
       tournaments: pageData,

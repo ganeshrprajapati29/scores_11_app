@@ -64,6 +64,7 @@ class ScorecardProvider extends ChangeNotifier {
       final scorecardData = await _matchService.getFullScorecard(matchId, match: match);
       
       Map<String, dynamic> safeScorecardData;
+      debugPrint('📊 Raw scorecardData: $scorecardData');
       if (scorecardData is Map<String, dynamic>) {
         safeScorecardData = scorecardData;
       } else if (scorecardData is List && scorecardData.isNotEmpty) {
@@ -75,10 +76,58 @@ class ScorecardProvider extends ChangeNotifier {
       
       _match = match;
       _scorecard = FullScorecard.fromJson(safeScorecardData);
+      debugPrint('📋 Parsed scorecard innings count: ${_scorecard?.innings.length ?? 0}');
       
-      _cacheService.cacheScorecard(matchId, scorecardData);
-      _hasData = true;
+      // LIVE FALLBACK: Create current innings from match.score if no innings data
+      if (_scorecard!.innings.isEmpty && _match != null && _match!.status == 'live') {
+        debugPrint('🔄 Live fallback: Creating current innings from match.score');
+        String battingTeam;
+        TeamScore battingScore;
+        final team1OversDec = _match!.score.team1.oversInDecimal;
+        final team2OversDec = _match!.score.team2.oversInDecimal;
+        if (team1OversDec > team2OversDec) {
+          battingTeam = _match!.team1;
+          battingScore = _match!.score.team1;
+        } else {
+          battingTeam = _match!.team2;
+          battingScore = _match!.score.team2;
+        }
+        
+        final runs = battingScore.runs;
+        final wickets = battingScore.wickets;
+        final oversStr = battingScore.overs;
+        final oversSafe = oversStr.length > 0 ? oversStr.substring(0, oversStr.length.clamp(0, 3)) : '0.0';
+        final oversParts = oversSafe.split('.');
+        final oversInt = int.tryParse(oversParts[0]) ?? 0;
+        final ballsInt = int.tryParse(oversParts.length > 1 ? oversParts[1] : '0') ?? 0;
+        final totalBalls = oversInt * 6 + ballsInt.clamp(0, 5);
+        
+        _scorecard = FullScorecard(
+          match: _match!,
+          innings: [
+            Innings(
+              inningsNumber: 1,
+              battingTeam: battingTeam,
+              bowlingTeam: battingTeam == _match!.team1 ? _match!.team2 : _match!.team1,
+              totalRuns: runs,
+              totalWickets: wickets,
+              totalOvers: oversInt.toDouble(),
+              totalBalls: totalBalls,
+              extras: const Extras(),
+              isCompleted: false,
+            ),
+          ],
+          batting: [],
+          bowling: [],
+          fallOfWickets: [],
+        );
+      }
+      
+      _cacheService.cacheScorecard(matchId, safeScorecardData);
+      _hasData = _match != null; // Always true if we have match
       _lastUpdated = DateTime.now();
+      debugPrint('✅ Scorecard ready: hasData=$_hasData, innings=${_scorecard!.innings.length}');
+
       
       if (match != null && match.status == 'live') {
         _cancelRefreshTimer();

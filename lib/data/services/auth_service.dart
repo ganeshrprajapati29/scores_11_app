@@ -153,7 +153,7 @@ class AuthService {
   Future<dynamic> getUserStats() async {
     try {
       debugPrint('📊 Fetching user stats from API...');
-      final response = await _apiClient.get('/user/stats');
+      final response = await _apiClient.get('/me/stats');
       
       if (response.statusCode == 200) {
         final responseData = response.data;

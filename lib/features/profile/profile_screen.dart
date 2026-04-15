@@ -72,25 +72,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final viewsResult = await _userService.getProfileViews();
       if (viewsResult['success'] == true && mounted) {
-        final data = jsonDecode(viewsResult['data'] as String);
+        dynamic dataRaw = viewsResult['data'];
+        dynamic data = dataRaw is String ? jsonDecode(dataRaw) : dataRaw;
+        data = data is Map<String, dynamic> ? data : {};
         setState(() => _profileViews = (data['views'] as int?) ?? 0);
       }
 
       final followersResult = await _userService.getFollowers();
       if (followersResult['success'] == true && mounted) {
-        final data = jsonDecode(followersResult['data'] as String);
+        dynamic dataRaw = followersResult['data'];
+        dynamic data = dataRaw is String ? jsonDecode(dataRaw) : dataRaw;
+        data = data is Map<String, dynamic> ? data : {};
         setState(() => _followers = (data['followers'] as List?)?.length ?? 0);
       }
 
       final followingResult = await _userService.getFollowing();
       if (followingResult['success'] == true && mounted) {
-        final data = jsonDecode(followingResult['data'] as String);
+        dynamic dataRaw = followingResult['data'];
+        dynamic data = dataRaw is String ? jsonDecode(dataRaw) : dataRaw;
+        data = data is Map<String, dynamic> ? data : {};
         setState(() => _following = (data['following'] as List?)?.length ?? 0);
       }
 
       final equipmentResult = await _userService.getEquipment();
       if (equipmentResult['success'] == true && mounted) {
-        final data = jsonDecode(equipmentResult['data'] as String);
+        dynamic dataRaw = equipmentResult['data'];
+        dynamic data = dataRaw is String ? jsonDecode(dataRaw) : dataRaw;
+        data = data is Map<String, dynamic> ? data : {};
         setState(() => _equipment =
             List<Map<String, dynamic>>.from(data['equipment'] ?? []));
       }
