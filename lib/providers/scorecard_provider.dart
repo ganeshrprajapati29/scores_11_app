@@ -6,6 +6,7 @@ import '../data/models/match_model.dart';
 import '../core/services/cache_service.dart';
 import '../../core/services/socket_service.dart';
 
+
 class ScorecardProvider extends ChangeNotifier {
   final MatchService _matchService = MatchService();
   final CacheService _cacheService = CacheService();
@@ -79,12 +80,22 @@ class ScorecardProvider extends ChangeNotifier {
       debugPrint('📋 Parsed scorecard innings count: ${_scorecard?.innings.length ?? 0}');
       
       // LIVE FALLBACK: Create current innings from match.score if no innings data
-      if (_scorecard!.innings.isEmpty && _match != null && _match!.status == 'live') {
+      if (_scorecard != null && 
+          _scorecard!.innings.isEmpty && 
+          _match != null && 
+          _match!.status == 'live' &&
+          _match!.score.team1 != null && 
+          _match!.score.team2 != null) {
         debugPrint('🔄 Live fallback: Creating current innings from match.score');
         String battingTeam;
         TeamScore battingScore;
-        final team1OversDec = _match!.score.team1.oversInDecimal;
-        final team2OversDec = _match!.score.team2.oversInDecimal;
+        final team1OversDec = (_match!.score.team1.overs ?? '0.0').split('.').length > 1 
+            ? (_match!.score.team1.oversInDecimal) 
+            : 0.0;
+        final team2OversDec = (_match!.score.team2.overs ?? '0.0').split('.').length > 1 
+            ? (_match!.score.team2.oversInDecimal) 
+            : 0.0;
+        debugPrint('🔄 team1Overs: "${_match!.score.team1.overs}", team2Overs: "${_match!.score.team2.overs}"');
         if (team1OversDec > team2OversDec) {
           battingTeam = _match!.team1;
           battingScore = _match!.score.team1;
@@ -95,12 +106,28 @@ class ScorecardProvider extends ChangeNotifier {
         
         final runs = battingScore.runs;
         final wickets = battingScore.wickets;
-        final oversStr = battingScore.overs;
-        final oversSafe = oversStr.length > 0 ? oversStr.substring(0, oversStr.length.clamp(0, 3)) : '0.0';
-        final oversParts = oversSafe.split('.');
-        final oversInt = int.tryParse(oversParts[0]) ?? 0;
-        final ballsInt = int.tryParse(oversParts.length > 1 ? oversParts[1] : '0') ?? 0;
-        final totalBalls = oversInt * 6 + ballsInt.clamp(0, 5);
+      final oversStr = battingScore.overs ?? '0.0';
+      debugPrint('🔄 Parsing overs: "$oversStr"');
+      
+      // Ultra-robust overs parsing
+      List<String> parts = oversStr.split('.');
+      if (parts.length > 2) parts = parts.sublist(0, 2); // Clamp to 2 parts
+      final oversInt = int.tryParse(parts[0] ?? '0') ?? 0;
+      // Fixed duplicate lines removed
+      
+      // Ultra-safe balls string extraction
+      String ballsStr = '0';
+      if (parts.length > 1) {
+        final ballsPart = parts[1];
+        if (ballsPart.isNotEmpty) {
+          ballsStr = ballsPart.length >= 2 ? ballsPart.substring(0, 2) : ballsPart;
+        }
+      }
+      final ballsIntRaw = int.tryParse(ballsStr) ?? 0;
+      final ballsInt = ballsIntRaw.clamp(0, 5);
+      final totalBalls = oversInt * 6 + ballsInt;
+      
+      debugPrint('📐 Parsed: overs=$oversInt.$ballsInt, totalBalls=$totalBalls');
         
         _scorecard = FullScorecard(
           match: _match!,
@@ -144,7 +171,8 @@ class ScorecardProvider extends ChangeNotifier {
       } else if (e.toString().contains('SocketException')) {
         errorMsg = 'Network error. Check your connection and try again.';
       } else {
-        errorMsg = 'Scorecard load failed: ${e.toString().substring(0, 100)}';
+        final errStr = e.toString();
+        errorMsg = 'Scorecard load failed: ${errStr.length > 100 ? errStr.substring(0, 100) : errStr}';
       }
       
       _error = errorMsg;

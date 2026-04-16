@@ -162,14 +162,35 @@ class FullScorecard extends Equatable {
   });
 
   factory FullScorecard.fromJson(Map<String, dynamic> json) {
+    // Safe parsing with length checks
+    List<List<BatsmanStats>> safeBatting = [];
+    final battingRaw = json['batting'] ?? [];
+    if (battingRaw is List) {
+      safeBatting = battingRaw.map<List<BatsmanStats>>((inningsBatting) {
+        if (inningsBatting is List) {
+          return inningsBatting.map<BatsmanStats>((p) => BatsmanStats.fromJson(p as Map<String, dynamic>)).toList();
+        }
+        return <BatsmanStats>[];
+      }).toList();
+    }
+
+    List<List<BowlerStats>> safeBowling = [];
+    final bowlingRaw = json['bowling'] ?? [];
+    if (bowlingRaw is List) {
+      safeBowling = bowlingRaw.map<List<BowlerStats>>((inningsBowling) {
+        if (inningsBowling is List) {
+          return inningsBowling.map<BowlerStats>((p) => BowlerStats.fromJson(p as Map<String, dynamic>)).toList();
+        }
+        return <BowlerStats>[];
+      }).toList();
+    }
+
     return FullScorecard(
       match: Match.fromJson(json['match'] ?? {}),
-      innings: (json['innings'] ?? []).map<Innings>((e) => Innings.fromJson(e)).toList(),
-      batting: (json['batting'] ?? []).map<List<BatsmanStats>>((inningsBatting) => 
-        (inningsBatting as List).map<BatsmanStats>((p) => BatsmanStats.fromJson(p)).toList()).toList(),
-      bowling: (json['bowling'] ?? []).map<List<BowlerStats>>((inningsBowling) => 
-        (inningsBowling as List).map<BowlerStats>((p) => BowlerStats.fromJson(p)).toList()).toList(),
-      fallOfWickets: (json['fallOfWickets'] ?? []).map<FallOfWicket>((e) => FallOfWicket.fromJson(e)).toList(),
+      innings: (json['innings'] ?? []).map<Innings>((e) => Innings.fromJson(e as Map<String, dynamic>)).toList(),
+      batting: safeBatting,
+      bowling: safeBowling,
+      fallOfWickets: (json['fallOfWickets'] ?? []).map<FallOfWicket>((e) => FallOfWicket.fromJson(e as Map<String, dynamic>)).toList(),
       partnerships: List<Map<String, dynamic>>.from(json['partnerships'] ?? []),
     );
   }

@@ -162,19 +162,35 @@ class Tournament {
   });
 
   factory Tournament.fromJson(Map<String, dynamic> json) {
-    return Tournament(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      format: json['format'] ?? '',
-      type: json['type'] ?? '',
-      status: json['status'] ?? '',
-      startDate: DateTime.tryParse(json['startDate'] ?? '') ?? DateTime.now(),
-      endDate: DateTime.tryParse(json['endDate'] ?? '') ?? DateTime.now(),
-      venue: Venue.fromJson(json['venue'] ?? {}),
-      totalTeams: json['totalTeams'] ?? 0,
-      entryFee: json['entryFee'] ?? 0,
-      logo: json['logo'],
-    );
+    try {
+      return Tournament(
+        id: json['id']?.toString() ?? '',
+        name: json['name']?.toString() ?? '',
+        format: json['format']?.toString() ?? '',
+        type: json['type']?.toString() ?? '',
+        status: json['status']?.toString() ?? '',
+        startDate: DateTime.tryParse(json['startDate']?.toString() ?? '') ?? DateTime.now(),
+        endDate: DateTime.tryParse(json['endDate']?.toString() ?? '') ?? DateTime.now(),
+        venue: Venue.fromJson(Map<String, dynamic>.from(json['venue'] ?? {})),
+        totalTeams: int.tryParse(json['totalTeams']?.toString() ?? '0') ?? 0,
+        entryFee: int.tryParse(json['entryFee']?.toString() ?? '0') ?? 0,
+        logo: json['logo']?.toString(),
+      );
+    } catch (e) {
+      debugPrint('⚠️ Dashboard Tournament.fromJson fallback: $e');
+      return Tournament(
+        id: '',
+        name: 'Unknown',
+        format: 'T20',
+        type: 'LEAGUE',
+        status: 'UPCOMING',
+        startDate: DateTime.now(),
+        endDate: DateTime.now(),
+        venue: Venue(name: '', city: '', country: ''),
+        totalTeams: 0,
+        entryFee: 0,
+      );
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -208,9 +224,9 @@ class Venue {
 
   factory Venue.fromJson(Map<String, dynamic> json) {
     return Venue(
-      name: json['name'] ?? '',
-      city: json['city'] ?? '',
-      country: json['country'] ?? '',
+      name: json['name']?.toString() ?? '',
+      city: json['city']?.toString() ?? '',
+      country: json['country']?.toString() ?? '',
     );
   }
 

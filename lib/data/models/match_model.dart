@@ -427,7 +427,9 @@ class TeamScore extends Equatable {
   }
 
   double get oversInDecimal {
+    if (overs.isEmpty) return 0.0;
     final parts = overs.split('.');
+    if (parts.length < 2) return int.tryParse(parts[0] ?? '0')?.toDouble() ?? 0.0;
     final oversInt = int.tryParse(parts[0]) ?? 0;
     final ballsInt = int.tryParse(parts[1]) ?? 0;
     return oversInt + (ballsInt / 6);

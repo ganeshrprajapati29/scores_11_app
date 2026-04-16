@@ -52,34 +52,48 @@ Future<PaginatedTournaments> getTournaments({
       });
 
       if (response.statusCode == 200) {
-        final data = response.data['data'] ?? {};
-        final List<dynamic> tournamentJson = data['tournaments'] ?? [];
-        final List<Tournament> tournaments = tournamentJson
-            .map((json) => Tournament.fromJson(json))
-            .toList();
-        final Map<String, dynamic> pagination = data['pagination'] ?? {};
+        try {
+          final data = response.data['data'] ?? {};
+          final List<dynamic> tournamentJson = data['tournaments'] ?? [];
+          
+          // Safe Tournament parsing with individual error handling
+          final List<Tournament> tournaments = [];
+          for (final jsonItem in tournamentJson) {
+            try {
+              tournaments.add(Tournament.fromJson(jsonItem as Map<String, dynamic>));
+            } catch (parseError) {
+              debugPrint('⚠️ Skipping invalid tournament JSON: $parseError');
+              // Continue with next item
+            }
+          }
+          
+          final Map<String, dynamic> pagination = data['pagination'] ?? {};
+          
+          // Safe pagination parsing
+          final int safeTotal = int.tryParse(pagination['total']?.toString() ?? '${tournaments.length}') ?? tournaments.length;
+          final int safeTotalPages = int.tryParse(pagination['pages']?.toString() ?? '1') ?? 1;
+          final bool safeHasMore = page < safeTotalPages;
 
-        return PaginatedTournaments(
-          tournaments: tournaments,
-          page: page,
-          limit: limit,
-          total: pagination['total'] ?? tournaments.length,
-          totalPages: pagination['pages'] ?? 1,
-          hasMore: page < (pagination['pages'] ?? 1),
-        );
+          debugPrint('✅ Parsed ${tournaments.length}/$tournamentJson.length tournaments safely');
+
+          return PaginatedTournaments(
+            tournaments: tournaments,
+            page: page,
+            limit: limit,
+            total: safeTotal,
+            totalPages: safeTotalPages,
+            hasMore: safeHasMore,
+          );
+        } catch (parseError) {
+          debugPrint('❌ Tournament parsing error: $parseError');
+          return _getMockTournaments(page, limit);
+        }
       }
-      // Fallback to mock data on API failure
+      // API not 200, fallback
       return _getMockTournaments(page, limit);
-    } catch (e) {
-      debugPrint('Tournament service error (fallback): $e');
-      return PaginatedTournaments(
-        tournaments: [],
-        page: page,
-        limit: limit,
-        total: 0,
-        totalPages: 0,
-        hasMore: false,
-      );
+    } catch (networkError) {
+      debugPrint('🌐 Tournament API network error (fallback to mock): $networkError');
+      return _getMockTournaments(page, limit);
     }
   }
 

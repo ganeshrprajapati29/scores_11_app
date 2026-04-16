@@ -374,6 +374,7 @@ Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) as
     String matchType = 'LEAGUE',
     String? venueName,
     String? venueCity,
+    String? startTime,
     int overs = 20,
   }) async {
     final requestData = {
@@ -383,12 +384,14 @@ Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) as
       if (tournament != null) 'tournament': tournament,
       'format': format,
       'matchType': matchType,
+      'startTime': startTime,
       'venue': {
         'name': venueName ?? 'Stadium',
         'city': venueCity,
       },
       'overs': overs,
     };
+
     
     debugPrint('🚀 CREATE MATCH REQUEST: ${requestData.toString()}');
     
@@ -409,7 +412,15 @@ Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) as
       debugPrint('❌ CREATE MATCH DIO ERROR: ${e.response?.data}');
       debugPrint('   Status: ${e.response?.statusCode}');
       debugPrint('   Message: ${e.message}');
-      rethrow;
+      
+      String errorMsg = 'Failed to create match';
+      if (e.response?.data != null) {
+        final data = e.response!.data;
+        errorMsg = data['message'] ?? data['error'] ?? errorMsg;
+        if (data['details'] != null) errorMsg += ': ${data['details']}';
+      }
+      
+      throw Exception(errorMsg);
     } catch (e) {
       debugPrint('❌ CREATE MATCH ERROR: $e');
       rethrow;

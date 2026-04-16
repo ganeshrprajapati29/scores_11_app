@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 
 class Tournament extends Equatable {
   final String id;
@@ -71,39 +72,109 @@ class Tournament extends Equatable {
     this.maxTeams,
   });
 
-  factory Tournament.fromJson(Map<String, dynamic> json) {
-    return Tournament(
-      id: json['_id'] ?? json['id'] ?? '',
-      name: json['name'] ?? '',
-      shortName: json['shortName'],
-      description: json['description'],
-      logo: json['logo'],
-      banner: json['banner'],
-      organizer: json['organizer'] is String ? json['organizer'] : json['organizer']?['_id'] ?? '',
-      format: json['format'] ?? 'T20',
-      type: json['type'] ?? 'LEAGUE',
-      status: json['status'] ?? 'UPCOMING',
-      startDate: json['startDate'] != null ? DateTime.parse(json['startDate']) : null,
-      endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : null,
-venue: json['venue']?['name'] ?? json['venue'],
-totalTeams: json['maxTeams'] ?? (json['teams'] as List?)?.length ?? 0,
-      totalMatches: json['totalMatches'] ?? 0,
-      overs: json['overs'] ?? 20,
-isPaid: (json['entryFee'] ?? 0) > 0,
-      entryFee: json['entryFee']?.toDouble(),
-      prizeMoney: json['prizeMoney']?.toDouble(),
-      rules: json['rules'],
-      teams: json['teams'] != null 
-          ? (json['teams'] as List).map((e) => e is String ? e : e['_id'] as String).toList()
-          : [],
-      matches: json['matches'] != null 
-          ? (json['matches'] as List).map((e) => e is String ? e : e['_id'] as String).toList()
-          : [],
-      stats: json['stats'] != null ? TournamentStats.fromJson(json['stats']) : null,
-      isActive: json['isActive'] ?? true,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
-    );
+factory Tournament.fromJson(Map<String, dynamic> json) {
+    try {
+      // Safe ID extraction
+      final id = json['_id']?.toString() ?? json['id']?.toString() ?? '';
+
+      // Safe list extraction with filtering
+      List<String> safeTeams = [];
+      if (json['teams'] is List) {
+        final teamsList = json['teams'] as List;
+        safeTeams = teamsList
+            .where((e) => e != null)
+            .map((e) {
+              if (e is String) return e;
+              if (e is Map) return e['_id']?.toString() ?? e['id']?.toString() ?? '';
+              return '';
+            })
+            .where((id) => id.isNotEmpty)
+            .toList();
+      }
+
+      List<String> safeMatches = [];
+      if (json['matches'] is List) {
+        final matchesList = json['matches'] as List;
+        safeMatches = matchesList
+            .where((e) => e != null)
+            .map((e) {
+              if (e is String) return e;
+              if (e is Map) return e['_id']?.toString() ?? e['id']?.toString() ?? '';
+              return '';
+            })
+            .where((id) => id.isNotEmpty)
+            .toList();
+      }
+
+      return Tournament(
+        id: id,
+        name: json['name']?.toString() ?? '',
+        shortName: json['shortName']?.toString(),
+        description: json['description']?.toString(),
+        logo: json['logo']?.toString(),
+        banner: json['banner']?.toString(),
+        organizer: _safeString(json['organizer']),
+        format: json['format']?.toString() ?? 'T20',
+        type: json['type']?.toString() ?? 'LEAGUE',
+        status: json['status']?.toString() ?? 'UPCOMING',
+        startDate: _safeDateTime(json['startDate']),
+        endDate: _safeDateTime(json['endDate']),
+        venue: json['venue']?['name']?.toString() ?? json['venue']?.toString() ?? '',
+        city: json['venue']?['city']?.toString(),
+        state: json['venue']?['state']?.toString(),
+        country: json['venue']?['country']?.toString(),
+        totalTeams: int.tryParse(json['maxTeams']?.toString() ?? '0') ?? 
+                     int.tryParse(json['totalTeams']?.toString() ?? '0') ?? 
+                     safeTeams.length,
+        totalMatches: int.tryParse(json['totalMatches']?.toString() ?? '0') ?? 0,
+        overs: int.tryParse(json['overs']?.toString() ?? '20') ?? 20,
+        isPaid: (double.tryParse(json['entryFee']?.toString() ?? '0') ?? 0) > 0,
+        entryFee: double.tryParse(json['entryFee']?.toString() ?? '0'),
+        prizeMoney: double.tryParse(json['prizeMoney']?.toString() ?? '0'),
+        rules: json['rules']?.toString(),
+        teams: safeTeams,
+        matches: safeMatches,
+        stats: json['stats'] != null ? TournamentStats.fromJson(json['stats']) : null,
+        isActive: json['isActive']?.toString() == 'true' || (json['isActive'] ?? true) == true,
+        createdAt: _safeDateTime(json['createdAt']) ?? DateTime.now(),
+        updatedAt: _safeDateTime(json['updatedAt']) ?? DateTime.now(),
+        bannerUrl: json['bannerUrl']?.toString(),
+        logoUrl: json['logoUrl']?.toString(),
+        registeredTeams: int.tryParse(json['registeredTeams']?.toString() ?? '0'),
+        maxTeams: int.tryParse(json['maxTeams']?.toString() ?? '0'),
+      );
+    } catch (e) {
+      debugPrint('❌ Tournament.fromJson failed for json keys: ${json.keys.toList()}: $e');
+      // Fallback to minimal valid Tournament
+      return Tournament(
+        id: '',
+        name: 'Unknown Tournament',
+        organizer: 'Unknown',
+        format: 'T20',
+        type: 'LEAGUE',
+        status: 'UPCOMING',
+        totalTeams: 0,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        teams: [],
+        matches: [],
+      );
+    }
+  }
+
+  static String _safeString(dynamic value) {
+    if (value is String) return value;
+    if (value is Map) return value['_id']?.toString() ?? value['id']?.toString() ?? value.toString();
+    return value?.toString() ?? '';
+  }
+
+  static DateTime? _safeDateTime(dynamic value) {
+    if (value == null) return null;
+    try {
+      return DateTime.parse(value.toString());
+    } catch (e) {
+      return null;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -141,7 +212,7 @@ isPaid: (json['entryFee'] ?? 0) > 0,
   bool get isUpcoming => status == 'UPCOMING';
   bool get isCompleted => status == 'COMPLETED';
 
-  @override
+@override
   List<Object?> get props => [
         id,
         name,
@@ -156,6 +227,9 @@ isPaid: (json['entryFee'] ?? 0) > 0,
         startDate,
         endDate,
         venue,
+        city,
+        state,
+        country,
         totalTeams,
         totalMatches,
         overs,
@@ -169,6 +243,10 @@ isPaid: (json['entryFee'] ?? 0) > 0,
         isActive,
         createdAt,
         updatedAt,
+        bannerUrl,
+        logoUrl,
+        registeredTeams,
+        maxTeams,
       ];
 }
 
