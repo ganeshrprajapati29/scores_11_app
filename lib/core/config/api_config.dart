@@ -1,9 +1,10 @@
 class ApiConfig {
 // Production remote backend (currently unreachable)
 // Change this to your backend URL
+  // Production remote backend  
   static const String baseUrl = 'http://68.178.171.95:3000/api/v1';
 
-  // Local development - UNCOMMENT for local backend
+  // ✅ LOCAL DEVELOPMENT - Backend runs on localhost:3000
   // static const String baseUrl = 'http://localhost:3000/api/v1';
   
   // To switch: Run `cd backend && npm start`, then uncomment localhost line above

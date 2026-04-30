@@ -141,6 +141,7 @@ factory Tournament.fromJson(Map<String, dynamic> json) {
         bannerUrl: json['bannerUrl']?.toString(),
         logoUrl: json['logoUrl']?.toString(),
         registeredTeams: int.tryParse(json['registeredTeams']?.toString() ?? '0'),
+       
         maxTeams: int.tryParse(json['maxTeams']?.toString() ?? '0'),
       );
     } catch (e) {

@@ -164,6 +164,7 @@ class Match extends Equatable {
   ];
 }
 
+// [Rest of all classes unchanged - Venue, Toss, Innings, Extras, BattingOrder, MatchScore, TeamScore, MatchResult, MatchOfficials, Weather, Pitch, Commentary, Powerplay, PowerplayInnings, MatchStats, HighestScore, BestBowling, HighestPartnership, MostSixes, MostFours remain exactly the same as original]
 class Venue extends Equatable {
   final String name;
   final String? city;
@@ -848,3 +849,4 @@ class MostFours extends Equatable {
   @override
   List<Object?> get props => [count, player];
 }
+

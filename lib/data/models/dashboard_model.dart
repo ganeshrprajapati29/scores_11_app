@@ -1,6 +1,7 @@
 ﻿// lib/data/models/dashboard_model.dart
 
 import 'package:flutter/material.dart';
+import '../../data/models/tournament_model.dart';
 
 // ==================== Main Dashboard Model ====================
 class DashboardData {
@@ -133,111 +134,6 @@ class Team {
   }
 }
 
-// ==================== Tournament Model ====================
-class Tournament {
-  final String id;
-  final String name;
-  final String format;
-  final String type;
-  final String status;
-  final DateTime startDate;
-  final DateTime endDate;
-  final Venue venue;
-  final int totalTeams;
-  final int entryFee;
-  final String? logo;
-
-  Tournament({
-    required this.id,
-    required this.name,
-    required this.format,
-    required this.type,
-    required this.status,
-    required this.startDate,
-    required this.endDate,
-    required this.venue,
-    required this.totalTeams,
-    required this.entryFee,
-    this.logo,
-  });
-
-  factory Tournament.fromJson(Map<String, dynamic> json) {
-    try {
-      return Tournament(
-        id: json['id']?.toString() ?? '',
-        name: json['name']?.toString() ?? '',
-        format: json['format']?.toString() ?? '',
-        type: json['type']?.toString() ?? '',
-        status: json['status']?.toString() ?? '',
-        startDate: DateTime.tryParse(json['startDate']?.toString() ?? '') ?? DateTime.now(),
-        endDate: DateTime.tryParse(json['endDate']?.toString() ?? '') ?? DateTime.now(),
-        venue: Venue.fromJson(Map<String, dynamic>.from(json['venue'] ?? {})),
-        totalTeams: int.tryParse(json['totalTeams']?.toString() ?? '0') ?? 0,
-        entryFee: int.tryParse(json['entryFee']?.toString() ?? '0') ?? 0,
-        logo: json['logo']?.toString(),
-      );
-    } catch (e) {
-      debugPrint('⚠️ Dashboard Tournament.fromJson fallback: $e');
-      return Tournament(
-        id: '',
-        name: 'Unknown',
-        format: 'T20',
-        type: 'LEAGUE',
-        status: 'UPCOMING',
-        startDate: DateTime.now(),
-        endDate: DateTime.now(),
-        venue: Venue(name: '', city: '', country: ''),
-        totalTeams: 0,
-        entryFee: 0,
-      );
-    }
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'format': format,
-      'type': type,
-      'status': status,
-      'startDate': startDate.toIso8601String(),
-      'endDate': endDate.toIso8601String(),
-      'venue': venue.toJson(),
-      'totalTeams': totalTeams,
-      'entryFee': entryFee,
-      'logo': logo,
-    };
-  }
-}
-
-// ==================== Venue Model ====================
-class Venue {
-  final String name;
-  final String city;
-  final String country;
-
-  Venue({
-    required this.name,
-    required this.city,
-    required this.country,
-  });
-
-  factory Venue.fromJson(Map<String, dynamic> json) {
-    return Venue(
-      name: json['name']?.toString() ?? '',
-      city: json['city']?.toString() ?? '',
-      country: json['country']?.toString() ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'city': city,
-      'country': country,
-    };
-  }
-}
 
 // ==================== Live Match Model ====================
 class LiveMatch {

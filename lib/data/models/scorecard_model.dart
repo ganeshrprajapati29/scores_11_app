@@ -104,6 +104,7 @@ class BowlerStats extends Equatable {
     'runs': runs,
     'wickets': wickets,
     'economy': economy,
+    'extras': extras,
   };
 
   // Add this inside BowlerStats class
@@ -114,22 +115,21 @@ class BowlerStats extends Equatable {
   }
 
   @override
-  List<Object?> get props => [playerId, playerName, overs, maidens, runs, wickets, economy];
+  List<Object?> get props => [playerId, playerName, overs, maidens, runs, wickets, economy, extras];
 }
 
 /// Fall of wicket
-// Update FallOfWicket class
 class FallOfWicket extends Equatable {
   final int wicket;
   final String batsman;
   final int runs;
-  final String overs;  // Change from 'partnership' to 'overs'
+  final String overs;
 
   const FallOfWicket({
     required this.wicket,
     required this.batsman,
     required this.runs,
-    required this.overs,  // Change parameter name
+    required this.overs,
   });
 
   factory FallOfWicket.fromJson(Map<String, dynamic> json) => FallOfWicket(
@@ -139,6 +139,13 @@ class FallOfWicket extends Equatable {
     overs: json['overs'] ?? json['partnership'] ?? '0.0',
   );
 
+  Map<String, dynamic> toJson() => {
+    'wicket': wicket,
+    'batsman': batsman,
+    'runs': runs,
+    'overs': overs,
+  };
+
   @override
   List<Object?> get props => [wicket, batsman, runs, overs];
 }
@@ -147,7 +154,7 @@ class FallOfWicket extends Equatable {
 class FullScorecard extends Equatable {
   final Match match;
   final List<Innings> innings;
-  final List<List<BatsmanStats>> batting; // per innings or team
+  final List<List<BatsmanStats>> batting;
   final List<List<BowlerStats>> bowling;
   final List<FallOfWicket> fallOfWickets;
   final List<Map<String, dynamic>> partnerships;
@@ -185,16 +192,38 @@ class FullScorecard extends Equatable {
       }).toList();
     }
 
+    List<FallOfWicket> safeFallOfWickets = [];
+    final fallOfWicketsRaw = json['fallOfWickets'] ?? [];
+    if (fallOfWicketsRaw is List) {
+      safeFallOfWickets = fallOfWicketsRaw.map<FallOfWicket>((e) => FallOfWicket.fromJson(e as Map<String, dynamic>)).toList();
+    }
+
     return FullScorecard(
       match: Match.fromJson(json['match'] ?? {}),
       innings: (json['innings'] ?? []).map<Innings>((e) => Innings.fromJson(e as Map<String, dynamic>)).toList(),
       batting: safeBatting,
       bowling: safeBowling,
-      fallOfWickets: (json['fallOfWickets'] ?? []).map<FallOfWicket>((e) => FallOfWicket.fromJson(e as Map<String, dynamic>)).toList(),
+      fallOfWickets: safeFallOfWickets,
       partnerships: List<Map<String, dynamic>>.from(json['partnerships'] ?? []),
     );
   }
 
+  // Add toJson method
+  Map<String, dynamic> toJson() {
+    return {
+      'match': match.toJson(),
+      'innings': innings.map((e) => e.toJson()).toList(),
+      'batting': batting.map((inningsBatting) => 
+        inningsBatting.map((b) => b.toJson()).toList()
+      ).toList(),
+      'bowling': bowling.map((inningsBowling) => 
+        inningsBowling.map((b) => b.toJson()).toList()
+      ).toList(),
+      'fallOfWickets': fallOfWickets.map((e) => e.toJson()).toList(),
+      'partnerships': partnerships,
+    };
+  }
+
   @override
-  List<Object?> get props => [match, innings, batting, bowling, fallOfWickets];
+  List<Object?> get props => [match, innings, batting, bowling, fallOfWickets, partnerships];
 }

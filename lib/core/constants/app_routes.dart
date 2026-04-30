@@ -10,6 +10,7 @@ class AppRoutes {
   static const String matches = '/matches';
   static const String matchDetail = '/match/:id';
   static const String createMatch = '/create-match';
+  static const String createMatchEnhanced = '/create-match-enhanced';
   static const String liveMatch = '/live-match/:id';
   static const String scoreEntry = '/score-entry/:id';
   static const String scorecard = '/scorecard/:id';

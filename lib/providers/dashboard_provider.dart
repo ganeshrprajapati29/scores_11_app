@@ -10,6 +10,7 @@ import 'dart:developer';
 import '../../data/services/blog_service.dart';
 import '../../data/services/community_service.dart';
 import '../../data/models/blog_model.dart';
+import '../data/models/tournament_model.dart';  // Add this line at top
 
 class DashboardProvider extends ChangeNotifier {
   DashboardData? _dashboardData;

@@ -26,6 +26,8 @@ class AuthProvider extends ChangeNotifier {
   UserModel? get user => _user;
   Map<String, dynamic>? get userStats => _userStats;
 
+  String? get userRole => _user?.role;
+
   /// Check if user is already authenticated (call on app start)
   Future<void> checkAuth() async {
     try {

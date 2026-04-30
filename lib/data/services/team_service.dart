@@ -29,6 +29,53 @@ class TeamService {
   final ApiClient _apiClient = ApiClient();
   final CacheService _cacheService = CacheService();
 
+  /// Get all teams (both user's teams and public teams)
+  Future<List<Team>> getAllTeams() async {
+    try {
+      // Fetch all teams without pagination limit
+      final response = await _apiClient.get(
+        '${ApiConfig.teams}',
+        queryParameters: {
+          'page': 1,
+          'limit': 100, // Increased limit to get more teams
+        },
+      );
+      if (response.statusCode == 200) {
+        dynamic rawData = response.data['data'];
+        final List data = rawData is List ? rawData : (rawData is Map ? [rawData] : []);
+        final teams = data.map((json) => Team.fromJson(json)).toList();
+        
+        // Also get user's teams to ensure they're included
+        try {
+          final myTeams = await getMyTeams();
+          // Merge and deduplicate teams
+          final allTeamsMap = <String, Team>{};
+          for (var team in teams) {
+            allTeamsMap[team.id] = team;
+          }
+          for (var team in myTeams) {
+            allTeamsMap[team.id] = team;
+          }
+          return allTeamsMap.values.toList();
+        } catch (e) {
+          // If getting my teams fails, just return all teams
+          return teams;
+        }
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get teams');
+    } on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
+    } catch (e) {
+      // Fallback: try to get only user's teams
+      try {
+        return await getMyTeams();
+      } catch (e2) {
+        throw Exception(e.toString());
+      }
+    }
+  }
+
   /// Get teams with pagination support
   Future<PaginatedTeams> getTeams({int page = 1, int limit = 20, String? search}) async {
     try {
@@ -57,7 +104,7 @@ class TeamService {
         );
       }
       throw Exception(response.data['message'] ?? 'Failed to get teams');
-} on DioException catch (e) {
+    } on DioException catch (e) {
       final message = _apiClient.parseDioError(e);
       throw Exception(message);
     } catch (e) {
@@ -101,7 +148,6 @@ class TeamService {
       rethrow;
     }
   }
-
 
   /// Get public team info (less details)
   Future<Team> getTeamByIdPublic(String id) async {

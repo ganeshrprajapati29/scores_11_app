@@ -79,32 +79,32 @@ class _MatchDetailScreenState extends State<MatchDetailScreen> with SingleTicker
           builder: (context, auth, child) {
             return Stack(
               children: [
-                if (auth.userRole == 'admin' || auth.userRole == 'umpire')
-                  Positioned(
-                    right: 16,
-                    bottom: 100,
-                    child: FloatingActionButton.extended(
-                      heroTag: 'liveControl',
-                      backgroundColor: AppColors.live,
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => LiveScoreControlScreen(
-                            matchId: widget.matchId,
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.sports_cricket, color: Colors.white),
-                      label: const Text(
-                        'Live Control',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                // ✅ SHOW FOR ALL USERS - Live Control democratized
+                Positioned(
+                  right: 16,
+                  bottom: 100,
+                  child: FloatingActionButton.extended(
+                    heroTag: 'liveControl',
+                    backgroundColor: AppColors.live,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LiveScoreControlScreen(
+                          matchId: widget.matchId,
                         ),
                       ),
                     ),
+                    icon: const Icon(Icons.sports_cricket, color: Colors.white),
+                    label: const Text(
+                      'Live Control',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
+                ),
                 FloatingActionButton(
                   heroTag: 'refresh',
                   onPressed: () => context.read<ScorecardProvider>().refreshScorecard(widget.matchId),

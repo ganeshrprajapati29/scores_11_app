@@ -6,6 +6,7 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// 🔹 Local properties
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
@@ -16,20 +17,13 @@ if (localPropertiesFile.exists()) {
 
 def flutterRoot = localProperties.getProperty('flutter.sdk')
 if (flutterRoot == null) {
-    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+    throw new GradleException("Flutter SDK not found. Define flutter.sdk in local.properties")
 }
 
-def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-if (flutterVersionCode == null) {
-    flutterVersionCode = '1'
-}
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: '1'
+def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.0.0'
 
-def flutterVersionName = localProperties.getProperty('flutter.versionName')
-if (flutterVersionName == null) {
-    flutterVersionName = '1.0.0'
-}
-
-// Keystore properties
+// 🔹 Keystore
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('key.properties')
 if (keystorePropertiesFile.exists()) {
@@ -38,10 +32,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace "com.scores11.app"
-    compileSdk 36
+    compileSdk 36   // ⚠️ 36 unstable hai → 34 use karo
+
+    ndkVersion "28.2.13676358"
 
     compileOptions {
-sourceCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
         coreLibraryDesugaringEnabled true
     }
@@ -50,14 +46,10 @@ sourceCompatibility JavaVersion.VERSION_11
         jvmTarget = '11'
     }
 
-    sourceSets {
-        main.java.srcDirs += 'src/main/kotlin'
-    }
-
     defaultConfig {
         applicationId "com.scores11.app"
-        minSdkVersion flutter.minSdkVersion  // ✅ Change from flutter.minSdkVersion to direct number
-        targetSdk 36
+        minSdkVersion flutter.minSdkVersion
+        targetSdk 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true
@@ -76,25 +68,40 @@ sourceCompatibility JavaVersion.VERSION_11
         debug {
             signingConfig signingConfigs.debug
         }
+
         release {
             signingConfig signingConfigs.release
-            minifyEnabled true  // ✅ Changed from true to false
+
+            // ⚠️ abhi false rakho warna crash aayega
+            minifyEnabled false
             shrinkResources false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
+                    'proguard-rules.pro'
         }
     }
 }
 
+// 🔹 Flutter source (IMPORTANT FIX)
 flutter {
     source '../..'
+}
+
+// 🔹 Dependency conflict fix
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.core:core:1.12.0'
+        force 'androidx.versionedparcelable:versionedparcelable:1.1.1'
+    }
 }
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22"
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'androidx.core:core-ktx:1.12.0'
+
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
-    
-    // Google Play Core library - Required for Flutter deferred components
+
+    // Google Play Core
     implementation 'com.google.android.play:core:1.10.3'
 }

@@ -108,6 +108,12 @@ class QuickActionsGrid extends StatelessWidget {
               route: '/wallet',
             ),
             QuickActionCard(
+              icon: Icons.sports_cricket,
+              title: 'Create Match', 
+              color: const Color(0xFFE91E63),
+              route: '/create-match',
+            ),
+            QuickActionCard(
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               color: Colors.deepPurple,

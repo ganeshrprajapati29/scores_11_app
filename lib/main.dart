@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/config/theme_config.dart';
 import 'core/services/cache_service.dart';
@@ -134,6 +134,7 @@ themeMode: ThemeMode.light,
           },
           '/live-matches': (context) => const MatchListScreen(),
           '/create-match': (context) => const CreateMatchScreen(),
+// '/create-match-enhanced': (context) => CreateMatchScreen(), // Temporarily disabled - class not found
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
           '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
           '/scorecard': (context) => ScorecardScreen(

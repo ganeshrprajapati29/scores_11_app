@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../core/widgets/custom_appbar.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/player_service.dart';
 import '../../../data/models/player_model.dart';
+
+// ─── Design tokens (matching community feed) ─────────────────────────────────
+const _kBg = Color(0xFFF8F9FA);
+const _kBorder = Color(0xFFEEEFF2);
+const _kTextPrimary = Color(0xFF0D1117);
+const _kTextSecondary = Color(0xFF6B7280);
+const _kTextHint = Color(0xFF9CA3AF);
+const _kShadow = Color(0x0A000000);
+const _kCardRadius = 16.0;
 
 class PlayerListScreen extends StatefulWidget {
   const PlayerListScreen({super.key});
@@ -20,11 +31,9 @@ class _PlayerListScreenState extends State<PlayerListScreen>
   bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   String _searchQuery = '';
   String? _selectedRole;
-
-  AnimationController? _fadeController;
-  Animation<double> _fadeAnimation = const AlwaysStoppedAnimation(1.0);
 
   final List<String> _roles = [
     'batsman',
@@ -33,78 +42,54 @@ class _PlayerListScreenState extends State<PlayerListScreen>
     'wicket-keeper',
   ];
 
-  // ── Fix: proper label formatting without callback-based replaceAll ──
   String _formatRoleLabel(String role) {
     return role
         .split('-')
-        .map((w) => w.isNotEmpty
-            ? w[0].toUpperCase() + w.substring(1).toLowerCase()
-            : '')
+        .map((w) =>
+            w.isNotEmpty ? w[0].toUpperCase() + w.substring(1).toLowerCase() : '')
         .join(' ');
   }
 
-  // Role color mapping
   Color _roleColor(String? role) {
     switch (role) {
-      case 'batsman':
-        return const Color(0xFF4FC3F7);
-      case 'bowler':
-        return const Color(0xFF81C784);
-      case 'all-rounder':
-        return const Color(0xFFFFB74D);
-      case 'wicket-keeper':
-        return const Color(0xFFCE93D8);
-      default:
-        return Colors.grey;
+      case 'batsman':      return AppColors.primary;
+      case 'bowler':       return const Color(0xFF10B981);
+      case 'all-rounder':  return const Color(0xFFF59E0B);
+      case 'wicket-keeper':return const Color(0xFF8B5CF6);
+      default:             return _kTextSecondary;
     }
   }
 
   IconData _roleIcon(String? role) {
     switch (role) {
-      case 'batsman':
-        return Icons.sports_cricket;
-      case 'bowler':
-        return Icons.sports_baseball;
-      case 'all-rounder':
-        return Icons.stars;
-      case 'wicket-keeper':
-        return Icons.shield;
-      default:
-        return Icons.person;
+      case 'batsman':       return Icons.sports_cricket_rounded;
+      case 'bowler':        return Icons.sports_baseball_rounded;
+      case 'all-rounder':   return Icons.stars_rounded;
+      case 'wicket-keeper': return Icons.shield_rounded;
+      default:              return Icons.person_rounded;
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController!,
-      curve: Curves.easeIn,
-    );
-    _fadeController!.forward();
-
     _loadPlayers();
     _scrollController.addListener(_onScroll);
+    _searchController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _fadeController?.dispose();
     _scrollController.dispose();
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      if (!_isLoading && _hasMore) {
-        _loadPlayers(loadMore: true);
-      }
+      if (!_isLoading && _hasMore) _loadPlayers(loadMore: true);
     }
   }
 
@@ -133,11 +118,17 @@ class _PlayerListScreenState extends State<PlayerListScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Load error: $e'),
+            content: Row(children: [
+              const Icon(Icons.error_outline_rounded,
+                  color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Text('Load error: $e'),
+            ]),
             backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
           ),
         );
       }
@@ -156,169 +147,204 @@ class _PlayerListScreenState extends State<PlayerListScreen>
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1B2A),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1B2A),
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Players',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              '${_players.length} players found',
-              style: TextStyle(
-                color: Colors.grey.shade500,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E2A3A),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.refresh,
-                  color: Color(0xFF4FC3F7), size: 18),
-            ),
-            onPressed: () => _loadPlayers(),
+      backgroundColor: _kBg,
+      appBar: _buildAppBar(),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isTablet ? 720 : double.infinity),
+          child: Column(
+            children: [
+              _buildSearchFilterSection(),
+              Expanded(child: _buildPlayerList()),
+            ],
           ),
-          const SizedBox(width: 8),
+        ),
+      ),
+      floatingActionButton: _buildFAB(),
+    );
+  }
+
+  // ─── AppBar (matching community feed style) ────────────────────────────────
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      leading: Padding(
+        padding: const EdgeInsets.all(10),
+        child: GestureDetector(
+          onTap: () => Navigator.of(context).maybePop(),
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: const Icon(Icons.arrow_back_ios_new_rounded,
+                color: AppColors.primary, size: 16),
+          ),
+        ),
+      ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Players',
+            style: TextStyle(
+              color: _kTextPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 2),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Text(
+              _isLoading
+                  ? 'Loading...'
+                  : '${_players.length} player${_players.length != 1 ? 's' : ''} found',
+              key: ValueKey(_players.length),
+              style: TextStyle(
+                color: _kTextSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
         ],
       ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: Column(
-          children: [
-            // ── Search & Filter Bar ──────────────────────────────────
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: GestureDetector(
+            onTap: _loadPlayers,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D1B2A),
-                border: Border(
-                  bottom: BorderSide(
-                    color: Colors.white.withOpacity(0.06),
-                    width: 1,
-                  ),
-                ),
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(9),
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  // Search field
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E2A3A),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                          color: Colors.white.withOpacity(0.07), width: 1),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      onSubmitted: _searchPlayers,
-                      decoration: InputDecoration(
-                        hintText: 'Search players...',
-                        hintStyle: TextStyle(
-                            color: Colors.grey.shade500, fontSize: 14),
-                        prefixIcon: const Icon(Icons.search,
-                            color: Color(0xFF4FC3F7), size: 20),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: Icon(Icons.close,
-                                    color: Colors.grey.shade500, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _searchPlayers('');
-                                },
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                      ),
-                    ),
+                  Icon(
+                    _isLoading ? Icons.hourglass_top_rounded : Icons.refresh_rounded,
+                    color: AppColors.primary,
+                    size: 16,
                   ),
-                  const SizedBox(height: 12),
-                  // Role filter chips
-                  SizedBox(
-                    height: 36,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _roles.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          return _buildFilterChip(
-                            label: 'All',
-                            icon: Icons.people,
-                            isSelected: _selectedRole == null,
-                            color: const Color(0xFF4FC3F7),
-                            onTap: () {
-                              setState(() => _selectedRole = null);
-                              _loadPlayers();
-                            },
-                          );
-                        }
-                        final role = _roles[index - 1];
-                        return _buildFilterChip(
-                          label: _formatRoleLabel(role),
-                          icon: _roleIcon(role),
-                          isSelected: _selectedRole == role,
-                          color: _roleColor(role),
-                          onTap: () {
-                            setState(() => _selectedRole = role);
-                            _loadPlayers();
-                          },
-                        );
-                      },
+                  const SizedBox(width: 6),
+                  Text(
+                    'Refresh',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-
-            // ── Player List ──────────────────────────────────────────
-            Expanded(
-              child: _players.isEmpty && !_isLoading
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                      itemCount: _players.length + (_hasMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == _players.length) {
-                          return const Padding(
-                            padding: EdgeInsets.all(20),
-                            child: Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Color(0xFF4FC3F7),
-                                  strokeWidth: 2.5,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return _buildPlayerCard(_players[index], index);
-                      },
-                    ),
-            ),
-          ],
+          ),
         ),
+      ],
+    );
+  }
+
+  // ─── Search & Filter (matching community feed style) ───────────────────────
+
+  Widget _buildSearchFilterSection() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      color: Colors.white,
+      child: Column(
+        children: [
+          // Search field
+          Container(
+            decoration: BoxDecoration(
+              color: _kBg,
+              borderRadius: BorderRadius.circular(_kCardRadius),
+              border: Border.all(color: _kBorder),
+            ),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocus,
+              style: const TextStyle(color: _kTextPrimary, fontSize: 14),
+              onSubmitted: _searchPlayers,
+              decoration: InputDecoration(
+                hintText: 'Search players...',
+                hintStyle: TextStyle(color: _kTextHint, fontSize: 14),
+                prefixIcon: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(Icons.search_rounded,
+                      color: AppColors.primary, size: 20),
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () {
+                          _searchController.clear();
+                          _searchPlayers('');
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: _kTextHint,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close_rounded,
+                                color: Colors.white, size: 12),
+                          ),
+                        ),
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Role filter chips
+          SizedBox(
+            height: 38,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _roles.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return _buildFilterChip(
+                    label: 'All',
+                    icon: Icons.people_rounded,
+                    isSelected: _selectedRole == null,
+                    color: AppColors.primary,
+                    onTap: () {
+                      setState(() => _selectedRole = null);
+                      _loadPlayers();
+                    },
+                  );
+                }
+                final role = _roles[index - 1];
+                return _buildFilterChip(
+                  label: _formatRoleLabel(role),
+                  icon: _roleIcon(role),
+                  isSelected: _selectedRole == role,
+                  color: _roleColor(role),
+                  onTap: () {
+                    setState(() => _selectedRole = role);
+                    _loadPlayers();
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: _buildFAB(),
     );
   }
 
@@ -335,31 +361,26 @@ class _PlayerListScreenState extends State<PlayerListScreen>
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected
-                ? color.withOpacity(0.15)
-                : const Color(0xFF1E2A3A),
+            color: isSelected ? color.withOpacity(0.1) : _kBg,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color:
-                  isSelected ? color : Colors.white.withOpacity(0.07),
+              color: isSelected ? color : _kBorder,
               width: isSelected ? 1.5 : 1,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon,
-                  size: 14,
-                  color: isSelected ? color : Colors.grey.shade500),
-              const SizedBox(width: 5),
+              Icon(icon, size: 14, color: isSelected ? color : _kTextSecondary),
+              const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? color : Colors.grey.shade500,
+                  color: isSelected ? color : _kTextSecondary,
                   fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
             ],
@@ -369,87 +390,97 @@ class _PlayerListScreenState extends State<PlayerListScreen>
     );
   }
 
-  Widget _buildPlayerCard(Player player, int index) {
-    final color = _roleColor(player.role);
-    final initial =
-        player.name.isNotEmpty ? player.name[0].toUpperCase() : '?';
+  // ─── Player List ───────────────────────────────────────────────────────────
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 300 + (index % 8) * 60),
-      curve: Curves.easeOut,
-      builder: (context, value, child) => Opacity(
-        opacity: value,
-        child: Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
-          child: child,
-        ),
-      ),
-      child: GestureDetector(
-        onTap: () {
-          try {
-            Navigator.pushNamed(
-                context, '/player-profile/${player.id}');
-          } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Navigation error: $e')),
+  Widget _buildPlayerList() {
+    if (_players.isEmpty && _isLoading) return _buildShimmer();
+    if (_players.isEmpty && !_isLoading) return _buildEmptyState();
+
+    return RefreshIndicator(
+      onRefresh: () => _loadPlayers(),
+      color: AppColors.primary,
+      strokeWidth: 2.5,
+      child: ListView.builder(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+        itemCount: _players.length + (_hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _players.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                    strokeWidth: 2.5,
+                  ),
+                ),
+              ),
             );
           }
+          return _buildPlayerCard(_players[index], index);
         },
-        child: Container(
+      ),
+    );
+  }
+
+  Widget _buildShimmer() {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFEEEFF2),
+      highlightColor: _kBg,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 5,
+        itemBuilder: (_, __) => Container(
           margin: const EdgeInsets.only(bottom: 12),
+          height: 110,
           decoration: BoxDecoration(
-            color: const Color(0xFF132030),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.06),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(_kCardRadius),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Player Card (matching community feed card style) ──────────────────────
+
+  Widget _buildPlayerCard(Player player, int index) {
+    final color = _roleColor(player.role);
+    final initial = player.name.isNotEmpty ? player.name[0].toUpperCase() : '?';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_kCardRadius),
+        border: Border.all(color: _kBorder),
+        boxShadow: const [
+          BoxShadow(color: _kShadow, blurRadius: 12, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(_kCardRadius),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(_kCardRadius),
+          onTap: () {
+            try {
+              Navigator.pushNamed(context, '/player-profile/${player.id}');
+            } catch (e) {
+              _snack('Navigation error: $e');
+            }
+          },
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                // Avatar
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: color.withOpacity(0.3), width: 1.5),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        initial,
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (player.jerseyNumber != null)
-                        Text(
-                          '#${player.jerseyNumber}',
-                          style: TextStyle(
-                            color: color.withOpacity(0.8),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+                // Avatar block
+                _buildAvatar(initial, color, player.jerseyNumber),
+
                 const SizedBox(width: 14),
 
                 // Info
@@ -457,67 +488,84 @@ class _PlayerListScreenState extends State<PlayerListScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Name
                       Text(
-                        player.name.isNotEmpty
-                            ? player.name
-                            : 'Unknown Player',
+                        player.name.isNotEmpty ? player.name : 'Unknown Player',
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                          color: _kTextPrimary,
+                          fontWeight: FontWeight.w700,
                           fontSize: 15,
+                          letterSpacing: -0.2,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Row(
+                      // Role + team
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (player.role != null) ...[
-                            Icon(_roleIcon(player.role),
-                                size: 12, color: color),
-                            const SizedBox(width: 4),
-                            Text(
-                              _formatRoleLabel(player.role!),
-                              style: TextStyle(
-                                  color: color, fontSize: 11),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_roleIcon(player.role), size: 12, color: color),
+                              const SizedBox(width: 4),
+                              Text(
+                                _formatRoleLabel(player.role ?? ''),
+                                style: TextStyle(
+                                  color: color,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (player.teamName != null) ...[
+                            Container(
+                              width: 3,
+                              height: 3,
+                              decoration: const BoxDecoration(
+                                color: _kTextHint,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                            const SizedBox(width: 10),
-                          ],
-                          if (player.teamName != null)
                             Flexible(
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.group,
-                                      size: 12,
-                                      color: Colors.grey.shade500),
-                                  const SizedBox(width: 3),
-                                  Flexible(
-                                    child: Text(
-                                      player.teamName!,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade400,
-                                        fontSize: 11,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                  Icon(Icons.group_rounded, size: 11, color: _kTextHint),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    player.teamName!,
+                                    style: TextStyle(
+                                      color: _kTextSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
                             ),
+                          ],
                         ],
                       ),
                       if (player.stats != null) ...[
-                        const SizedBox(height: 6),
-                        Row(
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
                           children: [
-                            _statBadge(
-                                '${player.stats!.runs}', 'Runs',
+                            _statBadge('${player.stats!.runs}', 'Runs',
                                 const Color(0xFF4FC3F7)),
-                            const SizedBox(width: 8),
-                            _statBadge(
-                                '${player.stats!.wickets}', 'Wkts',
-                                const Color(0xFF81C784)),
+                            _statBadge('${player.stats!.wickets}', 'Wkts',
+                                const Color(0xFF10B981)),
+                            if (player.stats!.average > 0)
+                              _statBadge(
+                                  player.stats!.average.toStringAsFixed(1),
+                                  'Avg',
+                                  const Color(0xFFF59E0B)),
                           ],
                         ),
                       ],
@@ -525,27 +573,27 @@ class _PlayerListScreenState extends State<PlayerListScreen>
                   ),
                 ),
 
-                // Actions
+                const SizedBox(width: 10),
+
+                // Action buttons
                 Column(
                   children: [
                     _actionBtn(
-                      Icons.visibility_outlined,
-                      const Color(0xFF4FC3F7),
+                      Icons.visibility_rounded,
+                      AppColors.primary,
                       () {
                         try {
                           Navigator.pushNamed(
                               context, '/player-profile/${player.id}');
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Navigation error: $e')),
-                          );
+                          _snack('Navigation error: $e');
                         }
                       },
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     _actionBtn(
-                      Icons.edit_outlined,
-                      const Color(0xFFFFB74D),
+                      Icons.edit_rounded,
+                      const Color(0xFFF59E0B),
                       () => Navigator.pushNamed(context, '/create-player',
                           arguments: player.id),
                     ),
@@ -556,12 +604,52 @@ class _PlayerListScreenState extends State<PlayerListScreen>
           ),
         ),
       ),
+    )
+    .animate()
+    .fadeIn(duration: 280.ms, delay: (index * 50).ms)
+    .slideY(begin: 0.05, end: 0, duration: 280.ms, delay: (index * 50).ms);
+  }
+
+  Widget _buildAvatar(String initial, Color color, int? jerseyNumber) {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            initial,
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+          ),
+          if (jerseyNumber != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              '#$jerseyNumber',
+              style: TextStyle(
+                color: color.withOpacity(0.7),
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
   Widget _statBadge(String value, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
@@ -573,13 +661,19 @@ class _PlayerListScreenState extends State<PlayerListScreen>
           Text(
             value,
             style: TextStyle(
-                color: color, fontSize: 11, fontWeight: FontWeight.bold),
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(width: 3),
           Text(
             label,
-            style:
-                TextStyle(color: color.withOpacity(0.7), fontSize: 10),
+            style: TextStyle(
+              color: color.withOpacity(0.7),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -601,52 +695,72 @@ class _PlayerListScreenState extends State<PlayerListScreen>
     );
   }
 
+  // ─── Empty State ───────────────────────────────────────────────────────────
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 90,
-            height: 90,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFF1E2A3A),
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: Colors.white.withOpacity(0.07), width: 1),
+              color: const Color(0xFFF0F2F5),
+              borderRadius: BorderRadius.circular(20),
             ),
-            child: Icon(Icons.people_outline,
-                size: 40, color: Colors.grey.shade600),
+            child: Icon(Icons.people_outline_rounded,
+                size: 40, color: _kTextHint),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Text(
-            'No players found',
-            style: TextStyle(
-                color: Colors.grey.shade400,
-                fontSize: 16,
-                fontWeight: FontWeight.w600),
+            _searchQuery.isNotEmpty
+                ? 'No results for "$_searchQuery"'
+                : 'No players found',
+            style: const TextStyle(
+              color: _kTextSecondary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Try changing your search or filters',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            style: TextStyle(
+              color: _kTextHint,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 24),
           GestureDetector(
             onTap: _loadPlayers,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF4FC3F7), Color(0xFF0288D1)],
-                ),
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: const Text(
-                'Reload Players',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w600),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Reload Players',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -655,28 +769,29 @@ class _PlayerListScreenState extends State<PlayerListScreen>
     );
   }
 
+  // ─── FAB (matching community feed style) ───────────────────────────────────
+
   Widget _buildFAB() {
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/create-player'),
-      child: Container(
-        width: 58,
-        height: 58,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF4FC3F7), Color(0xFF0288D1)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4FC3F7).withOpacity(0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: const Icon(Icons.add, color: Colors.white, size: 26),
+    return FloatingActionButton.extended(
+      heroTag: 'player_list_fab_${DateTime.now().millisecondsSinceEpoch}',
+      onPressed: () => Navigator.pushNamed(context, '/create-player'),
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      icon: const Icon(Icons.add_rounded, size: 20),
+      label: const Text('Add Player',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+    );
+  }
+
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontSize: 13)),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }

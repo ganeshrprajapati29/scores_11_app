@@ -145,7 +145,7 @@ class LiveLocation {
     return LiveLocation(
       type: json['type'] ?? 'Point',
       coordinates: json['coordinates'] != null 
-          ? List<double>.from(json['coordinates'].map((e) => e.toDouble()))
+          ? List<double>.from((json['coordinates'] as List).map((e) => (e is num ? e.toDouble() : double.tryParse(e.toString()) ?? 0.0)))
           : [0, 0],
       address: json['address'],
     );

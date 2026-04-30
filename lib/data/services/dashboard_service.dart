@@ -7,6 +7,7 @@ import '../../core/services/api_client.dart';
 import 'package:flutter/foundation.dart';
 import '../models/dashboard_model.dart';
 import 'dart:developer';
+import '../models/tournament_model.dart';  // Add this line at top
 
 /// Dashboard Service - Real API only (no mock fallback)
 class DashboardService {

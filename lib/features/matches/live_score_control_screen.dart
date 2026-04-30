@@ -53,14 +53,12 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => LiveScoreControlProvider()),
-        ChangeNotifierProxyProvider<AuthProvider, LiveScoreControlProvider>(
-          update: (context, auth, control) => control!..setUserRole(auth.userRole),
-        ),
-      ],
+  return ChangeNotifierProvider(
+      create: (_) => LiveScoreControlProvider()
+        ..setUserRole(context.read<AuthProvider>().userRole)
+        ..initialize(widget.matchId, widget.match),
       child: Scaffold(
+
         backgroundColor: AppColors.background,
         appBar: CustomAppBar(
           title: 'Live Score Control',
@@ -237,7 +235,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                       ],
                     ),
                     const SizedBox(height: 24),
-                    if (provider.tossWinner != null)
+                    if (provider.tossWinnerKey != null)
                       Column(
                         children: [
                           Text('Winner: ${provider.tossWinnerName}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -245,8 +243,8 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              _buildTossDecisionButton('Bat First', Icons.bat, () => provider.setTossDecision('bat')),
-                              _buildTossDecisionButton('Bowl First', Icons.ball, () => provider.setTossDecision('bowl')),
+                              _buildTossDecisionButton('Bat First', Icons.sports_cricket, () => provider.setTossDecision('bat')),
+                              _buildTossDecisionButton('Bowl First', Icons.sports_baseball, () => provider.setTossDecision('bowl')),
                             ],
                           ),
                         ],
@@ -338,7 +336,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
     return Consumer<LiveScoreControlProvider>(
       builder: (context, provider, child) {
         return RefreshIndicator(
-          onRefresh: () => provider.loadTeamPlayers(),
+          onRefresh: () => provider.refreshLiveData(),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(20),
@@ -361,16 +359,18 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                 _buildTeamPlayersGrid(
                   provider.match?.team1 ?? '',
                   provider.team1Players,
-                  provider.selectedTeam1Players,
+                  provider.team1Players.take(11).toList(),
                   (player) => provider.toggleTeam1Player(player),
                 ),
                 const SizedBox(height: 32),
                 // Team 2 Players Grid  
+                _buildTeamPlayersGrid(
                   provider.match?.team2 ?? '',
                   provider.team2Players,
-                  provider.selectedTeam2Players,
+                  provider.team2Players.take(11).toList(),
                   (player) => provider.toggleTeam2Player(player),
                 ),
+
                 const SizedBox(height: 24),
                 if (provider.selectedTeam1Players.length == 11 && provider.selectedTeam2Players.length == 11)
                   ElevatedButton.icon(
@@ -497,9 +497,9 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
   IconData _getRoleIcon(String role) {
     switch (role.toLowerCase()) {
       case 'batsman':
-        return Icons.bat;
+        return Icons.sports_cricket;
       case 'bowler':
-        return Icons.ball;
+        return Icons.sports_baseball;
       case 'allrounder':
         return Icons.all_inclusive;
       case 'wicketkeeper':
@@ -578,7 +578,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
           _buildPlayerCard(
             provider.currentBowler?.name ?? 'Set Bowler',
             provider.currentBowler?.jerseyNumber,
-            Icons.ball,
+            Icons.sports_baseball,
             Colors.red,
             () => _showBowlerSelector(provider),
             isExpanded: true,
@@ -693,10 +693,10 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _buildStatCard('Wides', provider.extras.wides.toString(), Icons.width_full)),
-                Expanded(child: _buildStatCard('No Balls', provider.extras.noBalls.toString(), Icons.error)),
-                Expanded(child: _buildStatCard('Byes', provider.extras.byes.toString(), Icons.run_circle)),
-                Expanded(child: _buildStatCard('LBW', provider.extras.legByes.toString(), Icons.sports_soccer)),
+                Expanded(child: _buildStatCard('Wides', (provider.extras['wides'] ?? 0).toString(), Icons.width_full)),
+                Expanded(child: _buildStatCard('No Balls', (provider.extras['noBalls'] ?? 0).toString(), Icons.error)),
+                Expanded(child: _buildStatCard('Byes', (provider.extras['byes'] ?? 0).toString(), Icons.run_circle)),
+                Expanded(child: _buildStatCard('LBW', (provider.extras['legByes'] ?? 0).toString(), Icons.sports_soccer)),
               ],
             ),
           ],
@@ -728,15 +728,15 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                       width: 60,
                       margin: const EdgeInsets.only(right: 8),
                       decoration: BoxDecoration(
-                        color: ball.wicket ? Colors.red[100] : Colors.grey[100],
+                        color: (ball['wicket'] ?? false) ? Colors.red[100] : Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.grey[300]!),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(ball.runs.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                          if (ball.wicket) const Icon(Icons.close, size: 16, color: Colors.red),
+                          Text((ball['runs'] ?? 0).toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                          if (ball['wicket'] ?? false) const Icon(Icons.close, size: 16, color: Colors.red),
                         ],
                       ),
                     );

@@ -18,6 +18,7 @@ import '../../data/services/community_service.dart';
 import '../../data/models/blog_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../features/teams/team_list_screen.dart';
+import '../../data/models/tournament_model.dart';  // Add this line at top
 
 import 'dart:async';
 import '../../core/widgets/profile_avatar.dart';
@@ -2280,7 +2281,7 @@ class _TournamentCard extends StatelessWidget {
                   children: [
                     const Icon(Icons.location_on_outlined, size: 13, color: _DS.textMuted),
                     const SizedBox(width: 4),
-                    Text('${tournament.venue.name}, ${tournament.venue.city}', style: const TextStyle(fontSize: 12, color: _DS.textSecondary)),
+                    Text('${tournament.venue ?? 'TBD'}, ${tournament.city ?? 'TBD'}', style: const TextStyle(fontSize: 12, color: _DS.textSecondary)),
                   ],
                 ),
                 const SizedBox(height: 5),
@@ -2288,7 +2289,7 @@ class _TournamentCard extends StatelessWidget {
                   children: [
                     const Icon(Icons.calendar_today_outlined, size: 13, color: _DS.textMuted),
                     const SizedBox(width: 4),
-                    Text('${_formatDate(tournament.startDate)} — ${_formatDate(tournament.endDate)}', style: const TextStyle(fontSize: 12, color: _DS.textSecondary)),
+                    Text('${tournament.startDate != null ? _formatDate(tournament.startDate!) : 'TBD'} — ${tournament.endDate != null ? _formatDate(tournament.endDate!) : 'TBD'}', style: const TextStyle(fontSize: 12, color: _DS.textSecondary)),
                   ],
                 ),
                 const SizedBox(height: 13),
@@ -2313,7 +2314,10 @@ class _TournamentCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'TBD';
+    return '${date.day}/${date.month}/${date.year}';
+  }
 }
 
 class _TournamentInfoChip extends StatelessWidget {

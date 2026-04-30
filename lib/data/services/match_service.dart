@@ -3,8 +3,8 @@ import 'package:dio/dio.dart';
 import '../models/match_model.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/cache_service.dart';
-import '../models/match_model.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 
 /// Pagination response wrapper
 class PaginatedMatches {
@@ -178,47 +178,71 @@ class MatchService {
     }
   }
 
-  /// Get full scorecard
-Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) async {
+  /// Get full scorecard - FIXED with proper 404 handling
+  Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) async {
     debugPrint('🔍 Loading scorecard for matchId: $matchId');
-    debugPrint('📡 Scorecard URL: ${ApiConfig.baseUrl}/scoring/match/$matchId/scorecard');
     
-    // Skip scorecard for scheduled matches
+    // Skip if match is scheduled
     if (match?.status == 'SCHEDULED') {
-      debugPrint('⏳ Match scheduled, skipping scorecard');
+      debugPrint('⏳ Match scheduled, returning basic scorecard');
       return _buildBasicScorecard(match!);
     }
 
-    try {
-      // Try scorecard with lenient status validation (don't throw 404)
-      final scorecardResponse = await _apiClient.get(
-        '${ApiConfig.baseUrl}/scoring/match/$matchId/scorecard',
-        options: Options(validateStatus: (status) => status! < 500),
-      );
+    // Try different endpoints in order
+    final List<String> endpoints = [
+      '/scoring/match/$matchId/scorecard',
+      '/scoring/match/$matchId/full-scorecard',
+      '/matches/$matchId/scorecard',
+      '/scoring/$matchId/scorecard',
+    ];
 
-      if (scorecardResponse.statusCode == 200) {
-        dynamic data = scorecardResponse.data['data'] ?? scorecardResponse.data;
-        if (data is List && data.isNotEmpty) {
-          data = data.first;
+    for (final endpoint in endpoints) {
+      try {
+        debugPrint('📡 Trying endpoint: $endpoint');
+        final response = await _apiClient.get(
+          '$endpoint',
+          options: Options(
+            validateStatus: (status) => status! < 500, // Don't throw on 404
+            sendTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        );
+        
+        if (response.statusCode == 200) {
+          dynamic data = response.data['data'] ?? response.data;
+          if (data is List && data.isNotEmpty) {
+            data = data.first;
+          }
+          if (data != null && data is Map) {
+            debugPrint('✅ Scorecard found at endpoint: $endpoint');
+            return data as Map<String, dynamic>;
+          }
+        } else if (response.statusCode == 404) {
+          debugPrint('⚠️ Endpoint $endpoint returned 404, trying next...');
+          continue;
         }
-        debugPrint('✅ Full scorecard loaded');
-        return data as Map<String, dynamic> ?? {};
-      } else if (scorecardResponse.statusCode == 404) {
-        debugPrint('⚠️ Scorecard 404 - trying live score fallback');
+      } catch (e) {
+        debugPrint('⚠️ Error at endpoint $endpoint: $e');
+        continue;
       }
-    } catch (scorecardError) {
-      debugPrint('❌ Scorecard error: $scorecardError');
     }
 
     // Fallback 1: Try live score
     try {
-      final liveResponse = await _apiClient.get('${ApiConfig.baseUrl}/scoring/match/$matchId/live');
+      debugPrint('🔄 Trying live score fallback...');
+      final liveResponse = await _apiClient.get(
+        '/scoring/match/$matchId/live',
+        options: Options(validateStatus: (status) => status! < 500),
+      );
       if (liveResponse.statusCode == 200) {
-        debugPrint('✅ Live score fallback loaded');
-        return liveResponse.data['data'] ?? {};
+        final liveData = liveResponse.data['data'] ?? {};
+        if (liveData.isNotEmpty) {
+          debugPrint('✅ Live score fallback loaded');
+          return liveData;
+        }
       }
     } catch (liveError) {
-      debugPrint('❌ Live score error: $liveError');
+      debugPrint('⚠️ Live score error: $liveError');
     }
 
     // Fallback 2: Use basic match score
@@ -227,7 +251,7 @@ Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) as
       return _buildBasicScorecard(match);
     }
 
-    debugPrint('⚠️ No scorecard data available');
+    debugPrint('⚠️ No scorecard data available - returning empty');
     return {};
   }
 
@@ -235,6 +259,10 @@ Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) as
     return {
       'match': match.toJson(),
       'innings': match.innings.map((i) => i.toJson()).toList(),
+      'batting': [],
+      'bowling': [],
+      'fallOfWickets': [],
+      'partnerships': [],
       'score': match.score.toJson(),
       'status': match.status,
       'live': match.isLive,
@@ -364,65 +392,41 @@ Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) as
     }
   }
 
-  /// Create a new match
-  Future<Match> createMatch({
+  Future<Match> createMatchSimple({
     required String team1,
     required String team2,
+    required Map<String, dynamic> venue,
     required DateTime scheduledDate,
-    String? tournament,
-    String format = 'T20',
-    String matchType = 'LEAGUE',
-    String? venueName,
-    String? venueCity,
-    String? startTime,
-    int overs = 20,
+    String format = 't20',
   }) async {
-    final requestData = {
+    final dateStr = DateFormat('yyyy-MM-dd').format(scheduledDate);
+    final startTimeStr = '${scheduledDate.hour.toString().padLeft(2, '0')}:${scheduledDate.minute.toString().padLeft(2, '0')}';
+
+    final data = {
       'team1': team1,
       'team2': team2,
-      'scheduledDate': scheduledDate.toIso8601String(),
-      if (tournament != null) 'tournament': tournament,
+      'venue': venue,
+      'scheduledDate': dateStr,
+      'startTime': startTimeStr,
       'format': format,
-      'matchType': matchType,
-      'startTime': startTime,
-      'venue': {
-        'name': venueName ?? 'Stadium',
-        'city': venueCity,
-      },
-      'overs': overs,
     };
 
-    
-    debugPrint('🚀 CREATE MATCH REQUEST: ${requestData.toString()}');
-    
+    return await _createMatchPayload(data);
+  }
+
+  Future<Match> _createMatchPayload(Map<String, dynamic> data) async {
     try {
       final response = await _apiClient.post(
         '${ApiConfig.matches}',
-        data: requestData,
+        data: data,
       );
-      
-      debugPrint('✅ CREATE MATCH RESPONSE: ${response.statusCode} - ${response.data.toString()}');
-      
       if (response.statusCode == 201 || response.statusCode == 200) {
         _cacheService.clearMatchesCache();
-        return Match.fromJson(response.data['data']);
+        final matchData = response.data['data'] ?? response.data;
+        return Match.fromJson(matchData);
       }
       throw Exception(response.data['message'] ?? 'Failed to create match');
-    } on DioException catch (e) {
-      debugPrint('❌ CREATE MATCH DIO ERROR: ${e.response?.data}');
-      debugPrint('   Status: ${e.response?.statusCode}');
-      debugPrint('   Message: ${e.message}');
-      
-      String errorMsg = 'Failed to create match';
-      if (e.response?.data != null) {
-        final data = e.response!.data;
-        errorMsg = data['message'] ?? data['error'] ?? errorMsg;
-        if (data['details'] != null) errorMsg += ': ${data['details']}';
-      }
-      
-      throw Exception(errorMsg);
     } catch (e) {
-      debugPrint('❌ CREATE MATCH ERROR: $e');
       rethrow;
     }
   }
@@ -565,7 +569,6 @@ Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) as
     try {
       final response = await _apiClient.post('/scoring/match/$matchId/ball', data: ballData);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Clear cache for this match after score update
         _cacheService.clearMatchCache(matchId);
         return response.data['data'] ?? {};
       }

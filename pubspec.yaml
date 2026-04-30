@@ -53,9 +53,17 @@ dependencies:
   flutter_screenutil: ^5.9.3
   json_annotation: ^4.11.0
   
-  # Live Streaming - Pin to version 6.5.3
-  agora_rtc_engine: 6.5.3
-  permission_handler: ^11.0.0
+  # Live Streaming - Zenstream RTMP/HLS
+  # agora_rtc_engine: 6.5.3  # Removed for Zenstream
+  permission_handler: ^11.3.1  # Removed (RTC only)
+  
+  # Zenstream RTMP Player
+  video_player: ^2.8.1
+  # better_player: ^0.0.84
+  chewie: ^1.7.5
+  camera: ^0.10.5
+  rtmp_broadcaster: ^2.3.4
+
 
 dev_dependencies:
   flutter_test:
@@ -78,3 +86,4 @@ flutter_launcher_icons:
   image_path: "assets/images/logo.png"
   adaptive_icon_background: "#1E88E5"
   adaptive_icon_foreground: "assets/images/logo.png"
+

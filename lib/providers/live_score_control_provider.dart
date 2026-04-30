@@ -23,27 +23,6 @@ class LiveScoreState {
   });
 }
 
-class PlayerSelection {
-  final String id;
-  final String name;
-  final int? jerseyNumber;
-  final String? role;
-
-  PlayerSelection({
-    required this.id,
-    required this.name,
-    this.jerseyNumber,
-    this.role,
-  });
-
-  factory PlayerSelection.fromPlayer(Player player) => PlayerSelection(
-    id: player.id,
-    name: player.name,
-    jerseyNumber: player.jerseyNumber,
-    role: player.role,
-  );
-}
-
 class LiveScoreControlProvider extends ChangeNotifier {
   final MatchService _matchService = MatchService();
   final TeamService _teamService = TeamService();
@@ -58,24 +37,30 @@ class LiveScoreControlProvider extends ChangeNotifier {
   String? _error;
 
   // Toss
+  String? _tossWinnerKey;
+  String? get tossWinnerKey => _tossWinnerKey;
   String? _tossWinner;
   String? _tossDecision;
-  bool get tossDone => _tossWinner != null && _tossDecision != null;
+  bool get tossDone => _tossWinnerKey != null && _tossDecision != null;
+  String? get tossWinner => _tossWinner;
+  String get tossDecision => _tossDecision ?? 'bat';
 
   // Playing XI
   List<Player> _team1Players = [];
   List<Player> _team2Players = [];
-  List<PlayerSelection> _selectedTeam1Players = [];
-  List<PlayerSelection> _selectedTeam2Players = [];
+  List<Player> _selectedTeam1Players = [];
+  List<Player> _selectedTeam2Players = [];
 
   // Live state
   LiveScoreState _currentScore = const LiveScoreState();
-  PlayerSelection? _currentStriker;
-  PlayerSelection? _currentNonStriker;
-  PlayerSelection? _currentBowler;
+  Player? _currentStriker;
+  Player? _currentNonStriker;
+  Player? _currentBowler;
+
   List<Map<String, dynamic>> _currentOverBalls = [];
   int _currentOver = 1;
   int _currentBall = 1;
+  int get currentBall => _currentBall;
   Map<String, int> _extras = {'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0};
 
   // Getters
@@ -92,20 +77,20 @@ class LiveScoreControlProvider extends ChangeNotifier {
 
   List<Player> get team1Players => _team1Players;
   List<Player> get team2Players => _team2Players;
-  List<PlayerSelection> get selectedTeam1Players => _selectedTeam1Players;
-  List<PlayerSelection> get selectedTeam2Players => _selectedTeam2Players;
-  PlayerSelection? get currentStriker => _currentStriker;
-  PlayerSelection? get currentNonStriker => _currentNonStriker;
-  PlayerSelection? get currentBowler => _currentBowler;
+  List<Player> get selectedTeam1Players => _selectedTeam1Players;
+  List<Player> get selectedTeam2Players => _selectedTeam2Players;
+
+  Player? get currentStriker => _currentStriker;
+  Player? get currentNonStriker => _currentNonStriker;
+  Player? get currentBowler => _currentBowler;
   List<Map<String, dynamic>> get currentOverBalls => _currentOverBalls;
   String get currentOver => '$_currentOver.$_currentBall';
   int get team1SelectedCount => _selectedTeam1Players.length;
   int get team2SelectedCount => _selectedTeam2Players.length;
   Map<String, int> get extras => _extras;
-  String? get tossWinnerName => _match?.team1.id == _tossWinner ? _match?.team1.name : _match?.team2.name;
+  String? get tossWinnerName => _tossWinnerKey == 'team1' ? _match?.team1 : _match?.team2;
   String get tossDecisionDisplay => _tossDecision == 'bat' ? 'Bat First' : 'Bowl First';
-  List<Player> get battingTeamPlayers => _match?.team1.id == _tossWinner && _tossDecision == 'bat' || _match?.team2.id == _tossWinner && _tossDecision == 'bowl' 
-      ? _team1Players : _team2Players; // Simplified
+  List<Player> get battingTeamPlayers => _tossWinnerKey == 'team1' && _tossDecision == 'bat' || _tossWinnerKey == 'team2' && _tossDecision == 'bowl' ? _team1Players : _team2Players;
   double? get requiredRR => _currentScore.requiredRR != null ? double.tryParse(_currentScore.requiredRR!) : null;
   bool get canRefresh => !_isLoading;
 
@@ -113,9 +98,6 @@ class LiveScoreControlProvider extends ChangeNotifier {
 
   void setUserRole(String? role) {
     _userRole = role;
-    if (role != 'admin' && role != 'umpire') {
-      _error = 'Admin/Umpire role required for live scoring';
-    }
     notifyListeners();
   }
 
@@ -144,8 +126,8 @@ class LiveScoreControlProvider extends ChangeNotifier {
   Future<void> _loadTeamPlayers() async {
     if (_match == null) return;
 
-    final team1Players = await _playerService.getPlayersByTeam(_match!.team1.id);
-    final team2Players = await _playerService.getPlayersByTeam(_match!.team2.id);
+    final team1Players = await _playerService.getPlayersByTeam(_match!.team1);
+    final team2Players = await _playerService.getPlayersByTeam(_match!.team2);
     
     _team1Players = team1Players.where((p) => ['batsman', 'allrounder', 'wicketkeeper'].contains(p.role?.toLowerCase())).toList();
     _team2Players = team2Players.where((p) => ['batsman', 'allrounder', 'wicketkeeper'].contains(p.role?.toLowerCase())).toList();
@@ -169,13 +151,49 @@ class LiveScoreControlProvider extends ChangeNotifier {
     final bowlerId = liveData['currentBowler'];
 
     if (strikerId != null) {
-      final striker = _team1Players.firstWhere((p) => p.id == strikerId, orElse: () => _team2Players.firstWhere((p) => p.id == strikerId));
-      _currentStriker = PlayerSelection.fromPlayer(striker);
+      final striker = _team1Players.firstWhere(
+        (p) => p.id == strikerId, 
+        orElse: () => _team2Players.firstWhere(
+          (p) => p.id == strikerId, 
+          orElse: () => _createDummyPlayer(strikerId, 'Unknown', 'batsman')
+        )
+      );
+      _currentStriker = striker;
     }
-    // Similar for non-striker, bowler
+    if (nonStrikerId != null) {
+      final nonStriker = _team1Players.firstWhere(
+        (p) => p.id == nonStrikerId, 
+        orElse: () => _team2Players.firstWhere(
+          (p) => p.id == nonStrikerId, 
+          orElse: () => _createDummyPlayer(nonStrikerId, 'Unknown', 'batsman')
+        )
+      );
+      _currentNonStriker = nonStriker;
+    }
+    if (bowlerId != null) {
+      final bowler = _team1Players.firstWhere(
+        (p) => p.id == bowlerId, 
+        orElse: () => _team2Players.firstWhere(
+          (p) => p.id == bowlerId, 
+          orElse: () => _createDummyPlayer(bowlerId, 'Unknown', 'bowler')
+        )
+      );
+      _currentBowler = bowler;
+    }
 
     _currentOverBalls = List<Map<String, dynamic>>.from(liveData['recentBalls'] ?? []);
     notifyListeners();
+  }
+  
+  // Helper method to create a dummy player when player not found
+  Player _createDummyPlayer(String id, String name, String role) {
+    return Player(
+      id: id,
+      name: name,
+      role: role,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
   }
 
   Future<void> refreshLiveData() async {
@@ -194,13 +212,16 @@ class LiveScoreControlProvider extends ChangeNotifier {
     _currentScore = LiveScoreState(
       runs: data['currentInnings']['totalRuns'] ?? _currentScore.runs,
       wickets: data['currentInnings']['totalWickets'] ?? _currentScore.wickets,
+      overs: data['currentInnings']['overs'] ?? _currentScore.overs,
+      runRate: data['currentInnings']['runRate']?.toDouble() ?? _currentScore.runRate,
     );
     notifyListeners();
   }
 
   // Toss Methods
   void setTossWinner(String winner) {
-    _tossWinner = winner == 'team1' ? _match!.team1.id : _match!.team2.id;
+    _tossWinnerKey = winner;
+    _tossWinner = winner == 'team1' ? _match?.team1 : _match?.team2;
     notifyListeners();
   }
 
@@ -210,11 +231,10 @@ class LiveScoreControlProvider extends ChangeNotifier {
   }
 
   Future<void> submitToss() async {
-    if (_tossWinner == null || _tossDecision == null) return;
+    if (_tossWinnerKey == null || _tossDecision == null) return;
 
     try {
-      await _matchService.updateToss(_matchId!, _tossWinner!, _tossDecision!);
-      // Socket will update UI
+      await _matchService.updateToss(_matchId!, _tossWinnerKey!, _tossDecision!);
     } catch (e) {
       _error = 'Toss update failed: $e';
     }
@@ -223,48 +243,46 @@ class LiveScoreControlProvider extends ChangeNotifier {
 
   // XI Selection
   void toggleTeam1Player(Player player) {
-    final selection = PlayerSelection.fromPlayer(player);
     if (_selectedTeam1Players.any((p) => p.id == player.id)) {
       _selectedTeam1Players.removeWhere((p) => p.id == player.id);
     } else if (_selectedTeam1Players.length < 11) {
-      _selectedTeam1Players.add(selection);
+      _selectedTeam1Players.add(player);
     }
     notifyListeners();
   }
 
   void toggleTeam2Player(Player player) {
-    final selection = PlayerSelection.fromPlayer(player);
     if (_selectedTeam2Players.any((p) => p.id == player.id)) {
       _selectedTeam2Players.removeWhere((p) => p.id == player.id);
     } else if (_selectedTeam2Players.length < 11) {
-      _selectedTeam2Players.add(selection);
+      _selectedTeam2Players.add(player);
     }
     notifyListeners();
   }
 
   Future<void> initializeMatch() async {
     final battingOrder = [
-      {'team': _match!.team1.id, 'players': _selectedTeam1Players.map((p) => p.id).toList()},
-      {'team': _match!.team2.id, 'players': _selectedTeam2Players.map((p) => p.id).toList()},
+      {'team': _match!.team1, 'players': _selectedTeam1Players.map((p) => p.id).toList()},
+      {'team': _match!.team2, 'players': _selectedTeam2Players.map((p) => p.id).toList()},
     ];
     await _matchService.initializeMatch(_matchId!, battingOrder);
   }
 
   // Live Scoring
-  Future<void> setStriker(Player player) {
-    _currentStriker = PlayerSelection.fromPlayer(player);
+  Future<void> setStriker(Player player) async {
+    _currentStriker = player;
     await _matchService.setStriker(_matchId!, player.id);
     notifyListeners();
   }
 
   Future<void> setNonStriker(Player player) async {
-    _currentNonStriker = PlayerSelection.fromPlayer(player);
+    _currentNonStriker = player;
     await _matchService.setNonStriker(_matchId!, player.id);
     notifyListeners();
   }
 
   Future<void> setBowler(Player player) async {
-    _currentBowler = PlayerSelection.fromPlayer(player);
+    _currentBowler = player;
     await _matchService.setBowler(_matchId!, player.id);
     notifyListeners();
   }
@@ -275,28 +293,27 @@ class LiveScoreControlProvider extends ChangeNotifier {
       return;
     }
 
-    final ballData = {
+    final ballData = <String, dynamic>{
       'batsmanId': _currentStriker!.id,
       'bowlerId': _currentBowler!.id,
       'runs': runs,
-      'expectedVersion': _match?.version,
     };
 
     await _matchService.addBall(_matchId!, ballData);
   }
 
   Future<void> addExtra(String type) async {
-    final ballData = {
+    final ballData = <String, dynamic>{
       'batsmanId': _currentStriker?.id ?? '',
       'bowlerId': _currentBowler?.id ?? '',
       'runs': 1,
-      ['is$type']: true,
+      'is$type': true,
     };
     await _matchService.addBall(_matchId!, ballData);
   }
 
   Future<void> addWicket(String wicketType) async {
-    final ballData = {
+    final ballData = <String, dynamic>{
       'batsmanId': _currentStriker!.id,
       'bowlerId': _currentBowler!.id,
       'isWicket': true,
@@ -320,4 +337,3 @@ class LiveScoreControlProvider extends ChangeNotifier {
     super.dispose();
   }
 }
-
