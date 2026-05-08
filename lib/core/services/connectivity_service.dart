@@ -12,6 +12,10 @@ class ConnectivityService {
     return result != ConnectivityResult.none;
   }
 
+/// Returns a stream of single [ConnectivityResult] by mapping from the list
   Stream<ConnectivityResult> get connectivityStream =>
-      _connectivity.onConnectivityChanged;
+      _connectivity.onConnectivityChanged.map((results) {
+        // Return the first non-none result, or none if all are none
+        return results.isNotEmpty ? results.first : ConnectivityResult.none;
+      });
 }

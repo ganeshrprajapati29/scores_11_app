@@ -1,163 +1,146 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    
-    <!-- Internet Permissions -->
+
+    <!-- ========================= -->
+    <!-- INTERNET -->
+    <!-- ========================= -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    
-    <!-- Camera and Microphone for Live Streaming -->
+
+    <!-- ========================= -->
+    <!-- CAMERA & AUDIO -->
+    <!-- ========================= -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    
-    <!-- Location Permissions -->
+
+    <!-- ========================= -->
+    <!-- LOCATION -->
+    <!-- ========================= -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    
-    <!-- Storage Permissions -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+
+    <!-- ========================= -->
+    <!-- STORAGE -->
+    <!-- ========================= -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
+
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    
-    <!-- Notification Permissions -->
-    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- ========================= -->
+    <!-- NOTIFICATIONS -->
+    <!-- ========================= -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    
-    <!-- Foreground Service -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- ========================= -->
+    <!-- FOREGROUND -->
+    <!-- ========================= -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    
-    <!-- Hardware Features -->
+
+    <!-- ========================= -->
+    <!-- HARDWARE -->
+    <!-- ========================= -->
     <uses-feature android:name="android.hardware.camera" />
-    <uses-feature android:name="android.hardware.camera.autofocus" />
     <uses-feature android:name="android.hardware.microphone" />
-    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
-    
+
     <application
         android:label="Scores11"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true"
-        android:networkSecurityConfig="@xml/network_security_config"
         android:allowBackup="true"
-        android:requestLegacyExternalStorage="true"
         android:hardwareAccelerated="true"
-        android:resizeableActivity="true"
-        tools:targetApi="31"
-        tools:replace="android:appComponentFactory"
-        android:appComponentFactory="androidx.core.app.CoreComponentFactory">
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:targetApi="31">
 
-        <!-- Google Maps API Key -->
+        <!-- ========================= -->
+        <!-- GOOGLE MAPS -->
+        <!-- ========================= -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBleiztpOZoHa2gqVy-NSsLWKg5esXMKlQ"/>
-        
-        <!-- Google Mobile Services (Firebase) -->
+            android:value="YOUR_GOOGLE_MAPS_KEY" />
+
+        <!-- ========================= -->
+        <!-- FLUTTER -->
+        <!-- ========================= -->
         <meta-data
-            android:name="com.google.android.gms.version"
-            android:value="@integer/google_play_services_version" />
-        
-        <!-- ✅ FIX 1: Main Activity with CORRECT windowSoftInputMode -->
+            android:name="flutterEmbedding"
+            android:value="2" />
+
+        <!-- ========================= -->
+        <!-- MAIN ACTIVITY -->
+        <!-- ========================= -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-           
             android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
-            <!-- ✅ "adjustResize" is CRITICAL for keyboard handling -->
-            
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode">
+
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
-            
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
         </activity>
-        
-        <!-- ✅ FIX 2: Add splash screen activity to prevent rebuild -->
-        <activity
-            android:name="io.flutter.embedding.android.SplashScreenDrawableActivity"
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize" />
-        
-        <!-- Flutter Embedding -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-        
-        <!-- File Provider for image picker -->
+
+        <!-- ========================= -->
+        <!-- FILE PROVIDER -->
+        <!-- ========================= -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
+
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
+
         </provider>
-        
-        <!-- Agora Service for Background Streaming -->
-        <service
-            android:name="io.agora.rtc2.video.VideoEncoderService"
-            android:exported="false"
-            android:foregroundServiceType="camera|microphone" />
-        
-        <service
-            android:name="io.agora.rtc2.video.VideoCaptureService"
-            android:exported="false"
-            android:foregroundServiceType="camera" />
-        
-        <service
-            android:name="io.agora.rtc2.audio.AudioRoutingService"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
-        
-        <!-- Media Projection for Screen Sharing -->
-        <service
-            android:name="androidx.media.MediaBrowserServiceCompat"
-            android:exported="false" />
-        
-        <!-- Notification Channel -->
-        <receiver
-            android:name="androidx.work.impl.utils.ForceStopRunnable$BroadcastReceiver"
-            android:exported="false" />
+
     </application>
-    
-    <!-- Queries for intent handling -->
+
+    <!-- ========================= -->
+    <!-- QUERIES -->
+    <!-- ========================= -->
     <queries>
+
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
+
         <intent>
             <action android:name="android.intent.action.SEND" />
             <data android:mimeType="*/*" />
         </intent>
+
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
-        <intent>
-            <action android:name="android.media.action.VIDEO_CAPTURE" />
-        </intent>
+
     </queries>
+
 </manifest>
