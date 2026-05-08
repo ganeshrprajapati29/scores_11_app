@@ -2,7 +2,8 @@ class ApiConfig {
 // Production remote backend (currently unreachable)
 // Change this to your backend URL
   // Production remote backend  
-  static const String baseUrl = 'http://68.178.171.95:3000/api/v1';
+  // static const String baseUrl = 'http://68.178.171.95:3000/api/v1';
+     static const String baseUrl = 'https://blue-donkey-573739.hostingersite.com/api/v1';
 
   // ✅ LOCAL DEVELOPMENT - Backend runs on localhost:3000
   // static const String baseUrl = 'http://localhost:3000/api/v1';
@@ -10,7 +11,7 @@ class ApiConfig {
   // To switch: Run `cd backend && npm start`, then uncomment localhost line above
   
   // Socket URL
-  static const String socketUrl = 'http://68.178.171.95:3000';
+  static const String socketUrl = 'https://blue-donkey-573739.hostingersite.com';
   static const String agoraAppId = '5b430e042a88490eb9f292c4a05ab339';
   static const String agoraAppCertificate = 'd5d648b3f5b048eb830f921471c7e116';
   

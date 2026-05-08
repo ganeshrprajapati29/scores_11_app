@@ -75,7 +75,12 @@ static Future<LiveStreamModel> createStream(Map<String, dynamic> data) async {
     final res = await _apiClient.get('/live-streams', queryParameters: {'page': page, 'status': status});
     final data = res.data['data'] ?? res.data;
     final List list = data['results'] ?? [];
-    return list.map((json) => LiveStreamModel.fromJson(json)).toList();
+    final validated = list.where((item) {
+      if (item is! Map) return false;
+      final id = item['_id'] ?? item['id'];
+      return id != null && id.toString().isNotEmpty;
+    }).toList();
+    return validated.map((json) => LiveStreamModel.fromJson(json as Map<String, dynamic>)).toList();
   }
 
   static Future<LiveStreamModel> getStream(String streamId) async {

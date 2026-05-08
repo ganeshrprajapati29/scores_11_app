@@ -1,15 +1,24 @@
-# Flutter Compilation Fixes - Live Scoring
-Status: ✅ **IN PROGRESS** (Approved by user)
+# Flutter Compilation Fix Progress
 
-## Steps (0/6 complete)
+## Plan Steps:
+- [ ] 1. Create this TODO file
+- [ ] 2. Fix auth_provider.dart (remove 4x 'mounted' checks)
+- [ ] 3. Fix auth_service.dart (fix _handleDioError return type)
+- [ ] 4. Test compilation with flutter analyze
+- [ ] 5. Complete task
 
-- [✅] **1. Add userRole getter** to `lib/providers/auth_provider.dart`
-- [ ] **2. Fix PlayerSelection → Player** in `lib/providers/live_score_control_provider.dart` 
-- [ ] **3. Fix model field names** in `lib/features/matches/match_detail_screen.dart`
-- [ ] **4. Fix addBall() Map syntax** in provider
-- [ ] **5. Run `flutter analyze`** & test compilation
-- [ ] **6. Test live scoring flow** ✅
+## Progress:
+- [x] 1. Create this TODO file
+- [ ] 2. Fix auth_provider.dart (remove 4x 'mounted' checks)
+- [ ] 3. Fix auth_service.dart (fix _handleDioError return type)
+- [ ] 4. Test compilation with flutter analyze
+- [ ] 5. Complete task
 
-**Files to edit**: 3 total | **Est. time**: 5 mins | **Risk**: None (pure fixes)
+## Progress:
+- [x] 1. Create this TODO file
+- [x] 2. Fix auth_provider.dart (remove 4x 'mounted' checks)
+- [x] 3. Fix auth_service.dart (fix _handleDioError return type)
+- [ ] 4. Test compilation with flutter analyze
+- [ ] 5. Complete task
 
-**Progress tracked here**
+Next: Testing compilation

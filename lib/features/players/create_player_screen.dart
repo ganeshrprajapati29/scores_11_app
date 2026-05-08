@@ -733,9 +733,12 @@ class _SectionCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+const SizedBox(height: 12),
           const Divider(height: 1, color: _kBorder),
-          Padding(padding: const EdgeInsets.all(16), child: child),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: child,
+          ),
         ],
       ),
     );

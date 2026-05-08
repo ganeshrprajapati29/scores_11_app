@@ -18,36 +18,43 @@ import '../../data/services/community_service.dart';
 import '../../data/models/blog_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../features/teams/team_list_screen.dart';
-import '../../data/models/tournament_model.dart';  // Add this line at top
+import '../../data/models/tournament_model.dart';
 
 import 'dart:async';
 import '../../core/widgets/profile_avatar.dart';
 
 // ─────────────────────────────────────────────
-//  Design tokens
+//  Design Tokens — Professional White Theme
 // ─────────────────────────────────────────────
 class _DS {
   // Primary palette
-  static const deepNavy   = Color(0xFF0A1628);
-  static const navy       = Color(0xFF0D2147);
-  static const royalBlue  = Color(0xFF1A56DB);
-  static const skyBlue    = Color(0xFF3B82F6);
-  static const accentCyan = Color(0xFF06B6D4);
+  static const primary     = Color(0xFF1A56DB);
+  static const primaryDark = Color(0xFF0D2147);
+  static const primarySoft = Color(0xFFEEF4FF);
+  static const accent      = Color(0xFF06B6D4);
+  static const accentSoft  = Color(0xFFECFEFF);
 
-  // Surface
-  static const surface    = Color(0xFFF8FAFF);
-  static const card       = Colors.white;
-  static const cardAlt    = Color(0xFFF1F5FE);
+  // Surfaces — clean white theme
+  static const background  = Color(0xFFF5F7FF);
+  static const surface     = Color(0xFFFFFFFF);
+  static const surfaceAlt  = Color(0xFFF8FAFF);
+  static const surfaceBorder = Color(0xFFE8EEFF);
 
-  // Status
-  static const live       = Color(0xFFEF4444);
-  static const gold       = Color(0xFFF59E0B);
-  static const green      = Color(0xFF10B981);
+  // Status colors
+  static const live        = Color(0xFFEF4444);
+  static const liveSoft    = Color(0xFFFFF1F1);
+  static const gold        = Color(0xFFF59E0B);
+  static const goldSoft    = Color(0xFFFFFBEB);
+  static const green       = Color(0xFF10B981);
+  static const greenSoft   = Color(0xFFECFDF5);
+  static const purple      = Color(0xFF7C3AED);
+  static const purpleSoft  = Color(0xFFF5F3FF);
 
   // Text
   static const textPrimary   = Color(0xFF0F172A);
   static const textSecondary = Color(0xFF64748B);
   static const textMuted     = Color(0xFF94A3B8);
+  static const textHint      = Color(0xFFCBD5E1);
 
   // Gradients
   static const LinearGradient heroGrad = LinearGradient(
@@ -75,24 +82,35 @@ class _DS {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+  static const LinearGradient purpleGrad = LinearGradient(
+    colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
-  // Shadows
+  // Shadows — softer, more refined
   static List<BoxShadow> cardShadow = [
-    BoxShadow(color: const Color(0xFF1A56DB).withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4)),
-    BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2)),
+    BoxShadow(color: const Color(0xFF1A56DB).withOpacity(0.06), blurRadius: 20, offset: const Offset(0, 4)),
+    BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
   ];
   static List<BoxShadow> heroShadow = [
-    BoxShadow(color: const Color(0xFF1A56DB).withOpacity(0.35), blurRadius: 28, offset: const Offset(0, 12)),
+    BoxShadow(color: const Color(0xFF1A56DB).withOpacity(0.28), blurRadius: 32, offset: const Offset(0, 14)),
   ];
   static List<BoxShadow> liveShadow = [
-    BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.25), blurRadius: 14, offset: const Offset(0, 6)),
+    BoxShadow(color: const Color(0xFFEF4444).withOpacity(0.18), blurRadius: 16, offset: const Offset(0, 6)),
+  ];
+  static List<BoxShadow> navShadow = [
+    BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20, offset: const Offset(0, -4)),
+    BoxShadow(color: const Color(0xFF1A56DB).withOpacity(0.04), blurRadius: 10, offset: const Offset(0, -2)),
   ];
 
   // Radius
-  static const double radiusXL  = 24;
-  static const double radiusLG  = 18;
-  static const double radiusMD  = 14;
-  static const double radiusSM  = 10;
+  static const double radiusXXL = 28;
+  static const double radiusXL  = 22;
+  static const double radiusLG  = 16;
+  static const double radiusMD  = 12;
+  static const double radiusSM  = 8;
+  static const double radiusXS  = 6;
 }
 
 // ─────────────────────────────────────────────
@@ -105,7 +123,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with TickerProviderStateMixin {
+class _DashboardScreenState extends State<DashboardScreen>
+    with TickerProviderStateMixin {
   int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late AnimationController _fabAnimController;
@@ -144,28 +163,30 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
           value: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             statusBarIconBrightness: Brightness.light,
+            systemNavigationBarColor: Colors.white,
+            systemNavigationBarIconBrightness: Brightness.dark,
           ),
           child: Scaffold(
             key: _scaffoldKey,
-            backgroundColor: _DS.surface,
+            backgroundColor: _DS.background,
             extendBodyBehindAppBar: true,
             drawer: _buildDrawer(authProvider),
             appBar: _buildAppBar(dashboardProvider),
             body: Stack(
               children: [
                 RefreshIndicator(
-                  color: _DS.royalBlue,
+                  color: _DS.primary,
+                  strokeWidth: 2.5,
                   onRefresh: () => dashboardProvider.refreshDashboard(context),
                   child: IndexedStack(
                     index: _currentIndex,
                     children: _screens,
                   ),
                 ),
-                if (dashboardProvider.isLoading)
-                  _buildLoadingOverlay(),
+                if (dashboardProvider.isLoading) _buildLoadingOverlay(),
               ],
             ),
-            bottomNavigationBar: _buildBottomNavigationBar(),
+            bottomNavigationBar: _buildBottomNav(),
           ),
         );
       },
@@ -175,18 +196,18 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
   // ── Loading Overlay ────────────────────────
   Widget _buildLoadingOverlay() {
     return Container(
-      color: _DS.deepNavy.withOpacity(0.45),
+      color: Colors.black.withOpacity(0.35),
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _DS.surface,
             borderRadius: BorderRadius.circular(_DS.radiusXL),
             boxShadow: [
               BoxShadow(
-                color: _DS.royalBlue.withOpacity(0.18),
-                blurRadius: 40,
-                spreadRadius: 4,
+                color: _DS.primary.withOpacity(0.14),
+                blurRadius: 48,
+                spreadRadius: 2,
               ),
             ],
           ),
@@ -194,22 +215,22 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                width: 44,
-                height: 44,
+                width: 42,
+                height: 42,
                 child: CircularProgressIndicator(
-                  color: _DS.royalBlue,
-                  strokeWidth: 3,
-                  backgroundColor: _DS.cardAlt,
+                  color: _DS.primary,
+                  strokeWidth: 2.5,
+                  backgroundColor: _DS.primarySoft,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               const Text(
                 'Loading...',
                 style: TextStyle(
                   color: _DS.textSecondary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
+                  letterSpacing: 0.2,
                 ),
               ),
             ],
@@ -221,139 +242,116 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
   // ── App Bar ────────────────────────────────
   PreferredSizeWidget _buildAppBar(DashboardProvider dashboardProvider) {
-  return AppBar(
-    backgroundColor: Colors.transparent,
-    elevation: 0,
-    flexibleSpace: Container(
-      decoration: const BoxDecoration(gradient: _DS.appBarGrad),
-    ),
-
-    // ✅ TITLE (Responsive)
-    title: LayoutBuilder(
-      builder: (context, constraints) {
-        return Row(
-          children: [
-            // Logo
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [_DS.royalBlue, _DS.accentCyan],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: _DS.accentCyan.withOpacity(0.4),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.sports_cricket,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-
-            const SizedBox(width: 10),
-
-            // ✅ Text Responsive (Important)
-            Expanded(
-              child: Text(
-                'Scores11',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    ),
-
-    // ✅ Drawer Button
-    leading: Builder(
-      builder: (context) => IconButton(
-        icon: const _AppBarIcon(icon: Icons.menu_rounded),
-        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(gradient: _DS.appBarGrad),
       ),
-    ),
-
-    // ✅ ACTIONS (Responsive)
-    actions: [
-      // Notifications with badge
-      Stack(
+      title: Row(
         children: [
-          IconButton(
-            icon: const _AppBarIcon(icon: Icons.notifications_outlined),
-            onPressed: () =>
-                Navigator.pushNamed(context, '/notifications'),
+          // Logo container
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_DS.primary, _DS.accent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(11),
+              boxShadow: [
+                BoxShadow(
+                  color: _DS.accent.withOpacity(0.45),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.sports_cricket, color: Colors.white, size: 19),
           ),
-
-          if (dashboardProvider.quickStats.liveMatches > 0)
-            Positioned(
-              right: 6,
-              top: 6,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                constraints: const BoxConstraints(
-                  minWidth: 16,
-                  minHeight: 16,
-                ),
-                decoration: BoxDecoration(
-                  gradient: _DS.liveGrad,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _DS.live.withOpacity(0.5),
-                      blurRadius: 6,
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    '${dashboardProvider.quickStats.liveMatches}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Scores11',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ),
+                Text(
+                  'Cricket Live',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
             ),
+          ),
         ],
       ),
-
-      // Search
-      IconButton(
-        icon: const _AppBarIcon(icon: Icons.search_rounded),
-        onPressed: () => Navigator.pushNamed(context, '/players'),
+      leading: Builder(
+        builder: (context) => IconButton(
+          icon: const _AppBarIcon(icon: Icons.menu_rounded),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
       ),
+      actions: [
+        // Notification bell with live badge
+        Stack(
+          children: [
+            IconButton(
+              icon: const _AppBarIcon(icon: Icons.notifications_outlined),
+              onPressed: () => Navigator.pushNamed(context, '/notifications'),
+            ),
+            if (dashboardProvider.quickStats.liveMatches > 0)
+              Positioned(
+                right: 7,
+                top: 7,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  decoration: BoxDecoration(
+                    gradient: _DS.liveGrad,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                    boxShadow: [BoxShadow(color: _DS.live.withOpacity(0.5), blurRadius: 6)],
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${dashboardProvider.quickStats.liveMatches}',
+                      style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        IconButton(
+          icon: const _AppBarIcon(icon: Icons.search_rounded),
+          onPressed: () => Navigator.pushNamed(context, '/players'),
+        ),
+        IconButton(
+          icon: const _AppBarIcon(icon: Icons.chat_bubble_outline_rounded),
+          onPressed: () => Navigator.pushNamed(context, '/chats'),
+        ),
+        const SizedBox(width: 4),
+      ],
+    );
+  }
 
-      // Chat
-      IconButton(
-        icon: const _AppBarIcon(icon: Icons.chat_bubble_outline),
-        onPressed: () => Navigator.pushNamed(context, '/chats'),
-      ),
-
-      const SizedBox(width: 4),
-    ],
-  );
-}
-
-  // ── Bottom Nav Bar ────────────────────────
-  Widget _buildBottomNavigationBar() {
+  // ── Bottom Navigation Bar ──────────────────
+  Widget _buildBottomNav() {
     const items = [
       {'icon': Icons.home_outlined,           'activeIcon': Icons.home_rounded,       'label': 'Home'},
       {'icon': Icons.sports_cricket_outlined, 'activeIcon': Icons.sports_cricket,     'label': 'Matches'},
@@ -364,14 +362,13 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(color: _DS.royalBlue.withOpacity(0.08), blurRadius: 24, offset: const Offset(0, -6)),
-        ],
+        color: _DS.surface,
+        boxShadow: _DS.navShadow,
+        border: const Border(top: BorderSide(color: Color(0xFFEEF2FF), width: 1)),
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(items.length, (index) {
@@ -380,17 +377,18 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                 onTap: () => setState(() => _currentIndex = index),
                 behavior: HitTestBehavior.opaque,
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 280),
+                  duration: const Duration(milliseconds: 260),
                   curve: Curves.easeOutCubic,
                   padding: EdgeInsets.symmetric(
-                    horizontal: isSelected ? 18 : 12,
+                    horizontal: isSelected ? 16 : 14,
                     vertical: 9,
                   ),
                   decoration: BoxDecoration(
                     gradient: isSelected ? _DS.heroGrad : null,
-                    borderRadius: BorderRadius.circular(16),
+                    color: isSelected ? null : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
                     boxShadow: isSelected
-                        ? [BoxShadow(color: _DS.royalBlue.withOpacity(0.35), blurRadius: 12, offset: const Offset(0, 4))]
+                        ? [BoxShadow(color: _DS.primary.withOpacity(0.32), blurRadius: 12, offset: const Offset(0, 4))]
                         : [],
                   ),
                   child: Row(
@@ -404,7 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                         size: 22,
                       ),
                       if (isSelected) ...[
-                        const SizedBox(width: 7),
+                        const SizedBox(width: 6),
                         Text(
                           items[index]['label'] as String,
                           style: const TextStyle(
@@ -431,221 +429,94 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
     final user = authProvider.user;
 
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: _DS.surface,
+      elevation: 0,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topRight: Radius.circular(28),
-          bottomRight: Radius.circular(28),
+          topRight: Radius.circular(_DS.radiusXXL),
+          bottomRight: Radius.circular(_DS.radiusXXL),
         ),
       ),
       child: Column(
         children: [
-          // Header
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 24,
-              left: 24,
-              right: 24,
-              bottom: 28,
-            ),
-            decoration: const BoxDecoration(
-              gradient: _DS.heroGrad,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(32),
-                bottomRight: Radius.circular(32),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // ── Drawer Header ───────────────────
+          _DrawerHeader(user: user),
+
+          // ── Nav Items ───────────────────────
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               children: [
-                // Avatar
-                Container(
-                  width: 62,
-                  height: 62,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)],
-                    ),
-                    border: Border.all(color: Colors.white, width: 2.5),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 12),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: user?.avatar?.url != null
-                        ? Image.network(
-                            user!.avatar!.url!,
-                            width: 62,
-                            height: 62,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _defaultAvatarWidget(),
-                          )
-                        : _defaultAvatarWidget(),
-                  ),
+                _DrawerSectionLabel(label: 'MAIN'),
+                _DrawerNavItem(icon: Icons.dashboard_rounded,     label: 'Dashboard',    isActive: _currentIndex == 0, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 0); }),
+                _DrawerNavItem(icon: Icons.sports_cricket,        label: 'Matches',      isActive: _currentIndex == 1, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 1); }),
+                _DrawerNavItem(icon: Icons.emoji_events_rounded,  label: 'Tournaments',  isActive: _currentIndex == 2, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 2); }),
+                _DrawerNavItem(icon: Icons.groups_rounded,        label: 'Teams',        isActive: _currentIndex == 3, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 3); }),
+                _DrawerNavItem(icon: Icons.people_rounded,        label: 'Players',      onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/players'); }),
+
+                const SizedBox(height: 4),
+                _DrawerSectionLabel(label: 'FEATURES'),
+                _DrawerNavItem(icon: Icons.live_tv_rounded,       label: 'Live Matches',  badge: 'LIVE', badgeGrad: _DS.liveGrad,  onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/live-matches'); }),
+                _DrawerNavItem(icon: Icons.analytics_outlined,    label: 'Scorecards',    onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/scorecards'); }),
+                _DrawerNavItem(icon: Icons.leaderboard_outlined,  label: 'Leaderboards',  onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/leaderboards'); }),
+                _DrawerNavItem(icon: Icons.article_outlined,      label: 'Blogs',         onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/blogs'); }),
+                _DrawerNavItem(icon: Icons.forum_outlined,        label: 'Community',     onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/community'); }),
+                _DrawerNavItem(icon: Icons.chat_bubble_outline_rounded, label: 'Chats',   onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/chats'); }),
+                _DrawerNavItem(icon: Icons.notifications_outlined, label: 'Notifications', onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/notifications'); }),
+
+                const SizedBox(height: 4),
+                _DrawerSectionLabel(label: 'ACCOUNT'),
+                _DrawerNavItem(icon: Icons.person_rounded,        label: 'Profile',       isActive: _currentIndex == 4, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 4); }),
+                _DrawerNavItem(icon: Icons.settings_rounded,      label: 'Settings',      onTap: () => Navigator.pushNamed(context, AppRoutes.settings)),
+                _DrawerNavItem(icon: Icons.help_outline_rounded,  label: 'Help & Support', onTap: () => Navigator.pushNamed(context, '/help-support')),
+                _DrawerNavItem(icon: Icons.privacy_tip_outlined,  label: 'Privacy Policy', onTap: () => Navigator.pushNamed(context, AppRoutes.privacyPolicy)),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Divider(color: _DS.surfaceBorder, height: 1),
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  user?.name ?? 'Cric11 User',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.2,
-                  ),
+
+                // Logout
+                _DrawerNavItem(
+                  icon: Icons.logout_rounded,
+                  label: 'Logout',
+                  iconColor: _DS.live,
+                  labelColor: _DS.live,
+                  iconBgColor: _DS.liveSoft,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showLogoutDialog(context, Provider.of<AuthProvider>(context, listen: false));
+                  },
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  user?.email ?? '',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.72),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 12),
-                // Stats chips
-                Row(
-                  children: [
-                    _DrawerStatChip(label: 'Player'),
-                    const SizedBox(width: 8),
-                    _DrawerStatChip(label: '⭐ Pro'),
-                  ],
-                ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
 
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+          // ── Drawer Footer ───────────────────
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: _DS.primarySoft,
+              borderRadius: BorderRadius.circular(_DS.radiusMD),
+            ),
+            child: Row(
               children: [
-                _buildDrawerSection('MAIN'),
-                _buildDrawerItem(icon: Icons.dashboard_rounded, title: 'Dashboard', isActive: _currentIndex == 0, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 0); }),
-                _buildDrawerItem(icon: Icons.sports_cricket, title: 'Matches', isActive: _currentIndex == 1, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 1); }),
-                _buildDrawerItem(icon: Icons.emoji_events_rounded, title: 'Tournaments', isActive: _currentIndex == 2, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 2); }),
-                _buildDrawerItem(icon: Icons.groups_rounded, title: 'Teams', isActive: _currentIndex == 3, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 3); }),
-                _buildDrawerItem(icon: Icons.people_rounded, title: 'Players', onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/players'); }),
-
-                _buildDrawerSection('FEATURES'),
-                _buildDrawerItem(icon: Icons.live_tv_rounded, title: 'Live Matches', badge: 'LIVE', badgeColor: _DS.live, onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/live-matches'); }),
-                _buildDrawerItem(icon: Icons.analytics_outlined, title: 'Scorecards', onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/scorecards'); }),
-                _buildDrawerItem(icon: Icons.leaderboard_outlined, title: 'Leaderboards', onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/leaderboards'); }),
-                _buildDrawerItem(icon: Icons.article_outlined, title: 'Blogs', onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/blogs'); }),
-                _buildDrawerItem(icon: Icons.forum_outlined, title: 'Community', onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/community'); }),
-                _buildDrawerItem(icon: Icons.chat_bubble_outline_rounded, title: 'Chats', onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/chats'); }),
-                _buildDrawerItem(icon: Icons.notifications_outlined, title: 'Notifications', onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/notifications'); }),
-
-                _buildDrawerSection('ACCOUNT'),
-                _buildDrawerItem(icon: Icons.person_rounded, title: 'Profile', isActive: _currentIndex == 4, onTap: () { Navigator.pop(context); setState(() => _currentIndex = 4); }),
-                _buildDrawerItem(icon: Icons.settings_rounded, title: 'Settings', onTap: () => Navigator.pushNamed(context, AppRoutes.settings)),
-_buildDrawerItem(icon: Icons.help_outline_rounded, title: 'Help & Support', onTap: () => Navigator.pushNamed(context, '/help-support')),
-                _buildDrawerItem(icon: Icons.privacy_tip_outlined, title: 'Privacy Policy', onTap: () => Navigator.pushNamed(context, AppRoutes.privacyPolicy)),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Divider(height: 1, color: Color(0xFFEEF2FF)),
+                const Icon(Icons.sports_cricket, size: 16, color: _DS.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Scores11 v1.0.0',
+                  style: const TextStyle(
+                    color: _DS.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                _buildDrawerItem(
-                  icon: Icons.logout_rounded,
-                  title: 'Logout',
-                  color: const Color(0xFFEF4444),
-                  onTap: () { Navigator.pop(context); _showLogoutDialog(context, Provider.of<AuthProvider>(context, listen: false)); },
-                ),
-                const SizedBox(height: 12),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerSection(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: _DS.textMuted,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _defaultAvatarWidget() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [_DS.royalBlue, _DS.accentCyan]),
-      ),
-      child: const Icon(Icons.person, size: 32, color: Colors.white),
-    );
-  }
-
-  Widget _buildDrawerItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    Color? color,
-    bool isActive = false,
-    String? badge,
-    Color? badgeColor,
-  }) {
-    final itemColor = color ?? (isActive ? _DS.royalBlue : _DS.textPrimary);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
-      child: ListTile(
-        leading: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            gradient: isActive ? _DS.heroGrad : null,
-            color: isActive ? null : (color != null ? color.withOpacity(0.1) : _DS.cardAlt),
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Icon(icon, color: isActive ? Colors.white : itemColor, size: 19),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: itemColor,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            if (badge != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: (badgeColor ?? _DS.royalBlue).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  badge,
-                  style: TextStyle(
-                    color: badgeColor ?? _DS.royalBlue,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        tileColor: isActive ? _DS.royalBlue.withOpacity(0.06) : null,
-        onTap: onTap,
-        dense: true,
-        visualDensity: const VisualDensity(vertical: -1),
       ),
     );
   }
@@ -654,55 +525,57 @@ _buildDrawerItem(icon: Icons.help_outline_rounded, title: 'Help & Support', onTa
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: _DS.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radiusXL)),
         titlePadding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-        contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
         title: Row(
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: _DS.live.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: _DS.liveSoft,
+                borderRadius: BorderRadius.circular(_DS.radiusMD),
               ),
               child: const Icon(Icons.logout_rounded, color: _DS.live, size: 22),
             ),
-            const SizedBox(width: 12),
-            const Text('Logout', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            const SizedBox(width: 14),
+            const Text(
+              'Logout',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: _DS.textPrimary),
+            ),
           ],
         ),
         content: const Text(
-          'Are you sure you want to logout?',
-          style: TextStyle(color: _DS.textSecondary, fontSize: 14),
+          'Are you sure you want to logout from your account?',
+          style: TextStyle(color: _DS.textSecondary, fontSize: 14, height: 1.5),
         ),
         actionsPadding: const EdgeInsets.all(20),
         actions: [
           OutlinedButton(
             onPressed: () => Navigator.pop(context),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              side: const BorderSide(color: Color(0xFFE2E8F0)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+              side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radiusMD)),
             ),
-            child: const Text('Cancel', style: TextStyle(color: _DS.textSecondary, fontWeight: FontWeight.w600)),
+            child: const Text('Cancel', style: TextStyle(color: _DS.textSecondary, fontWeight: FontWeight.w600, fontSize: 14)),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               await authProvider.logout();
-              if (context.mounted) {
-                Navigator.pushReplacementNamed(context, AppRoutes.login);
-              }
+              if (context.mounted) Navigator.pushReplacementNamed(context, AppRoutes.login);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _DS.live,
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radiusMD)),
             ),
-            child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           ),
         ],
       ),
@@ -711,20 +584,132 @@ _buildDrawerItem(icon: Icons.help_outline_rounded, title: 'Help & Support', onTa
 }
 
 // ─────────────────────────────────────────────
-//  Drawer Stat Chip
+//  Drawer Header Widget
 // ─────────────────────────────────────────────
-class _DrawerStatChip extends StatelessWidget {
-  final String label;
-  const _DrawerStatChip({required this.label});
+class _DrawerHeader extends StatelessWidget {
+  final dynamic user;
+  const _DrawerHeader({required this.user});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      width: double.infinity,
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 20,
+        left: 20,
+        right: 20,
+        bottom: 24,
+      ),
+      decoration: const BoxDecoration(
+        gradient: _DS.heroGrad,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Avatar
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.4), width: 2.5),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 14)],
+                ),
+                child: ClipOval(
+                  child: user?.avatar?.url != null
+                      ? Image.network(
+                          user!.avatar!.url!,
+                          width: 64, height: 64, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _DefaultAvatar(),
+                        )
+                      : _DefaultAvatar(),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user?.name ?? 'Cric11 User',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      user?.email ?? '',
+                      style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    // Online indicator
+                    Row(
+                      children: [
+                        Container(
+                          width: 7, height: 7,
+                          decoration: const BoxDecoration(color: Color(0xFF34D399), shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Online',
+                          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Stat chips row
+          Row(
+            children: [
+              _StatChip(label: '🏏 Player'),
+              const SizedBox(width: 8),
+              _StatChip(label: '⭐ Pro'),
+              const SizedBox(width: 8),
+              _StatChip(label: '🏆 Active'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DefaultAvatar extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(gradient: _DS.heroGrad),
+      child: const Icon(Icons.person, size: 32, color: Colors.white),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final String label;
+  const _StatChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+        color: Colors.white.withOpacity(0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
+        border: Border.all(color: Colors.white.withOpacity(0.25)),
       ),
       child: Text(
         label,
@@ -735,7 +720,141 @@ class _DrawerStatChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-//  AppBar Icon Button
+//  Drawer Section Label
+// ─────────────────────────────────────────────
+class _DrawerSectionLabel extends StatelessWidget {
+  final String label;
+  const _DrawerSectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: _DS.textMuted,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.8,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Drawer Nav Item — Redesigned
+// ─────────────────────────────────────────────
+class _DrawerNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isActive;
+  final String? badge;
+  final LinearGradient? badgeGrad;
+  final Color? iconColor;
+  final Color? labelColor;
+  final Color? iconBgColor;
+
+  const _DrawerNavItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isActive = false,
+    this.badge,
+    this.badgeGrad,
+    this.iconColor,
+    this.labelColor,
+    this.iconBgColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedIconColor = iconColor ?? (isActive ? _DS.primary : _DS.textSecondary);
+    final resolvedLabelColor = labelColor ?? (isActive ? _DS.primary : _DS.textPrimary);
+    final resolvedIconBg = iconBgColor ?? (isActive ? _DS.primarySoft : _DS.surfaceAlt);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1.5),
+      child: Material(
+        color: isActive ? _DS.primarySoft : Colors.transparent,
+        borderRadius: BorderRadius.circular(_DS.radiusMD),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(_DS.radiusMD),
+          splashColor: _DS.primary.withOpacity(0.08),
+          highlightColor: _DS.primary.withOpacity(0.04),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            child: Row(
+              children: [
+                // Icon container
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: resolvedIconBg,
+                    borderRadius: BorderRadius.circular(_DS.radiusSM),
+                    border: isActive
+                        ? Border.all(color: _DS.primary.withOpacity(0.2))
+                        : null,
+                  ),
+                  child: Icon(icon, color: resolvedIconColor, size: 18),
+                ),
+                const SizedBox(width: 13),
+                // Label
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: resolvedLabelColor,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                // Badge
+                if (badge != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      gradient: badgeGrad,
+                      color: badgeGrad == null ? _DS.primarySoft : null,
+                      borderRadius: BorderRadius.circular(_DS.radiusXS),
+                    ),
+                    child: Text(
+                      badge!,
+                      style: TextStyle(
+                        color: badgeGrad != null ? Colors.white : _DS.primary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                // Active indicator
+                if (isActive)
+                  Container(
+                    width: 4,
+                    height: 4,
+                    margin: const EdgeInsets.only(left: 8),
+                    decoration: const BoxDecoration(
+                      color: _DS.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  AppBar Icon Widget
 // ─────────────────────────────────────────────
 class _AppBarIcon extends StatelessWidget {
   final IconData icon;
@@ -748,7 +867,7 @@ class _AppBarIcon extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.12),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
       child: Icon(icon, color: Colors.white, size: 19),
     );
@@ -767,9 +886,7 @@ class HomeTab extends StatelessWidget {
     final data = dashboardProvider.dashboardData;
 
     if (dashboardProvider.isLoading && data == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: _DS.royalBlue),
-      );
+      return const Center(child: CircularProgressIndicator(color: _DS.primary));
     }
 
     return SingleChildScrollView(
@@ -781,20 +898,23 @@ class HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+
           // Welcome Hero
           _buildWelcomeHero(context),
           const SizedBox(height: 20),
 
           // Live Matches
           if (dashboardProvider.hasLiveMatches) ...[
-            _buildLiveMatchesSection(context, dashboardProvider.liveMatches),
+            _buildLiveHeader(context, dashboardProvider.liveMatches.length),
+            const SizedBox(height: 12),
+            _LiveScoreCarousel(matches: dashboardProvider.liveMatches),
             const SizedBox(height: 20),
           ],
 
           // Banner Carousel
           const _BannerCarousel(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -803,30 +923,28 @@ class HomeTab extends StatelessWidget {
               children: [
                 // Quick Stats
                 _buildQuickStatsRow(dashboardProvider.quickStats),
-                const SizedBox(height: 24),
+                const SizedBox(height: 26),
 
                 // Quick Actions
                 _buildSectionHeader('Quick Actions', Icons.bolt_rounded, color: _DS.gold),
                 const SizedBox(height: 14),
                 _buildQuickActions(context),
-                const SizedBox(height: 24),
+                const SizedBox(height: 26),
 
                 // Trending Players
                 if (dashboardProvider.hasTrendingPlayers) ...[
                   _buildSectionHeader('Trending Players', Icons.trending_up_rounded, color: const Color(0xFFF97316)),
                   const SizedBox(height: 14),
                   _buildTrendingPlayersSection(dashboardProvider.trendingPlayers),
-                  const SizedBox(height: 24),
-                  _buildSectionHeader('Trending Teams', Icons.trending_up_rounded, color: _DS.green),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 26),
                 ],
 
                 // Upcoming Matches
                 if (dashboardProvider.hasUpcomingMatches) ...[
-                  _buildSectionHeader('Upcoming Matches', Icons.schedule_rounded, color: _DS.royalBlue),
+                  _buildSectionHeader('Upcoming Matches', Icons.schedule_rounded, color: _DS.primary),
                   const SizedBox(height: 14),
                   _buildUpcomingMatchesSection(dashboardProvider.upcomingMatches),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 26),
                 ],
 
                 // Recent Blogs
@@ -834,12 +952,12 @@ class HomeTab extends StatelessWidget {
                   _buildSectionHeader('Recent Blogs', Icons.article_rounded, color: const Color(0xFF0891B2)),
                   const SizedBox(height: 14),
                   _buildRecentBlogsSection(dashboardProvider.recentBlogs),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 26),
                 ],
 
                 // Community Posts
                 if (dashboardProvider.hasRecentPosts) ...[
-                  _buildSectionHeader('Community Posts', Icons.forum_rounded, color: _DS.royalBlue),
+                  _buildSectionHeader('Community Posts', Icons.forum_rounded, color: _DS.purple),
                   const SizedBox(height: 14),
                   _buildRecentPostsSection(dashboardProvider.recentPosts),
                 ],
@@ -852,21 +970,19 @@ class HomeTab extends StatelessWidget {
   }
 
   // ── Section Header ─────────────────────────
-  Widget _buildSectionHeader(String title, IconData? icon, {Color? color}) {
+  Widget _buildSectionHeader(String title, IconData icon, {Color? color}) {
     return Row(
       children: [
-        if (icon != null) ...[
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: (color ?? _DS.royalBlue).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 15, color: color ?? _DS.royalBlue),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: (color ?? _DS.primary).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(_DS.radiusSM),
           ),
-          const SizedBox(width: 10),
-        ],
+          child: Icon(icon, size: 16, color: color ?? _DS.primary),
+        ),
+        const SizedBox(width: 10),
         Text(
           title,
           style: const TextStyle(
@@ -880,10 +996,55 @@ class HomeTab extends StatelessWidget {
     );
   }
 
+  // ── Live Header ────────────────────────────
+  Widget _buildLiveHeader(BuildContext context, int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 8, height: 8,
+            decoration: const BoxDecoration(color: _DS.live, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'Live Now',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _DS.textPrimary),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(gradient: _DS.liveGrad, borderRadius: BorderRadius.circular(20)),
+            child: Text(
+              '$count',
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: () => Navigator.pushNamed(context, '/matches/live'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _DS.primarySoft,
+                borderRadius: BorderRadius.circular(_DS.radiusSM),
+              ),
+              child: const Text(
+                'See All',
+                style: TextStyle(color: _DS.primary, fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Welcome Hero ───────────────────────────
   Widget _buildWelcomeHero(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final user = authProvider.user;
+    final firstName = user?.name?.split(' ').first ?? 'Cricketer';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -903,7 +1064,7 @@ class HomeTab extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hey, ${user?.name?.split(' ').first ?? 'Cricketer'} 👋',
+                      'Hey, $firstName 👋',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 22,
@@ -914,28 +1075,20 @@ class HomeTab extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       'Ready to dominate the pitch?',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.78),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                      ),
+                      style: TextStyle(color: Colors.white.withOpacity(0.72), fontSize: 13),
                     ),
                   ],
                 ),
               ),
               Container(
-                width: 56,
-                height: 56,
+                width: 54,
+                height: 54,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)],
-                  ),
+                  gradient: const LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)]),
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(color: _DS.accentCyan.withOpacity(0.5), blurRadius: 16, offset: const Offset(0, 4)),
-                  ],
+                  boxShadow: [BoxShadow(color: _DS.accent.withOpacity(0.45), blurRadius: 16, offset: const Offset(0, 4))],
                 ),
-                child: const Icon(Icons.sports_cricket, color: Colors.white, size: 28),
+                child: const Icon(Icons.sports_cricket, color: Colors.white, size: 26),
               ),
             ],
           ),
@@ -982,61 +1135,53 @@ class HomeTab extends StatelessWidget {
   // ── Quick Actions ──────────────────────────
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
-      // Row 1
       [
-        _ActionData(icon: Icons.add_circle_outline_rounded, title: 'Create Match', color: _DS.royalBlue, route: '/create-match'),
-        _ActionData(icon: Icons.group_add_rounded, title: 'Create Team', color: const Color(0xFF7C3AED), route: '/create-team'),
-        _ActionData(icon: Icons.person_add_rounded, title: 'Create Player', color: _DS.green, route: '/create-player'),
-        _ActionData(icon: Icons.emoji_events_rounded, title: 'Join Cup', color: _DS.gold, route: '/tournaments'),
+        _ActionData(icon: Icons.add_circle_outline_rounded, title: 'Create Match',   color: _DS.primary,              route: '/create-match'),
+        _ActionData(icon: Icons.group_add_rounded,          title: 'Create Team',    color: _DS.purple,               route: '/create-team'),
+        _ActionData(icon: Icons.person_add_rounded,         title: 'Create Player',  color: _DS.green,                route: '/create-player'),
+        _ActionData(icon: Icons.emoji_events_rounded,       title: 'Join Cup',       color: _DS.gold,                 route: '/tournaments'),
       ],
-      // Row 2
       [
-        _ActionData(icon: Icons.forum_outlined, title: 'Community', color: const Color(0xFF0284C7), route: '/community'),
-        _ActionData(icon: Icons.chat_bubble_outline_rounded, title: 'Chats', color: const Color(0xFF0891B2), route: '/chats'),
-        _ActionData(icon: Icons.notifications_outlined, title: 'Notifications', color: const Color(0xFF7C3AED), route: '/notifications'),
-        _ActionData(icon: Icons.leaderboard_rounded, title: 'Leaderboard', color: _DS.gold, route: '/leaderboard'),
+        _ActionData(icon: Icons.forum_outlined,             title: 'Community',      color: const Color(0xFF0284C7),  route: '/community'),
+        _ActionData(icon: Icons.chat_bubble_outline_rounded,title: 'Chats',          color: const Color(0xFF0891B2),  route: '/chats'),
+        _ActionData(icon: Icons.notifications_outlined,     title: 'Alerts',         color: _DS.purple,               route: '/notifications'),
+        _ActionData(icon: Icons.leaderboard_rounded,        title: 'Leaderboard',    color: _DS.gold,                 route: '/leaderboard'),
       ],
-      // Row 3
       [
-        _ActionData(icon: Icons.analytics_outlined, title: 'Scorecard', color: const Color(0xFFF97316), route: '/scorecard'),
-        _ActionData(icon: Icons.people_rounded, title: 'Players', color: _DS.royalBlue, route: '/players'),
-        _ActionData(icon: Icons.article_outlined, title: 'Live Matches', color: _DS.green, route: '/live-matches'),
-        _ActionData(icon: Icons.live_tv_rounded, title: 'Go Live', color: const Color(0xFFDB2777), route: '/go-live'),
+        _ActionData(icon: Icons.analytics_outlined,         title: 'Scorecard',      color: const Color(0xFFF97316),  route: '/scorecard'),
+        _ActionData(icon: Icons.people_rounded,             title: 'Players',        color: _DS.primary,              route: '/players'),
+        _ActionData(icon: Icons.article_outlined,           title: 'Live Matches',   color: _DS.green,                route: '/live-matches'),
+        _ActionData(icon: Icons.live_tv_rounded,            title: 'Go Live',        color: const Color(0xFFDB2777),  route: '/go-live'),
       ],
-      // Row 4 – full width
       [
-        _ActionData(icon: Icons.article_rounded, title: 'Blogs', color: const Color(0xFF0891B2), route: AppRoutes.blogs),
-        _ActionData(icon: Icons.groups_rounded, title: 'Teams', color: _DS.green, route: '/teams'),
-        _ActionData(icon: Icons.emoji_events_rounded, title: 'Tournaments', color: _DS.gold, route: '/tournaments'),
+        _ActionData(icon: Icons.article_rounded,            title: 'Blogs',          color: const Color(0xFF0891B2),  route: AppRoutes.blogs),
+        _ActionData(icon: Icons.groups_rounded,             title: 'Teams',          color: _DS.green,                route: '/teams'),
+        _ActionData(icon: Icons.emoji_events_rounded,       title: 'Tournaments',    color: _DS.gold,                 route: '/tournaments'),
       ],
     ];
 
     return Column(
       children: actions.asMap().entries.map((entry) {
+        final row = entry.value;
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Row(
-            children: entry.value.asMap().entries.map((e) {
+            children: row.asMap().entries.map((e) {
               final action = e.value;
               Widget card;
               if (action.title == 'Scorecard') {
-                // Use Consumer for first live match id
                 card = Consumer<DashboardProvider>(
                   builder: (context, provider, child) {
                     final firstMatchId = provider.getFirstLiveMatchId();
                     return _QuickActionCard(
-                      icon: action.icon,
-                      title: action.title,
-                      color: action.color,
+                      icon: action.icon, title: action.title, color: action.color,
                       onTap: () => Navigator.pushNamed(context, '/scorecard', arguments: firstMatchId ?? ''),
                     );
                   },
                 );
               } else {
                 card = _QuickActionCard(
-                  icon: action.icon,
-                  title: action.title,
-                  color: action.color,
+                  icon: action.icon, title: action.title, color: action.color,
                   onTap: () => Navigator.pushNamed(context, action.route),
                 );
               }
@@ -1050,66 +1195,6 @@ class HomeTab extends StatelessWidget {
           ),
         );
       }).toList(),
-    );
-  }
-
-  // ── Live Matches Section ───────────────────
-  Widget _buildLiveMatchesSection(BuildContext context, List<LiveMatch> matches) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: _DS.live,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Live Matches',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: _DS.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              TextButton(
-                onPressed: () => Navigator.pushNamed(context, '/matches/live'),
-                style: TextButton.styleFrom(
-                  foregroundColor: _DS.royalBlue,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  backgroundColor: _DS.royalBlue.withOpacity(0.08),
-                ),
-                child: const Text('See All', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        _LiveScoreCarousel(matches: matches),
-        if (matches.length > 3)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-            child: TextButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/matches/live'),
-              icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-              label: Text('View all ${matches.length} Live Matches'),
-              style: TextButton.styleFrom(foregroundColor: _DS.royalBlue),
-            ),
-          ),
-      ],
     );
   }
 
@@ -1162,7 +1247,7 @@ class HomeTab extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-//  Action Data helper
+//  Action Data
 // ─────────────────────────────────────────────
 class _ActionData {
   final IconData icon;
@@ -1170,6 +1255,163 @@ class _ActionData {
   final Color color;
   final String route;
   const _ActionData({required this.icon, required this.title, required this.color, required this.route});
+}
+
+// ─────────────────────────────────────────────
+//  Hero Button
+// ─────────────────────────────────────────────
+class _HeroButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isPrimary;
+
+  const _HeroButton({required this.icon, required this.label, required this.onTap, required this.isPrimary});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isPrimary ? Colors.white : Colors.white.withOpacity(0.13),
+          borderRadius: BorderRadius.circular(_DS.radiusMD),
+          border: isPrimary ? null : Border.all(color: Colors.white.withOpacity(0.3)),
+          boxShadow: isPrimary ? [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))] : [],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: isPrimary ? _DS.primary : Colors.white),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isPrimary ? _DS.primary : Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Quick Stat Card
+// ─────────────────────────────────────────────
+class _QuickStatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final List<Color> gradient;
+  final bool isLive;
+
+  const _QuickStatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.gradient,
+    this.isLive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(_DS.radiusMD),
+        boxShadow: [BoxShadow(color: gradient.first.withOpacity(0.28), blurRadius: 14, offset: const Offset(0, 6))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, color: Colors.white, size: 17),
+              ),
+              if (isLive)
+                Container(
+                  width: 7, height: 7,
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+          const SizedBox(height: 2),
+          Text(title, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Quick Action Card — Improved
+// ─────────────────────────────────────────────
+class _QuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({required this.icon, required this.title, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+        decoration: BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.circular(_DS.radiusMD),
+          border: Border.all(color: _DS.surfaceBorder, width: 1),
+          boxShadow: [BoxShadow(color: color.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 42, height: 42,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 21),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                color: _DS.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 10.5,
+                letterSpacing: 0.1,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -1191,7 +1433,7 @@ class _LiveScoreCarouselState extends State<_LiveScoreCarousel> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.88);
+    _pageController = PageController(viewportFraction: 0.9);
     _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
       if (widget.matches.isEmpty) return;
       final nextIndex = (_currentIndex + 1) % widget.matches.length;
@@ -1214,7 +1456,7 @@ class _LiveScoreCarouselState extends State<_LiveScoreCarousel> {
   Widget build(BuildContext context) {
     if (widget.matches.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 170,
+      height: 168,
       child: Stack(
         children: [
           PageView.builder(
@@ -1222,34 +1464,33 @@ class _LiveScoreCarouselState extends State<_LiveScoreCarousel> {
             onPageChanged: (index) => setState(() => _currentIndex = index),
             itemCount: widget.matches.length,
             itemBuilder: (context, index) {
-              final match = widget.matches[index];
               return GestureDetector(
-                onTap: () => Navigator.pushNamed(context, '/match/${match.id}'),
+                onTap: () => Navigator.pushNamed(context, '/match/${widget.matches[index].id}'),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: _LiveMatchCard(match: match),
+                  child: _LiveMatchCard(match: widget.matches[index]),
                 ),
               );
             },
           ),
+          // Dot indicators
           Positioned(
             bottom: 10,
-            left: 0,
-            right: 0,
+            left: 0, right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: widget.matches.asMap().entries.map((entry) {
+                final isSelected = _currentIndex == entry.key;
                 return GestureDetector(
                   onTap: () => _pageController.animateToPage(entry.key, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut),
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
+                    duration: const Duration(milliseconds: 280),
                     margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: _currentIndex == entry.key ? 22 : 7,
-                    height: 7,
+                    width: isSelected ? 20 : 6,
+                    height: 6,
                     decoration: BoxDecoration(
-                      gradient: _currentIndex == entry.key ? _DS.heroGrad : null,
-                      color: _currentIndex == entry.key ? null : _DS.textMuted.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(4),
+                      color: isSelected ? _DS.primary : _DS.textHint,
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   ),
                 );
@@ -1258,6 +1499,102 @@ class _LiveScoreCarouselState extends State<_LiveScoreCarousel> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Live Match Card — Refined
+// ─────────────────────────────────────────────
+class _LiveMatchCard extends StatelessWidget {
+  final LiveMatch match;
+  const _LiveMatchCard({required this.match});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _DS.surface,
+        borderRadius: BorderRadius.circular(_DS.radiusLG),
+        border: Border.all(color: _DS.live.withOpacity(0.1)),
+        boxShadow: _DS.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Live badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: _DS.liveGrad,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, size: 6, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              // Format badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _DS.primarySoft,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Text(
+                  match.format.toUpperCase(),
+                  style: const TextStyle(color: _DS.primary, fontSize: 9, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _MatchTeamRow(teamName: match.team1.shortName, score: match.team1Score?.toString()),
+          const SizedBox(height: 8),
+          _MatchTeamRow(teamName: match.team2.shortName, score: match.team2Score?.toString()),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.emoji_events_outlined, size: 12, color: _DS.textMuted),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  match.tournament.name,
+                  style: const TextStyle(color: _DS.textMuted, fontSize: 10),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchTeamRow extends StatelessWidget {
+  final String teamName;
+  final String? score;
+  const _MatchTeamRow({required this.teamName, this.score});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(teamName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _DS.textPrimary)),
+        if (score != null)
+          Text(score!, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _DS.primary)),
+      ],
     );
   }
 }
@@ -1304,7 +1641,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 200,
+      height: 196,
       child: Stack(
         children: [
           PageView.builder(
@@ -1315,7 +1652,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(_DS.radiusXL),
                   image: DecorationImage(
                     image: CachedNetworkImageProvider(_bannerImages[index]),
                     fit: BoxFit.cover,
@@ -1323,25 +1660,20 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                 ),
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(_DS.radiusXL),
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.6),
-                      ],
+                      colors: [Colors.transparent, Colors.black.withOpacity(0.65)],
                     ),
                   ),
                 ),
               );
             },
           ),
-          // CTA
+          // CTA overlay
           Positioned(
-            bottom: 18,
-            left: 28,
-            right: 28,
+            bottom: 18, left: 28, right: 28,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -1362,8 +1694,8 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                     backgroundColor: _DS.gold,
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                   ),
                   child: const Text('Play Now', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                 ),
@@ -1372,20 +1704,18 @@ class _BannerCarouselState extends State<_BannerCarousel> {
           ),
           // Dots
           Positioned(
-            bottom: 56,
-            left: 0,
-            right: 0,
+            bottom: 58, left: 0, right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_bannerImages.length, (index) {
                 return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 280),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: _currentIndex == index ? 22 : 7,
-                  height: 7,
+                  width: _currentIndex == index ? 20 : 6,
+                  height: 6,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(_currentIndex == index ? 1.0 : 0.45),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 );
               }),
@@ -1398,383 +1728,8 @@ class _BannerCarouselState extends State<_BannerCarousel> {
 }
 
 // ─────────────────────────────────────────────
-//  Other Tabs
+//  Trending Player Card
 // ─────────────────────────────────────────────
-class MatchesTab extends StatelessWidget {
-  const MatchesTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final dashboardProvider = context.watch<DashboardProvider>();
-
-    return RefreshIndicator(
-      onRefresh: () => dashboardProvider.refreshDashboard(context),
-      child: ListView(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-          left: 16,
-          right: 16,
-          bottom: 24,
-        ),
-        children: [
-          if (dashboardProvider.hasLiveMatches) ...[
-            _SectionTitle(title: 'Live Matches', icon: Icons.circle, iconColor: _DS.live),
-            const SizedBox(height: 12),
-            ...dashboardProvider.liveMatches.map((match) => _LiveMatchDetailCard(match: match)),
-            const SizedBox(height: 24),
-          ],
-          if (dashboardProvider.hasUpcomingMatches) ...[
-            const _SectionTitle(title: 'Upcoming Matches', icon: Icons.schedule_rounded),
-            const SizedBox(height: 12),
-            ...dashboardProvider.upcomingMatches.map((match) => _UpcomingMatchDetailCard(match: match)),
-          ],
-          if (!dashboardProvider.hasLiveMatches && !dashboardProvider.hasUpcomingMatches)
-            const _EmptyState(message: 'No matches available right now'),
-        ],
-      ),
-    );
-  }
-}
-
-class TournamentsTab extends StatelessWidget {
-  const TournamentsTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final dashboardProvider = context.watch<DashboardProvider>();
-    final tournaments = dashboardProvider.latestTournaments;
-
-    return RefreshIndicator(
-      onRefresh: () => dashboardProvider.refreshDashboard(context),
-      child: ListView(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-          left: 16,
-          right: 16,
-          bottom: 24,
-        ),
-        children: [
-          const _SectionTitle(title: 'Tournaments', icon: Icons.emoji_events_rounded),
-          const SizedBox(height: 12),
-          if (tournaments.isNotEmpty)
-            ...tournaments.map((t) => _TournamentCard(tournament: t))
-          else
-            const _EmptyState(message: 'No tournaments available'),
-        ],
-      ),
-    );
-  }
-}
-
-class TeamsTab extends StatelessWidget {
-  const TeamsTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Teams feature coming soon!'));
-  }
-}
-
-class ProfileTab extends StatelessWidget {
-  const ProfileTab({super.key});
-
-  @override
-  Widget build(BuildContext context) => const ProfileScreen();
-}
-
-// ─────────────────────────────────────────────
-//  Reusable Sub-widgets
-// ─────────────────────────────────────────────
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final IconData? icon;
-  final Color? iconColor;
-  const _SectionTitle({required this.title, this.icon, this.iconColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        if (icon != null) ...[
-          Icon(icon, size: 13, color: iconColor ?? _DS.royalBlue),
-          const SizedBox(width: 6),
-        ],
-        Text(
-          title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _DS.textPrimary),
-        ),
-      ],
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  final String message;
-  const _EmptyState({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 52),
-      child: Column(
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: _DS.cardAlt,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.inbox_rounded, size: 36, color: _DS.textMuted),
-          ),
-          const SizedBox(height: 14),
-          Text(message, style: const TextStyle(color: _DS.textSecondary, fontSize: 14, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool isPrimary;
-
-  const _HeroButton({required this.icon, required this.label, required this.onTap, required this.isPrimary});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-        decoration: BoxDecoration(
-          color: isPrimary ? Colors.white : Colors.white.withOpacity(0.14),
-          borderRadius: BorderRadius.circular(16),
-          border: isPrimary ? null : Border.all(color: Colors.white.withOpacity(0.35)),
-          boxShadow: isPrimary ? [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 10, offset: const Offset(0, 4))] : [],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: isPrimary ? _DS.royalBlue : Colors.white),
-            const SizedBox(width: 7),
-            Text(
-              label,
-              style: TextStyle(
-                color: isPrimary ? _DS.royalBlue : Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickStatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final List<Color> gradient;
-  final bool isLive;
-
-  const _QuickStatCard({required this.title, required this.value, required this.icon, required this.gradient, this.isLive = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: gradient, begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(_DS.radiusMD),
-        boxShadow: [BoxShadow(color: gradient.first.withOpacity(0.32), blurRadius: 12, offset: const Offset(0, 5))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(icon, color: Colors.white, size: 17),
-              ),
-              if (isLive)
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-          const SizedBox(height: 2),
-          Text(title, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({required this.icon, required this.title, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(_DS.radiusMD),
-          boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 4))],
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color.withOpacity(0.15), color.withOpacity(0.08)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                color: _DS.textPrimary,
-                fontWeight: FontWeight.w600,
-                fontSize: 10.5,
-                letterSpacing: 0.1,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LiveMatchCard extends StatelessWidget {
-  final LiveMatch match;
-  const _LiveMatchCard({required this.match});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(_DS.radiusLG),
-        boxShadow: _DS.cardShadow,
-        border: Border.all(color: _DS.live.withOpacity(0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  gradient: _DS.liveGrad,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [BoxShadow(color: _DS.live.withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 2))],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.circle, size: 6, color: Colors.white),
-                    SizedBox(width: 4),
-                    Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1)),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _DS.cardAlt,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  match.format.toUpperCase(),
-                  style: const TextStyle(color: _DS.royalBlue, fontSize: 9, fontWeight: FontWeight.w800),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          // Score rows
-          _MatchTeamRow(teamName: match.team1.shortName, score: match.team1Score?.toString()),
-          const SizedBox(height: 8),
-          _MatchTeamRow(teamName: match.team2.shortName, score: match.team2Score?.toString()),
-          const SizedBox(height: 12),
-          // Tournament
-          Row(
-            children: [
-              const Icon(Icons.emoji_events_outlined, size: 12, color: _DS.textMuted),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  match.tournament.name,
-                  style: const TextStyle(color: _DS.textMuted, fontSize: 10, overflow: TextOverflow.ellipsis),
-                  maxLines: 1,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MatchTeamRow extends StatelessWidget {
-  final String teamName;
-  final String? score;
-  const _MatchTeamRow({required this.teamName, this.score});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(teamName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _DS.textPrimary)),
-        if (score != null)
-          Text(score!, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _DS.royalBlue)),
-      ],
-    );
-  }
-}
-
 class _TrendingPlayerCard extends StatelessWidget {
   final TrendingPlayer player;
   const _TrendingPlayerCard({required this.player});
@@ -1786,24 +1741,18 @@ class _TrendingPlayerCard extends StatelessWidget {
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _DS.surface,
         borderRadius: BorderRadius.circular(_DS.radiusMD),
+        border: Border.all(color: _DS.surfaceBorder),
         boxShadow: _DS.cardShadow,
       ),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              gradient: _DS.heroGrad,
-              borderRadius: BorderRadius.circular(12),
-            ),
+            width: 42, height: 42,
+            decoration: BoxDecoration(gradient: _DS.heroGrad, borderRadius: BorderRadius.circular(12)),
             child: Center(
-              child: Text(
-                '#${player.rank}',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
-              ),
+              child: Text('#${player.rank}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
             ),
           ),
           const SizedBox(width: 10),
@@ -1826,6 +1775,9 @@ class _TrendingPlayerCard extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────
+//  Upcoming Match Card — Refined
+// ─────────────────────────────────────────────
 class _UpcomingMatchCard extends StatelessWidget {
   final UpcomingMatch match;
   const _UpcomingMatchCard({required this.match});
@@ -1834,22 +1786,19 @@ class _UpcomingMatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _DS.surface,
         borderRadius: BorderRadius.circular(_DS.radiusLG),
+        border: Border.all(color: _DS.surfaceBorder),
         boxShadow: _DS.cardShadow,
       ),
       child: Row(
         children: [
           Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              gradient: _DS.heroGrad,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.sports_cricket, color: Colors.white, size: 24),
+            width: 48, height: 48,
+            decoration: BoxDecoration(gradient: _DS.heroGrad, borderRadius: BorderRadius.circular(13)),
+            child: const Icon(Icons.sports_cricket, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1870,8 +1819,8 @@ class _UpcomingMatchCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(gradient: _DS.heroGrad, borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(gradient: _DS.heroGrad, borderRadius: BorderRadius.circular(7)),
                 child: Text(match.format.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800)),
               ),
               const SizedBox(height: 5),
@@ -1905,8 +1854,9 @@ class _RecentBlogCard extends StatelessWidget {
       width: 168,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _DS.surface,
         borderRadius: BorderRadius.circular(_DS.radiusMD),
+        border: Border.all(color: _DS.surfaceBorder),
         boxShadow: _DS.cardShadow,
       ),
       clipBehavior: Clip.antiAlias,
@@ -1917,17 +1867,15 @@ class _RecentBlogCard extends StatelessWidget {
             children: [
               CachedNetworkImage(
                 imageUrl: blog.imageUrl ?? '',
-                height: 110,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(height: 110, color: _DS.cardAlt, child: const Icon(Icons.article_outlined, color: _DS.textMuted)),
-                errorWidget: (context, url, error) => Container(height: 110, color: _DS.cardAlt, child: const Icon(Icons.article_outlined, color: _DS.textMuted)),
+                height: 110, width: double.infinity, fit: BoxFit.cover,
+                placeholder: (context, url) => Container(height: 110, color: _DS.surfaceAlt, child: const Icon(Icons.article_outlined, color: _DS.textMuted)),
+                errorWidget: (context, url, error) => Container(height: 110, color: _DS.surfaceAlt, child: const Icon(Icons.article_outlined, color: _DS.textMuted)),
               ),
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.black.withOpacity(0.55), Colors.transparent],
+                      colors: [Colors.black.withOpacity(0.5), Colors.transparent],
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                     ),
@@ -1942,7 +1890,7 @@ class _RecentBlogCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(blog.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: _DS.textPrimary, height: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
                 Text(blog.excerpt ?? '', style: const TextStyle(color: _DS.textSecondary, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (blog.author != null) ...[
                   const SizedBox(height: 3),
@@ -1975,8 +1923,9 @@ class _RecentPostCard extends StatelessWidget {
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _DS.surface,
         borderRadius: BorderRadius.circular(_DS.radiusMD),
+        border: Border.all(color: _DS.surfaceBorder),
         boxShadow: _DS.cardShadow,
       ),
       child: Column(
@@ -1985,12 +1934,8 @@ class _RecentPostCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  gradient: _DS.heroGrad,
-                  shape: BoxShape.circle,
-                ),
+                width: 28, height: 28,
+                decoration: BoxDecoration(gradient: _DS.heroGrad, shape: BoxShape.circle),
                 child: Center(
                   child: Text(
                     userName.isNotEmpty ? userName[0].toUpperCase() : '?',
@@ -2020,10 +1965,8 @@ class _RecentPostCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(9),
               child: CachedNetworkImage(
                 imageUrl: image,
-                height: 56,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorWidget: (context, url, error) => Container(height: 56, color: _DS.cardAlt, child: const Icon(Icons.image, size: 20, color: _DS.textMuted)),
+                height: 56, width: double.infinity, fit: BoxFit.cover,
+                errorWidget: (context, url, error) => Container(height: 56, color: _DS.surfaceAlt, child: const Icon(Icons.image, size: 20, color: _DS.textMuted)),
               ),
             ),
           ],
@@ -2046,6 +1989,135 @@ class _RecentPostCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
+//  Other Tabs
+// ─────────────────────────────────────────────
+class MatchesTab extends StatelessWidget {
+  const MatchesTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboardProvider = context.watch<DashboardProvider>();
+
+    return RefreshIndicator(
+      color: _DS.primary,
+      onRefresh: () => dashboardProvider.refreshDashboard(context),
+      child: ListView(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+          left: 16, right: 16, bottom: 24,
+        ),
+        children: [
+          if (dashboardProvider.hasLiveMatches) ...[
+            _SectionTitle(title: 'Live Matches', icon: Icons.circle, iconColor: _DS.live),
+            const SizedBox(height: 12),
+            ...dashboardProvider.liveMatches.map((match) => _LiveMatchDetailCard(match: match)),
+            const SizedBox(height: 24),
+          ],
+          if (dashboardProvider.hasUpcomingMatches) ...[
+            const _SectionTitle(title: 'Upcoming Matches', icon: Icons.schedule_rounded),
+            const SizedBox(height: 12),
+            ...dashboardProvider.upcomingMatches.map((match) => _UpcomingMatchDetailCard(match: match)),
+          ],
+          if (!dashboardProvider.hasLiveMatches && !dashboardProvider.hasUpcomingMatches)
+            const _EmptyState(message: 'No matches available right now'),
+        ],
+      ),
+    );
+  }
+}
+
+class TournamentsTab extends StatelessWidget {
+  const TournamentsTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboardProvider = context.watch<DashboardProvider>();
+    final tournaments = dashboardProvider.latestTournaments;
+
+    return RefreshIndicator(
+      color: _DS.primary,
+      onRefresh: () => dashboardProvider.refreshDashboard(context),
+      child: ListView(
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+          left: 16, right: 16, bottom: 24,
+        ),
+        children: [
+          const _SectionTitle(title: 'Tournaments', icon: Icons.emoji_events_rounded),
+          const SizedBox(height: 12),
+          if (tournaments.isNotEmpty)
+            ...tournaments.map((t) => _TournamentCard(tournament: t))
+          else
+            const _EmptyState(message: 'No tournaments available'),
+        ],
+      ),
+    );
+  }
+}
+
+class TeamsTab extends StatelessWidget {
+  const TeamsTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Teams feature coming soon!'));
+  }
+}
+
+class ProfileTab extends StatelessWidget {
+  const ProfileTab({super.key});
+
+  @override
+  Widget build(BuildContext context) => const ProfileScreen();
+}
+
+// ─────────────────────────────────────────────
+//  Reusable Sub-widgets
+// ─────────────────────────────────────────────
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final IconData? icon;
+  final Color? iconColor;
+  const _SectionTitle({required this.title, this.icon, this.iconColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 13, color: iconColor ?? _DS.primary),
+          const SizedBox(width: 6),
+        ],
+        Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: _DS.textPrimary)),
+      ],
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final String message;
+  const _EmptyState({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 52),
+      child: Column(
+        children: [
+          Container(
+            width: 72, height: 72,
+            decoration: BoxDecoration(color: _DS.surfaceAlt, shape: BoxShape.circle),
+            child: const Icon(Icons.inbox_rounded, size: 36, color: _DS.textMuted),
+          ),
+          const SizedBox(height: 14),
+          Text(message, style: const TextStyle(color: _DS.textSecondary, fontSize: 14, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
 //  Detail Cards
 // ─────────────────────────────────────────────
 class _LiveMatchDetailCard extends StatelessWidget {
@@ -2057,10 +2129,10 @@ class _LiveMatchDetailCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _DS.surface,
         borderRadius: BorderRadius.circular(_DS.radiusLG),
+        border: Border.all(color: _DS.live.withOpacity(0.1)),
         boxShadow: _DS.liveShadow,
-        border: Border.all(color: _DS.live.withOpacity(0.12)),
       ),
       child: Column(
         children: [
@@ -2068,7 +2140,10 @@ class _LiveMatchDetailCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
             decoration: BoxDecoration(
               gradient: _DS.liveGrad,
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), topRight: Radius.circular(18)),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
             ),
             child: Row(
               children: [
@@ -2076,7 +2151,9 @@ class _LiveMatchDetailCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 const Text('LIVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1)),
                 const Spacer(),
-                Text(match.tournament.name, style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11), overflow: TextOverflow.ellipsis),
+                Expanded(
+                  child: Text(match.tournament.name, style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11), overflow: TextOverflow.ellipsis, textAlign: TextAlign.end),
+                ),
               ],
             ),
           ),
@@ -2091,21 +2168,21 @@ class _LiveMatchDetailCard extends StatelessWidget {
                         children: [
                           Text(match.team1.shortName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: _DS.textPrimary)),
                           if (match.team1Score != null)
-                            Text(match.team1Score.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: _DS.royalBlue)),
+                            Text(match.team1Score.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: _DS.primary)),
                         ],
                       ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                      decoration: BoxDecoration(color: _DS.cardAlt, borderRadius: BorderRadius.circular(11)),
-                      child: const Text('VS', style: TextStyle(fontWeight: FontWeight.w900, color: _DS.royalBlue, fontSize: 14)),
+                      decoration: BoxDecoration(color: _DS.surfaceAlt, borderRadius: BorderRadius.circular(10)),
+                      child: const Text('VS', style: TextStyle(fontWeight: FontWeight.w900, color: _DS.primary, fontSize: 14)),
                     ),
                     Expanded(
                       child: Column(
                         children: [
                           Text(match.team2.shortName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: _DS.textPrimary)),
                           if (match.team2Score != null)
-                            Text(match.team2Score.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: _DS.royalBlue)),
+                            Text(match.team2Score.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: _DS.primary)),
                         ],
                       ),
                     ),
@@ -2121,7 +2198,7 @@ class _LiveMatchDetailCard extends StatelessWidget {
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radiusMD)),
                     ),
                     child: const Text('View Live Match', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                   ),
@@ -2145,8 +2222,9 @@ class _UpcomingMatchDetailCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _DS.surface,
         borderRadius: BorderRadius.circular(_DS.radiusLG),
+        border: Border.all(color: _DS.surfaceBorder),
         boxShadow: _DS.cardShadow,
       ),
       child: Column(
@@ -2165,14 +2243,14 @@ class _UpcomingMatchDetailCard extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-                    decoration: BoxDecoration(gradient: _DS.heroGrad, borderRadius: BorderRadius.circular(11)),
+                    decoration: BoxDecoration(gradient: _DS.heroGrad, borderRadius: BorderRadius.circular(10)),
                     child: const Text('VS', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 13)),
                   ),
                   const SizedBox(height: 5),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(color: _DS.cardAlt, borderRadius: BorderRadius.circular(7)),
-                    child: Text(match.format.toUpperCase(), style: const TextStyle(color: _DS.royalBlue, fontSize: 9, fontWeight: FontWeight.w800)),
+                    decoration: BoxDecoration(color: _DS.primarySoft, borderRadius: BorderRadius.circular(7)),
+                    child: Text(match.format.toUpperCase(), style: const TextStyle(color: _DS.primary, fontSize: 9, fontWeight: FontWeight.w800)),
                   ),
                 ],
               ),
@@ -2204,10 +2282,10 @@ class _UpcomingMatchDetailCard extends StatelessWidget {
             child: OutlinedButton(
               onPressed: () => Navigator.pushNamed(context, '/match/${match.id}'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: _DS.royalBlue,
-                side: BorderSide(color: _DS.royalBlue.withOpacity(0.35)),
+                foregroundColor: _DS.primary,
+                side: BorderSide(color: _DS.primary.withOpacity(0.3)),
                 padding: const EdgeInsets.symmetric(vertical: 11),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radiusMD)),
               ),
               child: const Text('View Details', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             ),
@@ -2226,6 +2304,9 @@ class _UpcomingMatchDetailCard extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────
+//  Tournament Card
+// ─────────────────────────────────────────────
 class _TournamentCard extends StatelessWidget {
   final Tournament tournament;
   const _TournamentCard({required this.tournament});
@@ -2237,8 +2318,9 @@ class _TournamentCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _DS.surface,
         borderRadius: BorderRadius.circular(_DS.radiusLG),
+        border: Border.all(color: _DS.surfaceBorder),
         boxShadow: _DS.cardShadow,
       ),
       child: Column(
@@ -2247,7 +2329,10 @@ class _TournamentCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             decoration: BoxDecoration(
               gradient: isLive ? _DS.liveGrad : _DS.heroGrad,
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), topRight: Radius.circular(18)),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
             ),
             child: Row(
               children: [
@@ -2259,7 +2344,7 @@ class _TournamentCard extends StatelessWidget {
                 if (isLive)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.22), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(7)),
                     child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
                   ),
               ],
@@ -2289,7 +2374,10 @@ class _TournamentCard extends StatelessWidget {
                   children: [
                     const Icon(Icons.calendar_today_outlined, size: 13, color: _DS.textMuted),
                     const SizedBox(width: 4),
-                    Text('${tournament.startDate != null ? _formatDate(tournament.startDate!) : 'TBD'} — ${tournament.endDate != null ? _formatDate(tournament.endDate!) : 'TBD'}', style: const TextStyle(fontSize: 12, color: _DS.textSecondary)),
+                    Text(
+                      '${_formatDate(tournament.startDate)} — ${_formatDate(tournament.endDate)}',
+                      style: const TextStyle(fontSize: 12, color: _DS.textSecondary),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 13),
@@ -2298,10 +2386,10 @@ class _TournamentCard extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pushNamed(context, '/tournament/${tournament.id}'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: _DS.royalBlue,
-                      side: BorderSide(color: _DS.royalBlue.withOpacity(0.35)),
+                      foregroundColor: _DS.primary,
+                      side: BorderSide(color: _DS.primary.withOpacity(0.3)),
                       padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_DS.radiusMD)),
                     ),
                     child: const Text('View Tournament', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                   ),
@@ -2330,15 +2418,15 @@ class _TournamentInfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: _DS.cardAlt,
-        borderRadius: BorderRadius.circular(9),
+        color: _DS.primarySoft,
+        borderRadius: BorderRadius.circular(_DS.radiusSM),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: _DS.royalBlue),
+          Icon(icon, size: 12, color: _DS.primary),
           const SizedBox(width: 5),
-          Text(label, style: const TextStyle(color: _DS.royalBlue, fontSize: 11, fontWeight: FontWeight.w700)),
+          Text(label, style: const TextStyle(color: _DS.primary, fontSize: 11, fontWeight: FontWeight.w700)),
         ],
       ),
     );

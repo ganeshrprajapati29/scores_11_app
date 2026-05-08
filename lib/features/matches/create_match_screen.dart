@@ -278,9 +278,9 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
   bool _isValidObjectId(String id) =>
       RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(id);
 
-  Future<void> _createMatch() async {
+Future<void> _createMatch() async {
     if (_selectedTeam1Id == null || _selectedTeam2Id == null) {
-      _snack('Please select both teams', isError: true);
+      _snack('Minimum 2 teams required to start a match', isError: true);
       return;
     }
     if (_scheduledDate == null) {
@@ -381,10 +381,14 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
               child: SingleChildScrollView(
                 padding:
                     const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                child: Column(
+child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildPageHeader(),
+                    const SizedBox(height: _kSectionGap),
+
+// Validation Warning Banner
+                    _buildValidationWarning(),
                     const SizedBox(height: _kSectionGap),
 
                     // Team 1
@@ -561,7 +565,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
     );
   }
 
-  // ── Loading state ────────────────────────────────────────────────────────────
+// ── Loading state ────────────────────────────────────────────────────────────
 
   Widget _buildTeamLoader() {
     return Center(
@@ -573,6 +577,33 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
           const SizedBox(height: 16),
           const Text('Loading teams…',
               style: TextStyle(color: _kTextSecondary, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  // ── Validation warning banner ───────────────────────────────────────────────
+
+  Widget _buildValidationWarning() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded,
+              color: Color(0xFF3B82F6), size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Please ensure both teams are selected before creating a match',
+              style: const TextStyle(
+                  color: Color(0xFF1E40AF), fontSize: 12),
+            ),
+          ),
         ],
       ),
     );

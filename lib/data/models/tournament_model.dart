@@ -266,13 +266,21 @@ class TournamentStats extends Equatable {
     this.lowestScore = 0,
   });
 
-  factory TournamentStats.fromJson(Map<String, dynamic> json) {
+factory TournamentStats.fromJson(Map<String, dynamic> json) {
+    // Safe integer conversion - convert String to int if needed
+    int safeInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      return int.tryParse(value.toString()) ?? 0;
+    }
+    
     return TournamentStats(
-      totalMatchesPlayed: json['totalMatchesPlayed'] ?? 0,
-      totalRuns: json['totalRuns'] ?? 0,
-      totalWickets: json['totalWickets'] ?? 0,
-      highestScore: json['highestScore'] ?? 0,
-      lowestScore: json['lowestScore'] ?? 0,
+      totalMatchesPlayed: safeInt(json['totalMatchesPlayed']),
+      totalRuns: safeInt(json['totalRuns']),
+      totalWickets: safeInt(json['totalWickets']),
+      highestScore: safeInt(json['highestScore']),
+      lowestScore: safeInt(json['lowestScore']),
     );
   }
 
@@ -323,22 +331,41 @@ class PointsTable extends Equatable {
     this.position = 0,
   });
 
-  factory PointsTable.fromJson(Map<String, dynamic> json) {
+factory PointsTable.fromJson(Map<String, dynamic> json) {
+    // ✅ FIX: Handle both String and Map types for tournament/team fields
+    String safeTournamentId;
+    if (json['tournament'] is String) {
+      safeTournamentId = json['tournament'] ?? '';
+    } else if (json['tournament'] is Map) {
+      safeTournamentId = json['tournament']?['_id']?.toString() ?? json['tournament']?['id']?.toString() ?? '';
+    } else {
+      safeTournamentId = '';
+    }
+
+    String safeTeamId;
+    if (json['team'] is String) {
+      safeTeamId = json['team'] ?? '';
+    } else if (json['team'] is Map) {
+      safeTeamId = json['team']?['_id']?.toString() ?? json['team']?['id']?.toString() ?? '';
+    } else {
+      safeTeamId = '';
+    }
+
     return PointsTable(
-      id: json['_id'] ?? json['id'] ?? '',
-      tournament: json['tournament'] is String ? json['tournament'] : json['tournament']?['_id'] ?? '',
-      team: json['team'] is String ? json['team'] : json['team']?['_id'] ?? '',
-      matchesPlayed: json['matchesPlayed'] ?? 0,
-      matchesWon: json['matchesWon'] ?? 0,
-      matchesLost: json['matchesLost'] ?? 0,
-      matchesTied: json['matchesTied'] ?? 0,
-      points: json['points'] ?? 0,
-      netRunRate: (json['netRunRate'] ?? 0).toDouble(),
-      runsFor: json['runsFor'] ?? 0,
-      oversFor: json['oversFor'] ?? 0,
-      runsAgainst: json['runsAgainst'] ?? 0,
-      oversAgainst: json['oversAgainst'] ?? 0,
-      position: json['position'] ?? 0,
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+      tournament: safeTournamentId,
+      team: safeTeamId,
+      matchesPlayed: int.tryParse(json['matchesPlayed']?.toString() ?? '0') ?? 0,
+      matchesWon: int.tryParse(json['matchesWon']?.toString() ?? '0') ?? 0,
+      matchesLost: int.tryParse(json['matchesLost']?.toString() ?? '0') ?? 0,
+      matchesTied: int.tryParse(json['matchesTied']?.toString() ?? '0') ?? 0,
+      points: int.tryParse(json['points']?.toString() ?? '0') ?? 0,
+      netRunRate: double.tryParse(json['netRunRate']?.toString() ?? '0') ?? 0.0,
+      runsFor: int.tryParse(json['runsFor']?.toString() ?? '0') ?? 0,
+      oversFor: int.tryParse(json['oversFor']?.toString() ?? '0') ?? 0,
+      runsAgainst: int.tryParse(json['runsAgainst']?.toString() ?? '0') ?? 0,
+      oversAgainst: int.tryParse(json['oversAgainst']?.toString() ?? '0') ?? 0,
+      position: int.tryParse(json['position']?.toString() ?? '0') ?? 0,
     );
   }
 

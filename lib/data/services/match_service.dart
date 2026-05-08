@@ -69,9 +69,9 @@ class MatchService {
         
         final matches = data.map((json) => Match.fromJson(json)).toList();
         
-        // Cache first page results
+// Cache first page results
         if (page == 1 && status == null && tournament == null) {
-          final matchesJson = matches.map((m) => m.toJson()).toList().cast<Map<String, dynamic>>();
+          final matchesJson = matches.map((m) => m.toJson()).toList();
           _cacheService.cacheMatches(matchesJson);
         }
         
@@ -178,35 +178,38 @@ class MatchService {
     }
   }
 
-  /// Get full scorecard - FIXED with proper 404 handling
+/// Get full scorecard - FIXED with proper 404 handling
   Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) async {
     debugPrint('🔍 Loading scorecard for matchId: $matchId');
     
     // Skip if match is scheduled
-    if (match?.status == 'SCHEDULED') {
+    if (match?.status == 'SCHEDULED' || match?.status == 'scheduled') {
       debugPrint('⏳ Match scheduled, returning basic scorecard');
       return _buildBasicScorecard(match!);
     }
 
-    // Try different endpoints in order
+    // Try different endpoints in order - same as website
     final List<String> endpoints = [
       '/scoring/match/$matchId/scorecard',
       '/scoring/match/$matchId/full-scorecard',
       '/matches/$matchId/scorecard',
-      '/scoring/$matchId/scorecard',
     ];
 
     for (final endpoint in endpoints) {
       try {
         debugPrint('📡 Trying endpoint: $endpoint');
+// FIXED: Accept ALL responses (100-599) - Don't throw on 404!
+        // This is the key fix - 404 should NOT cause DioException
         final response = await _apiClient.get(
-          '$endpoint',
+          '${ApiConfig.scoring}$endpoint'.replaceFirst('/scoring', ''),
           options: Options(
-            validateStatus: (status) => status! < 500, // Don't throw on 404
+            validateStatus: (status) => status != null && status >= 100,
             sendTimeout: const Duration(seconds: 10),
             receiveTimeout: const Duration(seconds: 10),
           ),
         );
+        
+        debugPrint('📊 Response status: ${response.statusCode}');
         
         if (response.statusCode == 200) {
           dynamic data = response.data['data'] ?? response.data;
@@ -227,25 +230,29 @@ class MatchService {
       }
     }
 
-    // Fallback 1: Try live score
+// Fallback 1: Try live score endpoint
     try {
       debugPrint('🔄 Trying live score fallback...');
       final liveResponse = await _apiClient.get(
-        '/scoring/match/$matchId/live',
-        options: Options(validateStatus: (status) => status! < 500),
+        '${ApiConfig.scoring}/match/$matchId/live',
+        options: Options(
+          validateStatus: (status) => status != null && status >= 100,
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
       );
       if (liveResponse.statusCode == 200) {
-        final liveData = liveResponse.data['data'] ?? {};
+        final liveData = liveResponse.data['data'] ?? liveResponse.data ?? {};
         if (liveData.isNotEmpty) {
           debugPrint('✅ Live score fallback loaded');
-          return liveData;
+          return liveData as Map<String, dynamic>;
         }
       }
     } catch (liveError) {
       debugPrint('⚠️ Live score error: $liveError');
     }
 
-    // Fallback 2: Use basic match score
+    // Fallback 2: Use basic match score from match data
     if (match != null) {
       debugPrint('📊 Using basic match score fallback');
       return _buildBasicScorecard(match);
@@ -269,8 +276,8 @@ class MatchService {
     };
   }
 
-  /// Get live matches - uses dedicated endpoint
-  Future<List<Match>> getLiveMatches({bool forceRefresh = false}) async {
+/// Get live matches - uses dedicated endpoint with sorting (newest first)
+  Future<List<Match>> getLiveMatches({bool forceRefresh = false, String sort = 'scheduledDate', String order = 'desc'}) async {
     if (!forceRefresh) {
       final cachedData = _cacheService.getCachedLiveMatches(ttlMinutes: 1);
       if (cachedData != null) {
@@ -279,7 +286,13 @@ class MatchService {
     }
 
     try {
-      final response = await _apiClient.get('${ApiConfig.matches}/live');
+      final response = await _apiClient.get(
+        '${ApiConfig.matches}/live',
+        queryParameters: {
+          'sort': sort,
+          'order': order,
+        },
+      );
       if (response.statusCode == 200) {
         final List data = response.data['data'] ?? [];
         final matches = data.map((json) => Match.fromJson(json)).toList();
@@ -300,12 +313,16 @@ class MatchService {
     }
   }
 
-  /// Get upcoming matches - uses dedicated endpoint
-  Future<List<Match>> getUpcomingMatches({int limit = 10}) async {
+  /// Get upcoming matches - uses dedicated endpoint with sorting (soonest first)
+  Future<List<Match>> getUpcomingMatches({int limit = 10, String sort = 'scheduledDate', String order = 'asc'}) async {
     try {
       final response = await _apiClient.get(
         '${ApiConfig.matches}/upcoming',
-        queryParameters: {'limit': limit.toString()},
+        queryParameters: {
+          'limit': limit.toString(),
+          'sort': sort,
+          'order': order,
+        },
       );
       if (response.statusCode == 200) {
         final List data = response.data['data'] ?? [];
@@ -317,12 +334,16 @@ class MatchService {
     }
   }
 
-  /// Get completed matches - uses dedicated endpoint
-  Future<List<Match>> getCompletedMatches({int limit = 10}) async {
+  /// Get completed matches - uses dedicated endpoint with sorting (newest first)
+  Future<List<Match>> getCompletedMatches({int limit = 10, String sort = 'scheduledDate', String order = 'desc'}) async {
     try {
       final response = await _apiClient.get(
         '${ApiConfig.matches}/completed',
-        queryParameters: {'limit': limit.toString()},
+        queryParameters: {
+          'limit': limit.toString(),
+          'sort': sort,
+          'order': order,
+        },
       );
       if (response.statusCode == 200) {
         final List data = response.data['data'] ?? [];

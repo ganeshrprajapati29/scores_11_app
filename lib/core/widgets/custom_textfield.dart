@@ -10,12 +10,15 @@ class CustomTextField extends StatelessWidget {
   final String? errorText;
   final bool obscureText;
   final TextInputType? keyboardType;
-  final dynamic prefixIcon; // Changed to accept both IconData and Widget
+  final dynamic prefixIcon;
   final Widget? suffixIcon;
   final int maxLines;
   final bool enabled;
   final Function(String)? onChanged;
   final String? Function(String?)? validator;
+  final FocusNode? focusNode;
+  final TextInputAction? textInputAction;
+  final bool autofocus;
 
   const CustomTextField({
     super.key,
@@ -33,6 +36,9 @@ class CustomTextField extends StatelessWidget {
     this.enabled = true,
     this.onChanged,
     this.validator,
+    this.focusNode,
+    this.textInputAction,
+    this.autofocus = false,
   });
 
   @override
@@ -40,13 +46,12 @@ class CustomTextField extends StatelessWidget {
     final String displayLabel = label ?? labelText ?? '';
     final String displayHint = hint ?? hintText ?? '';
     
-    // Convert IconData to Widget if needed
     Widget? prefixWidget;
     if (prefixIcon != null) {
       if (prefixIcon is IconData) {
-        prefixWidget = Icon(prefixIcon as IconData);
+        prefixWidget = Icon(prefixIcon as IconData, size: 20);
       } else if (prefixIcon is Widget) {
-        prefixWidget = prefixIcon as Widget;
+        prefixWidget = prefixIcon;
       }
     }
     
@@ -57,36 +62,41 @@ class CustomTextField extends StatelessWidget {
           Text(
             displayLabel,
             style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
         ],
         TextFormField(
+          // ✅ FIX: REMOVE THE KEY - This was causing the issue!
+          // Key(displayLabel) is REMOVED
           controller: controller,
+          focusNode: focusNode,
           obscureText: obscureText,
           keyboardType: keyboardType,
           maxLines: maxLines,
           enabled: enabled,
-          onChanged: onChanged,
-          validator: validator,
+          autofocus: autofocus,
+          textInputAction: textInputAction ?? TextInputAction.next,
+          style: const TextStyle(fontSize: 14),
           decoration: InputDecoration(
             hintText: displayHint,
+            hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
             errorText: errorText,
             prefixIcon: prefixWidget,
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: enabled ? AppColors.surface : AppColors.background,
+            fillColor: enabled ? Colors.white : Colors.grey.shade50,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.divider),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.divider),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -94,12 +104,24 @@ class CustomTextField extends StatelessWidget {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.error),
+              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
             ),
           ),
+          onChanged: onChanged,
+          onFieldSubmitted: (_) {
+            if (textInputAction == TextInputAction.next) {
+              FocusScope.of(context).nextFocus();
+            } else {
+              FocusScope.of(context).unfocus();
+            }
+          },
+          validator: validator,
         ),
       ],
     );
   }
 }
-

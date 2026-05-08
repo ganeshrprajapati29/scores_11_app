@@ -1,6 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../../data/services/team_service.dart';
+import '../../../data/services/player_service.dart';
+import '../../../data/models/player_model.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _kRadius = 14.0;
@@ -74,10 +76,115 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   final _stateController = TextEditingController();
   final _countryController = TextEditingController(text: 'India');
 
+// Multiple players list - for adding multiple at once
+  final List<Map<String, dynamic>> _playersList = [];
+  final List<TextEditingController> _playerNameControllers = [];
+  final List<TextEditingController> _playerJerseyControllers = [];
+  final List<String> _playerRoles = [];
+  
+// Current player input fields
+  String? _selectedPlayerRole = 'Batsman';
+  final TextEditingController _playerNameController = TextEditingController();
+  final TextEditingController _playerJerseyController = TextEditingController();
+  
+  // Player search state
+  final TextEditingController _playerSearchController = TextEditingController();
+  List<Player> _searchResults = [];
+  bool _isSearching = false;
+  
   bool _isLoading = false;
+  bool _isCreatingPlayer = false;
   final TeamService _teamService = TeamService();
+  final PlayerService _playerService = PlayerService();
 
-  @override
+// Add player to list - FIXED: Also save to backend immediately like website
+  Future<void> _addPlayerToList() async {
+    final name = _playerNameController.text.trim();
+    if (name.isEmpty) return;
+    
+    setState(() => _isCreatingPlayer = true);
+    
+    try {
+      // Create player in backend immediately (like website does)
+      final player = await _playerService.createPlayer(
+        name: name,
+        role: _selectedPlayerRole,
+        jerseyNumber: int.tryParse(_playerJerseyController.text.trim()),
+      );
+      
+      // Add to local list with player ID from backend
+      setState(() {
+        _playersList.add({
+          'name': name,
+          'role': _selectedPlayerRole,
+          'jersey': _playerJerseyController.text.trim(),
+          'playerId': player.id, // Store player ID from backend
+        });
+        _playerNameController.clear();
+        _playerJerseyController.clear();
+      });
+      
+      _showSnack('$name saved to database!', isError: false);
+    } catch (e) {
+      _showSnack('Failed to save player: $e', isError: true);
+    } finally {
+      setState(() => _isCreatingPlayer = false);
+    }
+  }
+
+  // Remove player from list
+  void _removePlayerFromList(int index) {
+    if (index >= 0 && index < _playersList.length) {
+      setState(() {
+        _playersList.removeAt(index);
+      });
+    }
+  }
+
+// Get filled players count
+  int get _playerCount => _playersList.length;
+
+  // Search players from database
+  Future<void> _searchPlayers(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+      return;
+    }
+    
+    setState(() => _isSearching = true);
+    
+    try {
+      final results = await _playerService.searchPlayers(query);
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
+    } catch (e) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+    }
+  }
+
+  // Add player from search results to team
+  Future<void> _addExistingPlayer(Player player, String teamId) async {
+    try {
+      await _teamService.addPlayer(teamId, player.id);
+      if (mounted) {
+        _showSnack('${player.name} added to team!', isError: false);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('Failed to add player: $e', isError: true);
+      }
+    }
+  }
+
+@override
   void dispose() {
     _teamNameController.dispose();
     _shortNameController.dispose();
@@ -87,16 +194,19 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     _coachController.dispose();
     _descriptionController.dispose();
     _countryController.dispose();
+    _playerNameController.dispose();
+    _playerJerseyController.dispose();
     super.dispose();
   }
 
-  Future<void> _createTeam() async {
+Future<void> _createTeam() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      await _teamService.createTeam(
+      // Step 1: Create the team
+      final newTeam = await _teamService.createTeam(
         name: _teamNameController.text.trim(),
         shortName: _shortNameController.text.trim().isNotEmpty
             ? _shortNameController.text.trim()
@@ -117,17 +227,90 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
         country: _countryController.text,
       );
 
-      if (mounted) {
-        _showSnack('Team created successfully!', isError: false);
-        final newTeamId = await _teamService
-            .getMyTeams()
-            .then((teams) => teams.isNotEmpty ? teams.first.id : null);
-        if (newTeamId != null) {
-          Navigator.pushNamed(context, '/players/search',
-              arguments: {'teamId': newTeamId});
-        } else {
-          Navigator.pushNamedAndRemoveUntil(
-              context, '/my-teams', (route) => false);
+      final teamId = newTeam.id;
+
+      if (teamId == null) {
+        throw Exception('Failed to create team - no team ID returned');
+      }
+
+      // Step 2: Save ALL players from _playersList to database
+      if (_playersList.isNotEmpty) {
+        setState(() => _isCreatingPlayer = true);
+        
+        int playersCreated = 0;
+        int playersFailed = 0;
+        
+        for (int i = 0; i < _playersList.length; i++) {
+          final playerData = _playersList[i];
+          try {
+            final jerseyNum = int.tryParse(playerData['jersey'].toString().trim());
+            
+            // Create player in database
+            final player = await _playerService.createPlayer(
+              name: playerData['name'].toString().trim(),
+              role: playerData['role'].toString(),
+              team: teamId,
+              jerseyNumber: jerseyNum,
+            );
+            
+            // Add player to team
+            await _teamService.addPlayer(teamId, player.id);
+            playersCreated++;
+            
+            // Small delay to avoid overwhelming the server
+            await Future.delayed(const Duration(milliseconds: 100));
+            
+          } catch (e) {
+            playersFailed++;
+            debugPrint('Failed to create player ${playerData['name']}: $e');
+          }
+        }
+        
+        if (mounted) {
+          if (playersCreated > 0) {
+            _showSnack('Team & $playersCreated player(s) created!', isError: false);
+          } else if (playersFailed > 0) {
+            _showSnack('Team created but $playersFailed player(s) failed', isError: true);
+          }
+        }
+        
+        if (mounted) setState(() => _isCreatingPlayer = false);
+      } 
+      // Step 3: Also check if there's a player in the text fields (for backward compatibility)
+      else if (_playerNameController.text.trim().isNotEmpty) {
+        setState(() => _isCreatingPlayer = true);
+        try {
+          final jerseyNum = int.tryParse(_playerJerseyController.text.trim());
+          final player = await _playerService.createPlayer(
+            name: _playerNameController.text.trim(),
+            role: _selectedPlayerRole,
+            team: teamId,
+            jerseyNumber: jerseyNum,
+          );
+          
+          // Add player to team
+          await _teamService.addPlayer(teamId, player.id);
+          
+          if (mounted) {
+            _showSnack('Team & Player created!', isError: false);
+          }
+        } catch (e) {
+          if (mounted) {
+            _showSnack('Team created! (Player add failed: $e)', isError: false);
+          }
+        } finally {
+          if (mounted) setState(() => _isCreatingPlayer = false);
+        }
+      } else {
+        if (mounted) {
+          _showSnack('Team created successfully!', isError: false);
+        }
+      }
+
+      // Step 4: Navigate to add more players or match creation
+      if (mounted && teamId != null) {
+        if (context.mounted) {
+          _showMatchCreationDialog(teamId);
         }
       }
     } catch (e) {
@@ -137,6 +320,108 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  // Show dialog to create match after team creation
+  void _showMatchCreationDialog(String teamId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _kBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Icon(Icons.sports_cricket_rounded,
+                size: 48, color: AppColors.primary),
+            const SizedBox(height: 16),
+            const Text(
+              'What\'s Next?',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: _kTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Add more players or create a match',
+              style: TextStyle(fontSize: 14, color: _kTextSecondary),
+            ),
+            const SizedBox(height: 24),
+            
+            // Add Players Button
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/players/search',
+                      arguments: {'teamId': teamId});
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_kRadius)),
+                ),
+                icon: const Icon(Icons.person_add_rounded),
+                label: const Text('Add More Players'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Create Match Button
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/create-match',
+                      arguments: {'teamId': teamId});
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_kRadius)),
+                ),
+                icon: const Icon(Icons.sports_rounded),
+                label: const Text('Create Match'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Skip Button
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamedAndRemoveUntil(
+                    context, '/my-teams', (route) => false);
+              },
+              child: const Text('Skip for now'),
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showSnack(String msg, {bool isError = false}) {
@@ -179,8 +464,12 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildPageHeader(),
+_buildPageHeader(),
               const SizedBox(height: 20),
+_buildInstantPlayerCard(),
+              const SizedBox(height: 16),
+              _buildPlayerSearchCard(),
+              const SizedBox(height: 16),
               _buildRequiredSection(),
               const SizedBox(height: 16),
               _buildOptionalSection(),
@@ -268,6 +557,262 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+// ── Instant Player Card (Scores11 Style) ─────────────────────────────────
+
+  Widget _buildInstantPlayerCard() {
+    return _SectionCard(
+      title: 'Quick Player Add',
+      icon: Icons.person_add_rounded,
+      child: Column(
+        children: [
+          // Player Name
+          TextFormField(
+            controller: _playerNameController,
+            style: const TextStyle(fontSize: 13, color: _kTextPrimary),
+            decoration: _fieldDeco(
+              label: 'Player Name',
+              icon: Icons.person_rounded,
+              hint: 'e.g., Rohit Sharma',
+            ),
+          ),
+          const SizedBox(height: _kFieldGap),
+          
+          // Role Dropdown
+          DropdownButtonFormField<String>(
+            value: _selectedPlayerRole,
+            style: const TextStyle(fontSize: 13, color: _kTextPrimary),
+            decoration: _fieldDeco(
+              label: 'Player Role',
+              icon: Icons.sports_cricket_rounded,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'Batsman', child: Text('Batsman')),
+              DropdownMenuItem(value: 'Bowler', child: Text('Bowler')),
+              DropdownMenuItem(value: 'All-Rounder', child: Text('All-Rounder')),
+              DropdownMenuItem(value: 'Wicket Keeper', child: Text('Wicket Keeper')),
+            ],
+            onChanged: (v) => setState(() => _selectedPlayerRole = v ?? 'Batsman'),
+          ),
+          const SizedBox(height: _kFieldGap),
+          
+          // Jersey Number
+          TextFormField(
+            controller: _playerJerseyController,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(fontSize: 13, color: _kTextPrimary),
+            decoration: _fieldDeco(
+              label: 'Jersey Number (Optional)',
+              icon: Icons.numbers_rounded,
+              hint: 'e.g., 10',
+            ),
+          ),
+          const SizedBox(height: _kFieldGap),
+          
+          // Add Player Button
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                if (_playerNameController.text.trim().isNotEmpty) {
+                  _addPlayerToList();
+                  _showSnack('Player added to list!', isError: false);
+                } else {
+                  _showSnack('Please enter player name', isError: true);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(_kRadius),
+                ),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add Player', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+          ),
+          
+          // Show added players count and list
+          if (_playersList.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.people_rounded, size: 18, color: Color(0xFF3B82F6)),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_playersList.length} player(s) added',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF1E40AF), fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _playersList.clear();
+                      });
+                      _showSnack('Cleared all players', isError: false);
+                    },
+                    child: const Text(
+                      'Clear All',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // List of added players with remove buttons
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _playersList.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 6),
+              itemBuilder: (context, index) {
+                final player = _playersList[index];
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _kBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: AppColors.primary,
+                        child: Text(
+                          player['name'].toString().isNotEmpty 
+                              ? player['name'][0].toString().toUpperCase() 
+                              : '?',
+                          style: const TextStyle(color: Colors.white, fontSize: 10),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              player['name'].toString(),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              '${player['role']}${player['jersey'].toString().isNotEmpty ? ' • #${player['jersey']}' : ''}',
+                              style: const TextStyle(fontSize: 11, color: _kTextSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFDC2626)),
+                        onPressed: () => _removePlayerFromList(index),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+// ── Player Search Card ──────────────────────────────────────────────────
+
+  Widget _buildPlayerSearchCard() {
+    return _SectionCard(
+      title: 'Search Existing Players',
+      icon: Icons.search_rounded,
+      child: Column(
+        children: [
+          // Search Field
+          TextFormField(
+            controller: _playerSearchController,
+            style: const TextStyle(fontSize: 13, color: _kTextPrimary),
+            decoration: _fieldDeco(
+              label: 'Search Players',
+              icon: Icons.search_rounded,
+              hint: 'Search by name...',
+            ),
+            onChanged: (value) {
+              _searchPlayers(value);
+            },
+          ),
+          const SizedBox(height: _kFieldGap),
+          
+          // Search Results or Loading
+          if (_isSearching)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (_searchResults.isNotEmpty)
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _searchResults.length.clamp(0, 5),
+              itemBuilder: (context, index) {
+                final player = _searchResults[index];
+                return ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppColors.primary,
+                    child: Text(
+                      player.name.isNotEmpty ? player.name[0].toUpperCase() : '?',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                  title: Text(
+                    player.name,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  subtitle: Text(
+                    player.role ?? 'Unknown',
+                    style: const TextStyle(fontSize: 11, color: _kTextSecondary),
+                  ),
+                  trailing: const Icon(Icons.add_circle_outline, size: 20),
+                  onTap: () {
+                    // Player selected - could be used for team creation later
+                  },
+                );
+              },
+            )
+          else if (_playerSearchController.text.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'No players found',
+                style: TextStyle(color: _kTextSecondary, fontSize: 12),
+              ),
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Start typing to search players',
+                style: TextStyle(color: _kTextHint, fontSize: 12),
+              ),
+            ),
         ],
       ),
     );

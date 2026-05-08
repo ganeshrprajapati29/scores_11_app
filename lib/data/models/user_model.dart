@@ -12,6 +12,7 @@ class UserModel extends Equatable {
   final Address? address;
   final bool isEmailVerified;
   final bool isActive;
+  final bool isPublicPlayer;
   final DateTime? lastLogin;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -30,6 +31,7 @@ class UserModel extends Equatable {
     this.address,
     this.isEmailVerified = false,
     this.isActive = true,
+    this.isPublicPlayer = false,
     this.lastLogin,
     required this.createdAt,
     required this.updatedAt,
@@ -121,7 +123,7 @@ class UserModel extends Equatable {
       address = null;
     }
 
-    return UserModel(
+return UserModel(
       id: idValue?.toString() ?? '',
       name: nameValue?.toString() ?? '',
       email: emailValue?.toString() ?? '',
@@ -135,6 +137,7 @@ class UserModel extends Equatable {
       address: address,
       isEmailVerified: data['isEmailVerified'] == true || data['isEmailVerified'] == 'true',
       isActive: data['isActive'] != false && data['isActive'] != 'false',
+      isPublicPlayer: data['isPublicPlayer'] == true || data['isPublicPlayer'] == 'true',
       lastLogin: data['lastLogin'] != null 
           ? DateTime.tryParse(data['lastLogin'].toString()) 
           : null,

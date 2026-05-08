@@ -17,11 +17,13 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     
     <!-- Storage Permissions -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="28" />
+        android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     
     <!-- Notification Permissions -->
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -49,32 +51,32 @@
         android:allowBackup="true"
         android:requestLegacyExternalStorage="true"
         android:hardwareAccelerated="true"
+        android:resizeableActivity="true"
         tools:targetApi="31"
         tools:replace="android:appComponentFactory"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory">
 
-
-        
         <!-- Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR_GOOGLE_MAPS_API_KEY"/>
+            android:value="AIzaSyBleiztpOZoHa2gqVy-NSsLWKg5esXMKlQ"/>
         
         <!-- Google Mobile Services (Firebase) -->
         <meta-data
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
         
-        <!-- Main Activity -->
+        <!-- ✅ FIX 1: Main Activity with CORRECT windowSoftInputMode -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:taskAffinity=""
+           
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
+            <!-- ✅ "adjustResize" is CRITICAL for keyboard handling -->
             
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
@@ -85,6 +87,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        
+        <!-- ✅ FIX 2: Add splash screen activity to prevent rebuild -->
+        <activity
+            android:name="io.flutter.embedding.android.SplashScreenDrawableActivity"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize" />
         
         <!-- Flutter Embedding -->
         <meta-data

@@ -30,6 +30,10 @@ import 'features/matches/live_match_screen.dart';
 import 'features/matches/score_entry_screen.dart';
 import 'features/matches/create_match_screen.dart';
 import 'features/matches/scorecard_screen.dart';
+import 'features/matches/team_selection_screen.dart';
+import 'features/matches/wagon_wheel_screen.dart';
+import 'features/matches/live_score_control_screen.dart';
+import 'features/matches/toss_screen.dart';
 import 'features/teams/team_list_screen.dart';
 import 'features/teams/team_detail_screen.dart';
 import 'features/teams/create_team_screen.dart';
@@ -88,12 +92,23 @@ class Cric11App extends StatelessWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
 themeMode: ThemeMode.light,
-        onGenerateRoute: (RouteSettings settings) {
+onGenerateRoute: (RouteSettings settings) {
+          // Handle dynamic player profile route: /player-profile/:id
           if (settings.name!.startsWith('/player-profile/')) {
             final parts = settings.name!.split('/');
             final playerId = parts.length > 2 ? parts[2] : '';
             return MaterialPageRoute(
               builder: (context) => PlayerProfileScreen(playerId: playerId),
+              settings: settings,
+            );
+          }
+          // Handle dynamic match route: /match/:id
+          if (settings.name!.startsWith('/match/')) {
+            final uri = Uri.parse(settings.name!);
+            final pathSegments = uri.pathSegments;
+            final matchId = pathSegments.isNotEmpty ? pathSegments.last : '';
+            return MaterialPageRoute(
+              builder: (context) => MatchDetailScreen(matchId: matchId),
               settings: settings,
             );
           }
@@ -121,18 +136,13 @@ themeMode: ThemeMode.light,
           '/profile': (context) => const ProfileScreen(),
           '/cricket-profile': (context) => const CricketProfileScreen(),
 
-          // Match Routes
+// Match Routes
           '/matches': (context) => const MatchListScreen(),
+          '/matches/live': (context) => const MatchListScreen(),
           '/match-detail': (context) {
             final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
             return MatchDetailScreen(matchId: matchId);
           },
-          '/match/:id': (context) {
-            final uri = Uri.parse(ModalRoute.of(context)!.settings.name!);
-            final matchId = uri.pathSegments.last;
-            return MatchDetailScreen(matchId: matchId);
-          },
-          '/live-matches': (context) => const MatchListScreen(),
           '/create-match': (context) => const CreateMatchScreen(),
 // '/create-match-enhanced': (context) => CreateMatchScreen(), // Temporarily disabled - class not found
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
@@ -140,6 +150,24 @@ themeMode: ThemeMode.light,
           '/scorecard': (context) => ScorecardScreen(
             matchId: ModalRoute.of(context)!.settings.arguments as String? ?? '',
           ),
+          
+          // Live Control Routes (new)
+          '/team-select': (context) {
+            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            return TeamSelectionScreen(matchId: matchId);
+          },
+          '/wagon-wheel': (context) {
+            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            return WagonWheelScreen(matchId: matchId);
+          },
+          '/live-control': (context) {
+            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            return LiveScoreControlScreen(matchId: matchId);
+          },
+          '/toss': (context) {
+            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            return TossScreen(matchId: matchId);
+          },
 
 
           // Team Routes
@@ -219,7 +247,7 @@ themeMode: ThemeMode.light,
           '/notifications': (context) => const NotificationsScreen(),
           '/connections': (context) => const ConnectionsScreen(),
           '/chats': (context) => const ChatListScreen(),
-          '/chat': (context) => const ChatScreen(userId: '', userName: ''),
+'/chat': (context) => const ChatListScreen(),
           '/my-cricket': (context) => const HomeScreen(),
           '/blogs': (context) => const BlogsScreen(),
           '/discovery': (context) => const DiscoveryScreen(),

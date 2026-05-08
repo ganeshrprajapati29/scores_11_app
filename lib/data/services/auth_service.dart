@@ -1,15 +1,15 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart'; // Add this import for debugPrint
+import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/connectivity_service.dart';
 import '../models/user_model.dart';
-import 'dart:developer';
 
 class AuthService {
   final ApiClient _apiClient = ApiClient();
+  static final Logger _logger = Logger();
 
-  // Static method to get token (for backward compatibility)
   static Future<String?> getToken() async {
     final instance = ApiClient();
     return await instance.getAccessToken();
@@ -21,206 +21,174 @@ class AuthService {
     required String name,
     String? phone,
     String role = 'user',
+    String? playerRole,
+    String? battingStyle,
+    String? bowlingStyle,
+    String? dateOfBirth,
+    String? nationality,
   }) async {
     try {
+      if (kDebugMode) _logger.i('Register API call');
+      
+      final username = email.split('@').first.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_').toLowerCase();
+      
       final response = await _apiClient.post(
         '${ApiConfig.auth}/register',
         data: {
           'email': email,
           'password': password,
-          'name': name,
+          'fullName': name,
+          'username': username,
           if (phone != null && phone.isNotEmpty) 'phone': phone,
           'role': role,
+          if (role == 'player') ...{
+            'playerRole': playerRole ?? 'batsman',
+            'battingStyle': battingStyle ?? 'right-hand bat',
+            'bowlingStyle': bowlingStyle ?? 'none',
+            if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+            'nationality': nationality ?? 'India',
+          },
         },
       );
       
       if (response.statusCode == 201 || response.statusCode == 200) {
-        // Safely extract data from response
-        final responseData = response.data;
-        final data = responseData is Map ? _convertToMap(responseData['data']) : <String, dynamic>{};
-        
-        // Safely extract user data - handle nested objects properly
-        Map<String, dynamic> userData = {};
-        final userRaw = data['user'];
-        if (userRaw != null) {
-          userData = _convertToMap(userRaw);
-        }
-        
-        // Handle both cases: when refreshToken is in data or nested
+        final data = _convertToMap(response.data?['data']);
+        final userData = _convertToMap(data['user']);
         final accessToken = data['accessToken'] ?? data['token'];
-        final refreshToken = data['refreshToken'] ?? data['refreshToken'];
+        final refreshToken = data['refreshToken'];
         
         if (accessToken != null && refreshToken != null) {
           await _apiClient.setTokens(accessToken.toString(), refreshToken.toString());
         }
         
-        // Create UserModel from the map
         final userModel = UserModel.fromJson(userData);
-        
         return {
           'success': true,
-          'data': {
-            'user': userModel,
-            'accessToken': accessToken,
-            'refreshToken': refreshToken,
-          }
+          'data': {'user': userModel, 'accessToken': accessToken, 'refreshToken': refreshToken}
         };
       }
-      return {'success': false, 'message': response.data['message'] ?? 'Registration failed'};
+      return {'success': false, 'message': response.data?['message'] ?? 'Registration failed'};
     } on DioException catch (e) {
-      debugPrint('❌ REGISTER DioException: type=${e.type}, message=${e.message}, status=${e.response?.statusCode}, response=${e.response?.data}');
-      final message = _handleDioError(e);
-      return {'success': false, 'message': message};
+      if (kDebugMode) _logger.e('Register DioException: ${e.type}, ${e.response?.statusCode}');
+      return {'success': false, 'message': _handleDioError(e)};
     } catch (e) {
-      debugPrint('❌ REGISTER Unknown error: $e');
+      if (kDebugMode) _logger.e('Register error: $e');
       return {'success': false, 'message': e.toString()};
     }
   }
 
-  // Helper method to convert any type to Map<String, dynamic>
   Map<String, dynamic> _convertToMap(dynamic data) {
     if (data == null) return {};
     if (data is Map<String, dynamic>) return data;
-    if (data is Map) {
-      return Map<String, dynamic>.from(data);
-    }
-    // Handle case where data might be from Dio response
-    if (data is Map<dynamic, dynamic>) {
-      return Map<String, dynamic>.from(data);
-    }
+    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is Map<dynamic, dynamic>) return Map<String, dynamic>.from(data);
     return {};
   }
 
   Future<Map<String, dynamic>> login(String identifier, String password) async {
-    final connectivityService = ConnectivityService();
-    final isOnline = await connectivityService.isConnected();
+    final connectivity = ConnectivityService();
+    final isOnline = await connectivity.isConnected();
     if (!isOnline) {
-      debugPrint('🚫 LOGIN: No internet connection detected by ConnectivityService');
-      return {'success': false, 'message': 'No Internet Connection. Please check your network and try again.'};
+      _logger.w('No internet connection');
+      return {'success': false, 'message': 'No Internet Connection. Please check your network.'};
     }
-    debugPrint('✅ LOGIN: Network available, attempting API call to ${ApiConfig.baseUrl}${ApiConfig.auth}/login');
+
     try {
+      if (kDebugMode) _logger.i('Login API call to ${ApiConfig.auth}/login');
       final response = await _apiClient.post(
         '${ApiConfig.auth}/login',
-        data: {
-          'identifier': identifier,
-          'password': password,
-        },
+        data: {'identifier': identifier, 'password': password},
       );
       
       if (response.statusCode == 200) {
-        // Safely extract data from response
         final responseData = response.data;
-        final data = responseData is Map ? _convertToMap(responseData['data']) : <String, dynamic>{};
-        
-        // Safely extract user data - handle nested objects properly
-        Map<String, dynamic> userData = {};
-        final userRaw = data['user'];
-        if (userRaw != null) {
-          userData = _convertToMap(userRaw);
+        if (responseData == null) {
+          return {'success': false, 'message': 'Empty server response'};
         }
         
-        // Handle both cases: when refreshToken is in data or nested
+        final data = _convertToMap(responseData is Map ? responseData['data'] : null);
+        final userData = _convertToMap(data['user']);
+        
+        if (userData.isEmpty) {
+          _logger.w('No user data in login response');
+        }
+        
         final accessToken = data['accessToken'] ?? data['token'];
-        final refreshToken = data['refreshToken'] ?? data['refreshToken'];
+        final refreshToken = data['refreshToken'];
         
         if (accessToken != null && refreshToken != null) {
           await _apiClient.setTokens(accessToken.toString(), refreshToken.toString());
         }
         
-        // Create UserModel from the map
-        final userModel = UserModel.fromJson(userData);
+        UserModel? userModel;
+        try {
+          if (userData.isNotEmpty) {
+            userModel = UserModel.fromJson(userData);
+          }
+        } catch (e) {
+          _logger.w('Failed to parse user model: $e');
+        }
         
         return {
           'success': true,
-          'data': {
-            'user': userModel,
-            'accessToken': accessToken,
-            'refreshToken': refreshToken,
-          }
+          'data': {'user': userModel, 'accessToken': accessToken, 'refreshToken': refreshToken}
         };
       }
-      return {'success': false, 'message': response.data['message'] ?? 'Login failed'};
+      return {'success': false, 'message': response.data?['message'] ?? 'Login failed - please check your credentials'};
     } on DioException catch (e) {
-      final message = _handleDioError(e);
-      return {'success': false, 'message': message};
+      if (kDebugMode) _logger.e('Login DioException: ${e.type}');
+      return {'success': false, 'message': _handleDioError(e)};
     } catch (e) {
-      return {'success': false, 'message': e.toString()};
+      if (kDebugMode) _logger.e('Login error: $e');
+      return {'success': false, 'message': 'An error occurred. Please try again.'};
     }
   }
   
-  /// Get user stats with proper error handling and type safety
   Future<dynamic> getUserStats() async {
+    if (!kDebugMode) return null;
+    
     try {
-      debugPrint('📊 Fetching user stats from API...');
+      if (kDebugMode) _logger.i('Fetching user stats /me/stats');
       final response = await _apiClient.get('/me/stats');
       
       if (response.statusCode == 200) {
-        final responseData = response.data;
-        final data = responseData is Map ? responseData['data'] : null;
-        
-        if (data != null) {
-          debugPrint('✅ User stats fetched successfully');
-          debugPrint('📊 User stats type: ${data.runtimeType}');
-          
-          // Return data as-is - let the provider handle the type conversion
-          return data;
-        } else {
-          debugPrint('⚠️ User stats data is null');
-          return null;
-        }
-      } else {
-        debugPrint('⚠️ User stats API returned status code: ${response.statusCode}');
-        return null;
+        final data = response.data is Map ? response.data['data'] : null;
+        if (kDebugMode) _logger.i('User stats OK');
+        return data;
       }
+      return null;
     } on DioException catch (e) {
-      debugPrint('❌ Dio error fetching user stats: ${e.type}');
-      if (e.response != null) {
-        debugPrint('❌ Response status: ${e.response?.statusCode}');
-        debugPrint('❌ Response data: ${e.response?.data}');
-        
-        // If 404, stats endpoint might not exist yet - that's fine
-        if (e.response?.statusCode == 404) {
-          debugPrint('⚠️ User stats endpoint not found (404) - this is normal if not implemented yet');
-          return null;
-        }
+      if (kDebugMode && e.response?.statusCode != 404) {
+        _logger.w('Stats error: ${e.type} (${e.response?.statusCode})');
       }
       return null;
     } catch (e) {
-      debugPrint('❌ Unexpected error fetching user stats: $e');
+      if (kDebugMode) _logger.w('Stats error: $e');
       return null;
     }
   }
 
-  // Helper method to handle Dio errors
   String _handleDioError(DioException e) {
-    debugPrint('🔍 Handling DioError: ${e.type} | ${e.message}');
-    if (e.response != null) {
-      debugPrint('📡 Response: ${e.response!.statusCode} - ${e.response!.data}');
+    if (kDebugMode) {
+      _logger.w('DioError: ${e.type} | ${e.message}');
+      if (e.response != null) _logger.w('Response: ${e.response!.statusCode}');
     }
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return 'Connection timeout. Please check your internet connection.';
-      case DioExceptionType.badResponse:
-        final statusCode = e.response?.statusCode;
-        final data = e.response?.data;
-        if (statusCode == 401) {
-          return 'Invalid credentials. Please check your email and password.';
-        } else if (statusCode == 404) {
-          return 'Server not found. Please try again later.';
-        } else if (statusCode == 500) {
-          return 'Server error. Please try again later.';
-        }
-        return data?['message'] ?? 'An error occurred';
-      case DioExceptionType.cancel:
-        return 'Request cancelled';
-      case DioExceptionType.connectionError:
-        return 'No internet connection. Please check your network.';
-      default:
-        return e.message ?? 'An unexpected error occurred';
-    }
+    
+    return switch (e.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout => 'Connection timeout. Check internet.',
+      DioExceptionType.badResponse => (e.response?.statusCode == 401 
+        ? 'Invalid credentials' 
+        : e.response?.statusCode == 404 
+        ? 'Server not found' 
+        : e.response?.statusCode == 500 
+        ? 'Server error' 
+        : e.response?.data?['message']?.toString() ?? 'Server error'),
+      DioExceptionType.cancel => 'Request cancelled',
+      DioExceptionType.connectionError => 'No internet connection',
+      _ => e.message ?? 'Network error',
+    };
   }
 
   Future<Map<String, dynamic>> sendOTP(String identifier) async {
@@ -231,11 +199,9 @@ class AuthService {
       );
       
       if (response.statusCode == 200) {
-        // In development, OTP is returned in response
-        final otp = response.data['data']?['otp'];
-        return {'success': true, 'data': {'otp': otp}};
+        return {'success': true, 'data': {'otp': response.data?['data']?['otp']}};
       }
-      return {'success': false, 'message': response.data['message'] ?? 'Failed to send OTP'};
+      return {'success': false, 'message': response.data?['message'] ?? 'Failed to send OTP'};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
@@ -249,9 +215,9 @@ class AuthService {
       );
       
       if (response.statusCode == 200) {
-        return {'success': true, 'message': 'OTP verified successfully'};
+        return {'success': true, 'message': 'OTP verified'};
       }
-      return {'success': false, 'message': response.data['message'] ?? 'Invalid OTP'};
+      return {'success': false, 'message': response.data?['message'] ?? 'Invalid OTP'};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
@@ -265,10 +231,9 @@ class AuthService {
       );
       
       if (response.statusCode == 200) {
-        final otp = response.data['data']?['otp'];
-        return {'success': true, 'data': {'otp': otp}};
+        return {'success': true, 'data': {'otp': response.data?['data']?['otp']}};
       }
-      return {'success': false, 'message': response.data['message'] ?? 'Failed to process request'};
+      return {'success': false, 'message': response.data?['message'] ?? 'Request failed'};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
@@ -282,9 +247,9 @@ class AuthService {
       );
       
       if (response.statusCode == 200) {
-        return {'success': true, 'message': 'Password reset successfully'};
+        return {'success': true, 'message': 'Password reset successful'};
       }
-      return {'success': false, 'message': response.data['message'] ?? 'Failed to reset password'};
+      return {'success': false, 'message': response.data?['message'] ?? 'Reset failed'};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
@@ -294,7 +259,7 @@ class AuthService {
     try {
       await _apiClient.post('${ApiConfig.auth}/logout');
     } catch (e) {
-      // Continue with logout even if API call fails
+      // Ignore logout API errors
     } finally {
       await _apiClient.clearTokens();
     }
@@ -304,11 +269,10 @@ class AuthService {
     try {
       final response = await _apiClient.get('${ApiConfig.auth}/me');
       if (response.statusCode == 200) {
-        // Safely convert response data to Map
-        final userData = _convertToMap(response.data['data']);
+        final userData = _convertToMap(response.data?['data']);
         return UserModel.fromJson(userData);
       }
-      throw Exception(response.data['message'] ?? 'Failed to get user');
+      throw Exception(response.data?['message'] ?? 'Failed to get user');
     } catch (e) {
       rethrow;
     }
@@ -321,13 +285,10 @@ class AuthService {
     try {
       final response = await _apiClient.post(
         '${ApiConfig.auth}/change-password',
-        data: {
-          'currentPassword': currentPassword,
-          'newPassword': newPassword,
-        },
+        data: {'currentPassword': currentPassword, 'newPassword': newPassword},
       );
       if (response.statusCode != 200) {
-        throw Exception(response.data['message'] ?? 'Failed to change password');
+        throw Exception(response.data?['message'] ?? 'Change password failed');
       }
     } catch (e) {
       rethrow;
@@ -336,23 +297,21 @@ class AuthService {
 
   Future<bool> isLoggedIn() async {
     final token = await _apiClient.getAccessToken();
-    return token != null;
+    return token != null && token.isNotEmpty;
   }
   
-  /// Get user profile with stats (combined endpoint if available)
   Future<Map<String, dynamic>> getUserProfileWithStats() async {
     try {
       final response = await _apiClient.get('${ApiConfig.auth}/profile');
       if (response.statusCode == 200) {
-        final data = _convertToMap(response.data['data']);
         return {
           'success': true,
-          'data': data,
+          'data': _convertToMap(response.data?['data']),
         };
       }
-      return {'success': false, 'message': 'Failed to get profile'};
+      return {'success': false, 'message': 'Profile fetch failed'};
     } catch (e) {
-      debugPrint('❌ Error getting user profile with stats: $e');
+      _logger.w('Profile stats error: $e');
       return {'success': false, 'message': e.toString()};
     }
   }

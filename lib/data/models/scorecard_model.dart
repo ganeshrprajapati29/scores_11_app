@@ -13,6 +13,7 @@ class BatsmanStats extends Equatable {
   final String? dismissal;
   final String? bowlerDismissedBy;
   final int? wicketNumber;
+  final bool notOut;
 
   const BatsmanStats({
     required this.playerId,
@@ -25,9 +26,10 @@ class BatsmanStats extends Equatable {
     this.dismissal,
     this.bowlerDismissedBy,
     this.wicketNumber,
+    this.notOut = false,
   });
 
-  factory BatsmanStats.fromJson(Map<String, dynamic> json) {
+factory BatsmanStats.fromJson(Map<String, dynamic> json) {
     final sr = json['balls'] > 0 ? (json['runs'] / json['balls']) * 100 : 0.0;
     return BatsmanStats(
       playerId: json['_id'] ?? json['playerId'] ?? '',
@@ -40,6 +42,7 @@ class BatsmanStats extends Equatable {
       dismissal: json['dismissal'],
       bowlerDismissedBy: json['bowler'] ?? json['bowlerDismissedBy'],
       wicketNumber: json['wicketNumber'],
+      notOut: json['notOut'] ?? false,
     );
   }
 
@@ -55,6 +58,9 @@ class BatsmanStats extends Equatable {
     'bowlerDismissedBy': bowlerDismissedBy,
     'wicketNumber': wicketNumber,
   };
+
+// ✅ ADD: howOut getter for UI compatibility
+  String? get howOut => dismissal;
 
   @override
   List<Object?> get props => [playerId, playerName, runs, balls, fours, sixes, strikeRate, dismissal];
@@ -158,6 +164,15 @@ class FullScorecard extends Equatable {
   final List<List<BowlerStats>> bowling;
   final List<FallOfWicket> fallOfWickets;
   final List<Map<String, dynamic>> partnerships;
+  
+  // ✅ NEW: Website format support
+  final List<BatsmanStats>? battingScorecard;
+  final List<BowlerStats>? bowlingScorecard;
+  final Map<String, dynamic>? partnership;
+  final int? runs;
+  final int? wickets;
+  final String? overs;
+  final double? runRate;
 
   const FullScorecard({
     required this.match,
@@ -166,13 +181,20 @@ class FullScorecard extends Equatable {
     this.bowling = const [],
     this.fallOfWickets = const [],
     this.partnerships = const [],
+    this.battingScorecard,
+    this.bowlingScorecard,
+    this.partnership,
+    this.runs,
+    this.wickets,
+    this.overs,
+    this.runRate,
   });
 
   factory FullScorecard.fromJson(Map<String, dynamic> json) {
-    // Safe parsing with length checks
+    // ✅ FIXED: Support both website format (battingScorecard) and Flutter format (batting)
     List<List<BatsmanStats>> safeBatting = [];
     final battingRaw = json['batting'] ?? [];
-    if (battingRaw is List) {
+    if (battingRaw is List && battingRaw.isNotEmpty) {
       safeBatting = battingRaw.map<List<BatsmanStats>>((inningsBatting) {
         if (inningsBatting is List) {
           return inningsBatting.map<BatsmanStats>((p) => BatsmanStats.fromJson(p as Map<String, dynamic>)).toList();
@@ -180,16 +202,46 @@ class FullScorecard extends Equatable {
         return <BatsmanStats>[];
       }).toList();
     }
+    
+    // ✅ NEW: Also support website flat array format (battingScorecard)
+    List<BatsmanStats>? websiteBatting;
+    final websiteBattingRaw = json['battingScorecard'] ?? json['batting'];
+    if (websiteBattingRaw is List && websiteBattingRaw.isNotEmpty) {
+      // Check if it's flat array (website format) or nested (Flutter format)
+      if (websiteBattingRaw.first is List) {
+        // It's nested format - use existing parsing
+      } else {
+        // It's flat array (website format) - convert to nested
+        websiteBatting = websiteBattingRaw.map<BatsmanStats>((p) => BatsmanStats.fromJson(p as Map<String, dynamic>)).toList();
+        // Also set safeBatting for Flutter compatibility
+        safeBatting = [websiteBatting];
+      }
+    }
 
     List<List<BowlerStats>> safeBowling = [];
     final bowlingRaw = json['bowling'] ?? [];
-    if (bowlingRaw is List) {
+    if (bowlingRaw is List && bowlingRaw.isNotEmpty) {
       safeBowling = bowlingRaw.map<List<BowlerStats>>((inningsBowling) {
         if (inningsBowling is List) {
           return inningsBowling.map<BowlerStats>((p) => BowlerStats.fromJson(p as Map<String, dynamic>)).toList();
         }
         return <BowlerStats>[];
       }).toList();
+    }
+    
+    // ✅ NEW: Also support website bowling flat array format
+    List<BowlerStats>? websiteBowling;
+    final websiteBowlingRaw = json['bowlingScorecard'] ?? json['bowling'];
+    if (websiteBowlingRaw is List && websiteBowlingRaw.isNotEmpty) {
+      if (websiteBowlingRaw.first is List) {
+        // It's nested format
+      } else {
+        // It's flat array (website format)
+        websiteBowling = websiteBowlingRaw.map<BowlerStats>((p) => BowlerStats.fromJson(p as Map<String, dynamic>)).toList();
+        if (safeBowling.isEmpty) {
+          safeBowling = [websiteBowling];
+        }
+      }
     }
 
     List<FallOfWicket> safeFallOfWickets = [];
@@ -198,6 +250,9 @@ class FullScorecard extends Equatable {
       safeFallOfWickets = fallOfWicketsRaw.map<FallOfWicket>((e) => FallOfWicket.fromJson(e as Map<String, dynamic>)).toList();
     }
 
+    // ✅ NEW: Extract extra fields from live scoring
+    final extras = json['extras'] ?? {};
+    
     return FullScorecard(
       match: Match.fromJson(json['match'] ?? {}),
       innings: (json['innings'] ?? []).map<Innings>((e) => Innings.fromJson(e as Map<String, dynamic>)).toList(),
@@ -205,7 +260,23 @@ class FullScorecard extends Equatable {
       bowling: safeBowling,
       fallOfWickets: safeFallOfWickets,
       partnerships: List<Map<String, dynamic>>.from(json['partnerships'] ?? []),
+      // ✅ NEW: Website format fields
+      battingScorecard: websiteBatting,
+      bowlingScorecard: websiteBowling,
+      partnership: json['partnership'] is Map ? json['partnership'] as Map<String, dynamic> : null,
+      runs: json['runs'] ?? extras['total'] ?? 0,
+      wickets: json['wickets'] ?? 0,
+      overs: json['overs'] ?? '0.0',
+      runRate: _parseRunRate(json['runRate']),
     );
+  }
+  
+  static double? _parseRunRate(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   // Add toJson method

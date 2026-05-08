@@ -20,6 +20,7 @@ class _MatchListScreenState extends State<MatchListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final MatchService _matchService = MatchService();
+  bool _returnFromCreate = false;
 
   // Pagination state for each tab
   int _livePage = 1;
@@ -47,9 +48,53 @@ class _MatchListScreenState extends State<MatchListScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_returnFromCreate) {
+      _returnFromCreate = false;
+      _loadMatches(refresh: true);
+    }
+  }
+
+  @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  /// Sort matches based on type
+  /// - LIVE: Newest (most recent start) first
+  /// - UPCOMING: Soonest (closest to current date) first
+  /// - COMPLETED: Newest first
+  List<Match> _sortMatches(List<Match> matches, String type) {
+    final sorted = List<Match>.from(matches);
+    sorted.sort((a, b) {
+      final dateA = a.scheduledDate;
+      final dateB = b.scheduledDate;
+      
+      switch (type) {
+        case 'live':
+          // Live: newest (most recent start) first
+          return dateB.compareTo(dateA);
+        case 'upcoming':
+          // Upcoming: soonest (closest to now) first
+          return dateA.compareTo(dateB);
+        case 'completed':
+          // Completed: newest first
+          return dateB.compareTo(dateA);
+        default:
+          return dateB.compareTo(dateA);
+      }
+    });
+    return sorted;
+  }
+
+  /// Filter completed matches to show only those completed within last 30 days
+  List<Match> _filterOldCompletedMatches(List<Match> matches) {
+    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+    return matches.where((match) {
+      return match.scheduledDate.isAfter(thirtyDaysAgo);
+    }).toList();
   }
 
   Future<void> _loadMatches({bool refresh = false}) async {
@@ -66,17 +111,29 @@ class _MatchListScreenState extends State<MatchListScreen>
     }
 
     setState(() => _isLoading = true);
+    
     try {
-      final liveMatches =
-          await _matchService.getLiveMatches(forceRefresh: refresh);
-      final upcomingMatches = await _matchService.getUpcomingMatches();
-      final completedMatches = await _matchService.getCompletedMatches();
+      // Fetch all matches in parallel for better performance
+      final results = await Future.wait([
+        _matchService.getLiveMatches(forceRefresh: refresh),
+        _matchService.getUpcomingMatches(),
+        _matchService.getCompletedMatches(),
+      ]);
+
+      final liveMatches = results[0];
+      final upcomingMatches = results[1];
+      final completedMatches = results[2];
 
       setState(() {
-        _liveMatches = liveMatches;
-        _upcomingMatches = upcomingMatches;
-        _completedMatches = completedMatches;
+        // Sort matches appropriately for each tab
+        _liveMatches = _sortMatches(liveMatches, 'live');
+        _upcomingMatches = _sortMatches(upcomingMatches, 'upcoming');
+        
+        // Filter and sort completed matches
+        final filteredCompleted = _filterOldCompletedMatches(completedMatches);
+        _completedMatches = _sortMatches(filteredCompleted, 'completed');
 
+        // Update pagination flags
         _hasMoreLive = _liveMatches.length >= 20;
         _hasMoreUpcoming = _upcomingMatches.length >= 20;
         _hasMoreCompleted = _completedMatches.length >= 20;
@@ -90,8 +147,7 @@ class _MatchListScreenState extends State<MatchListScreen>
           SnackBar(
             content: Text('Error loading matches: $e'),
             behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -100,15 +156,17 @@ class _MatchListScreenState extends State<MatchListScreen>
 
   Future<void> _loadMoreLive() async {
     if (_isLoadingMoreLive || !_hasMoreLive) return;
+    
     setState(() {
       _isLoadingMoreLive = true;
       _livePage++;
     });
+    
     try {
-      final result =
-          await _matchService.getMatches(page: _livePage, status: 'LIVE');
+      final result = await _matchService.getMatches(page: _livePage, status: 'LIVE');
       setState(() {
-        _liveMatches.addAll(result.matches);
+        final newMatches = _sortMatches(result.matches, 'live');
+        _liveMatches.addAll(newMatches);
         _hasMoreLive = result.hasMore;
         _isLoadingMoreLive = false;
       });
@@ -127,15 +185,17 @@ class _MatchListScreenState extends State<MatchListScreen>
 
   Future<void> _loadMoreUpcoming() async {
     if (_isLoadingMoreUpcoming || !_hasMoreUpcoming) return;
+    
     setState(() {
       _isLoadingMoreUpcoming = true;
       _upcomingPage++;
     });
+    
     try {
-      final result = await _matchService.getMatches(
-          page: _upcomingPage, status: 'SCHEDULED');
+      final result = await _matchService.getMatches(page: _upcomingPage, status: 'SCHEDULED');
       setState(() {
-        _upcomingMatches.addAll(result.matches);
+        final newMatches = _sortMatches(result.matches, 'upcoming');
+        _upcomingMatches.addAll(newMatches);
         _hasMoreUpcoming = result.hasMore;
         _isLoadingMoreUpcoming = false;
       });
@@ -154,15 +214,18 @@ class _MatchListScreenState extends State<MatchListScreen>
 
   Future<void> _loadMoreCompleted() async {
     if (_isLoadingMoreCompleted || !_hasMoreCompleted) return;
+    
     setState(() {
       _isLoadingMoreCompleted = true;
       _completedPage++;
     });
+    
     try {
-      final result = await _matchService.getMatches(
-          page: _completedPage, status: 'COMPLETED');
+      final result = await _matchService.getMatches(page: _completedPage, status: 'COMPLETED');
       setState(() {
-        _completedMatches.addAll(result.matches);
+        final filteredMatches = _filterOldCompletedMatches(result.matches);
+        final newMatches = _sortMatches(filteredMatches, 'completed');
+        _completedMatches.addAll(newMatches);
         _hasMoreCompleted = result.hasMore;
         _isLoadingMoreCompleted = false;
       });
@@ -203,6 +266,7 @@ class _MatchListScreenState extends State<MatchListScreen>
                   isLoadingMore: _isLoadingMoreUpcoming,
                   hasMore: _hasMoreUpcoming,
                   loadMore: _loadMoreUpcoming,
+                  onRefresh: () => _loadMatches(refresh: true),
                 ),
                 _MatchList(
                   matches: _completedMatches,
@@ -210,6 +274,7 @@ class _MatchListScreenState extends State<MatchListScreen>
                   isLoadingMore: _isLoadingMoreCompleted,
                   hasMore: _hasMoreCompleted,
                   loadMore: _loadMoreCompleted,
+                  onRefresh: () => _loadMatches(refresh: true),
                 ),
               ],
             ),
@@ -327,7 +392,10 @@ class _MatchListScreenState extends State<MatchListScreen>
   Widget _buildFAB() {
     return FloatingActionButton.extended(
       heroTag: 'match_list_create',
-      onPressed: () => Navigator.pushNamed(context, '/create-match'),
+      onPressed: () {
+        setState(() => _returnFromCreate = true);
+        Navigator.pushReplacementNamed(context, '/create-match');
+      },
       icon: const Icon(Icons.add_rounded, size: 20),
       label: const Text(
         'Create Match',
@@ -397,7 +465,7 @@ class _MatchListState extends State<_MatchList> {
     }
 
     return RefreshIndicator(
-      onRefresh: widget.onRefresh ?? () => Future.value(),
+      onRefresh: widget.onRefresh ?? () async {},
       color: AppColors.primary,
       strokeWidth: 2.5,
       child: ListView.builder(
@@ -437,6 +505,19 @@ class _EmptyState extends StatelessWidget {
   final String type;
   const _EmptyState({required this.type});
 
+  String _getMessage() {
+    switch (type) {
+      case 'live':
+        return 'No live matches at the moment';
+      case 'upcoming':
+        return 'No upcoming matches scheduled';
+      case 'completed':
+        return 'No completed matches';
+      default:
+        return 'No matches found';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -458,7 +539,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'No $type matches',
+            _getMessage(),
             style: const TextStyle(
               color: Color(0xFF6B7280),
               fontSize: 15,
@@ -489,6 +570,39 @@ class _MatchCard extends StatelessWidget {
 
   const _MatchCard({required this.match});
 
+  void _handleMatchTap(BuildContext context) {
+    final status = match.status;
+    
+    if (status == 'LIVE') {
+      Navigator.pushNamed(context, '/live-control', arguments: match.id);
+    } else if (status == 'SCHEDULED') {
+      Navigator.pushNamed(context, '/team-select', arguments: match.id);
+    } else if (status == 'TOSS') {
+      Navigator.pushNamed(context, '/toss', arguments: match.id);
+    } else if (status == 'COMPLETED') {
+      Navigator.pushNamed(context, '/scorecard', arguments: match.id);
+    } else {
+      Navigator.pushNamed(context, '/match-detail', arguments: match.id);
+    }
+  }
+
+  /// Format date for display
+  String _formatMatchDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final matchDate = DateTime(date.year, date.month, date.day);
+    
+    if (matchDate == today) {
+      return 'Today, ${DateFormat('h:mm a').format(date)}';
+    } else if (matchDate == today.subtract(const Duration(days: 1))) {
+      return 'Yesterday, ${DateFormat('h:mm a').format(date)}';
+    } else if (matchDate == today.add(const Duration(days: 1))) {
+      return 'Tomorrow, ${DateFormat('h:mm a').format(date)}';
+    } else {
+      return DateFormat('MMM d, h:mm a').format(date);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLive = match.status == 'LIVE';
@@ -517,8 +631,7 @@ class _MatchCard extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: () =>
-              Navigator.pushNamed(context, '/match-detail', arguments: match.id),
+          onTap: () => _handleMatchTap(context),
           borderRadius: BorderRadius.circular(16),
           splashColor: AppColors.primary.withOpacity(0.04),
           highlightColor: AppColors.primary.withOpacity(0.02),
@@ -527,26 +640,38 @@ class _MatchCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Top row: badge + format + venue ──────────────────────
+                // Top row: badge + format + venue
                 Row(
                   children: [
                     MatchStatusBadge(status: match.status),
+                    if (match.matchNumber != null) ...[
+                      const SizedBox(width: 8),
+                      _MatchNumberChip(matchNumber: match.matchNumber!),
+                    ],
                     const Spacer(),
+                    if (match.tournament != null && match.tournament!.isNotEmpty) ...[
+                      _TournamentBadge(tournament: match.tournament),
+                      const SizedBox(width: 8),
+                    ],
+                    _MatchTypeChip(matchType: match.matchType),
+                    const SizedBox(width: 8),
                     _FormatChip(format: match.format),
                     const SizedBox(width: 8),
-                    _VenueLabel(venue: match.venue?.name),
+                    Flexible(
+                      child: _VenueLabel(venue: match.venue?.name),
+                    ),
                   ],
                 ),
-
                 const SizedBox(height: 14),
-
-                // ── Teams row ────────────────────────────────────────────
+                // Teams row
                 _TeamsRow(match: match, isLive: isLive, isCompleted: isCompleted),
-
                 const SizedBox(height: 14),
-
-                // ── Footer ───────────────────────────────────────────────
-                _MatchFooter(match: match, isLive: isLive),
+                // Footer with date/time
+                _MatchFooter(
+                  match: match, 
+                  isLive: isLive,
+                  formatDate: _formatMatchDate,
+                ),
               ],
             ),
           ),
@@ -566,6 +691,11 @@ class _FormatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String displayFormat = format.toUpperCase();
+    if (displayFormat == 'T20') displayFormat = 'T20';
+    else if (displayFormat == 'ODI') displayFormat = 'ODI';
+    else if (displayFormat == 'TEST') displayFormat = 'TEST';
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -573,7 +703,7 @@ class _FormatChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        format.toUpperCase(),
+        displayFormat,
         style: TextStyle(
           color: AppColors.primary,
           fontSize: 10,
@@ -597,15 +727,100 @@ class _VenueLabel extends StatelessWidget {
         const Icon(Icons.location_on_outlined,
             size: 12, color: Color(0xFFB0B8CC)),
         const SizedBox(width: 3),
-        Text(
-          venue ?? 'TBD',
-          style: const TextStyle(
-            color: Color(0xFF8B92A5),
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
+        Flexible(
+          child: Text(
+            venue ?? 'TBD',
+            style: const TextStyle(
+              color: Color(0xFF8B92A5),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MatchNumberChip extends StatelessWidget {
+  final int matchNumber;
+  const _MatchNumberChip({required this.matchNumber});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6366F1).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        'M$matchNumber',
+        style: const TextStyle(
+          color: Color(0xFF6366F1),
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _TournamentBadge extends StatelessWidget {
+  final String? tournament;
+  const _TournamentBadge({this.tournament});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10B981).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.emoji_events,
+              size: 10, color: Color(0xFF10B981)),
+          const SizedBox(width: 3),
+          Text(
+            (tournament?.length ?? 0) > 8 
+                ? '${tournament?.substring(0, 8)}...' 
+                : tournament ?? 'Tournament',
+            style: const TextStyle(
+              color: Color(0xFF10B981),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchTypeChip extends StatelessWidget {
+  final String matchType;
+  const _MatchTypeChip({required this.matchType});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF59E0B).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        matchType.toUpperCase(),
+        style: const TextStyle(
+          color: Color(0xFFF59E0B),
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -726,7 +941,6 @@ class _TeamsRow extends StatelessWidget {
               ],
             ),
           ),
-
           // VS divider
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -753,7 +967,6 @@ class _TeamsRow extends StatelessWidget {
               ],
             ),
           ),
-
           // Team 2
           Expanded(
             child: Row(
@@ -820,38 +1033,70 @@ class _TeamsRow extends StatelessWidget {
 class _MatchFooter extends StatelessWidget {
   final Match match;
   final bool isLive;
+  final String Function(DateTime) formatDate;
 
-  const _MatchFooter({required this.match, required this.isLive});
+  const _MatchFooter({
+    required this.match,
+    required this.isLive,
+    required this.formatDate,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isCompleted = match.status == 'COMPLETED';
+    
+    String getFooterText() {
+      if (isLive) {
+        final overs = match.score.team1.overs;
+        return 'Live • ${overs.isNotEmpty ? overs : '0.0'} overs • ${formatDate(match.scheduledDate)}';
+      } else if (isCompleted) {
+        // Fix: Access winner from match.result
+        final winner = match.result?.winner ?? 'Match completed';
+        final margin = match.result?.margin ?? '';
+        if (margin.isNotEmpty) {
+          return '🏆 $winner won by $margin • ${formatDate(match.scheduledDate)}';
+        }
+        return '🏆 $winner • ${formatDate(match.scheduledDate)}';
+      } else {
+        return '📅 ${formatDate(match.scheduledDate)}';
+      }
+    }
+    
+    Color getFooterColor() {
+      if (isLive) return const Color(0xFFE53E3E);
+      if (isCompleted) return const Color(0xFF10B981);
+      return const Color(0xFF6B7280);
+    }
+    
+    IconData getFooterIcon() {
+      if (isLive) return Icons.radio_button_on_rounded;
+      if (isCompleted) return Icons.emoji_events_rounded;
+      return Icons.access_time_rounded;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
         color: isLive
             ? const Color(0xFFFFF5F5)
-            : const Color(0xFFF8F9FA),
+            : isCompleted
+                ? const Color(0xFFF0FDF4)
+                : const Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
           Icon(
-            isLive ? Icons.radio_button_on_rounded : Icons.access_time_rounded,
+            getFooterIcon(),
             size: 14,
-            color: isLive
-                ? const Color(0xFFE53E3E)
-                : const Color(0xFF8B92A5),
+            color: getFooterColor(),
           ),
           const SizedBox(width: 7),
           Expanded(
             child: Text(
-              isLive
-                  ? 'Overs: ${match.score.team1.overs} · ${MatchDateUtils.DateUtils.statusDateTime(match.scheduledDate, match.status)}'
-                  : MatchDateUtils.DateUtils.matchDateTime(match.scheduledDate),
+              getFooterText(),
               style: TextStyle(
-                color: isLive
-                    ? const Color(0xFFE53E3E)
-                    : const Color(0xFF6B7280),
+                color: getFooterColor(),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),

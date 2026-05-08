@@ -6,6 +6,9 @@ class AppRoutes {
   static const String forgotPassword = '/forgot-password';
   static const String dashboard = '/dashboard';
   
+  // Players
+  static const String publicPlayers = '/public-players';
+  
   // Matches
   static const String matches = '/matches';
   static const String matchDetail = '/match/:id';
@@ -16,11 +19,17 @@ class AppRoutes {
   static const String scorecard = '/scorecard/:id';
   static const String toss = '/toss/:id';
   
-  // Tournaments
+// Tournaments
   static const String tournaments = '/tournaments';
   static const String tournamentDetail = '/tournament/:id';
   static const String createTournament = '/create-tournament';
   static const String pointsTable = '/points-table/:id';
+  
+  // Live Control
+  static const String teamSelect = '/team-select/:id';
+  static const String wagonWheel = '/wagon-wheel/:id';
+  static const String initializeLive = '/initialize-live/:id';
+  static const String lineups = '/lineups/:id';
   
   // Teams
   static const String teams = '/teams';
@@ -66,5 +75,12 @@ class AppRoutes {
   static String productDetailRoute(String id) => '/product/$id';
   static String postDetailRoute(String id) => '/post/$id';
   static String blogsRoute() => blogs;
-  static String blogDetailRoute(String id) => blogDetail.replaceAll(':id', id);
+static String blogDetailRoute(String id) => blogDetail.replaceAll(':id', id);
+  
+  // Live Control Helper Methods
+  static String teamSelectRoute(String id) => '/team-select/$id';
+  static String wagonWheelRoute(String id) => '/wagon-wheel/$id';
+  static String initializeLiveRoute(String id) => '/initialize-live/$id';
+  static String lineupsRoute(String id) => '/lineups/$id';
+  static String tossRoute(String id) => '/toss/$id';
 }

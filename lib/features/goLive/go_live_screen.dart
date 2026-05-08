@@ -6,6 +6,7 @@ import '../../data/services/live_stream_service.dart';
 import '../goLive/stream_preview_screen.dart';
 import '../live_stream/live_player_screen.dart';
 import '../../data/models/live_stream_model.dart';
+import '../../core/utils/safe_list.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const _white        = Color(0xFFFFFFFF);
@@ -142,9 +143,9 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       final live     = await LiveStreamService.getLiveStreams(status: 'live');
       final featured = live.take(3).toList();
       setState(() {
-        _liveStreams     = live;
-        _featuredStreams  = featured;
-        _isLoading       = false;
+        _liveStreams = live.where((s) => s.id.isNotEmpty && s.title.isNotEmpty).toList();
+        _featuredStreams = _liveStreams.take(3).toList();
+        _isLoading = false;
       });
     } catch (e) {
       final s = e.toString();
@@ -581,12 +582,17 @@ class _GoLiveScreenState extends State<GoLiveScreen>
         padding: const EdgeInsets.all(16),
         itemCount: _featuredStreams.length + _liveStreams.length,
         itemBuilder: (context, index) {
+          LiveStreamModel? safeStream;
           if (index < _featuredStreams.length) {
-            return _buildStreamCard(_featuredStreams[index],
-                isFeatured: true);
+            safeStream = _featuredStreams.elementAtOrNull(index);
+          } else {
+            final listIndex = index - _featuredStreams.length;
+            safeStream = _liveStreams.elementAtOrNull(listIndex);
           }
-          return _buildStreamCard(
-              _liveStreams[index - _featuredStreams.length]);
+          if (safeStream == null || safeStream.id.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return _buildStreamCard(safeStream, isFeatured: index < _featuredStreams.length);
         },
       ),
     );
@@ -594,6 +600,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
 
   Widget _buildStreamCard(LiveStreamModel stream,
       {bool isFeatured = false}) {
+    if (stream.id.isEmpty) return const SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(

@@ -33,7 +33,9 @@ class _PlayerListScreenState extends State<PlayerListScreen>
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   String _searchQuery = '';
-  String? _selectedRole;
+String? _selectedRole;
+  // 🔥 FIX: Add toggle for "My Players" vs "All Players"
+  bool _showMyPlayersOnly = false;
 
   final List<String> _roles = [
     'batsman',
@@ -93,27 +95,46 @@ class _PlayerListScreenState extends State<PlayerListScreen>
     }
   }
 
-  Future<void> _loadPlayers({bool loadMore = false}) async {
+Future<void> _loadPlayers({bool loadMore = false}) async {
     if (_isLoading) return;
     setState(() => _isLoading = true);
 
     try {
-      final paginated = await _playerService.getPlayers(
-        page: loadMore ? _page + 1 : 1,
-        search: _searchQuery.isEmpty ? null : _searchQuery,
-        role: _selectedRole,
-      );
+      if (_showMyPlayersOnly) {
+        // getMyPlayers returns PaginatedPlayers
+        final paginated = await _playerService.getMyPlayers(
+          page: loadMore ? _page + 1 : 1,
+        );
 
-      setState(() {
-        if (loadMore) {
-          _players.addAll(paginated.players);
-          _page = paginated.page;
-        } else {
-          _players = paginated.players;
-          _page = paginated.page;
-        }
-        _hasMore = paginated.hasMore;
-      });
+        setState(() {
+          if (loadMore) {
+            _players.addAll(paginated.players);
+            _page = paginated.page;
+          } else {
+            _players = paginated.players;
+            _page = paginated.page;
+          }
+          _hasMore = paginated.hasMore;
+        });
+      } else {
+        // getPlayers returns PlayerSearchResult (different structure!)
+        final result = await _playerService.getPlayers(
+          page: loadMore ? _page + 1 : 1,
+          search: _searchQuery.isEmpty ? null : _searchQuery,
+          filter: _selectedRole,
+        );
+
+        setState(() {
+          if (loadMore) {
+            _players.addAll(result.players);
+            _page = _page + 1;
+          } else {
+            _players = result.players;
+            _page = 1;
+          }
+          _hasMore = result.hasMore;
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -137,12 +158,49 @@ class _PlayerListScreenState extends State<PlayerListScreen>
     }
   }
 
+// 🔥 FIX: Use correct search endpoint based on filter mode
   Future<void> _searchPlayers(String query) async {
     setState(() {
       _searchQuery = query;
       _page = 1;
     });
-    await _loadPlayers();
+    
+    // If no search query, just reload with pagination
+    if (query.isEmpty) {
+      await _loadPlayers();
+      return;
+    }
+    
+    // Use searchMyPlayers() when in "My Players" mode
+    if (_showMyPlayersOnly) {
+      setState(() => _isLoading = true);
+      try {
+        final players = await _playerService.searchMyPlayers(query);
+        setState(() {
+          _players = players;
+          _hasMore = false;
+        });
+      } catch (e) {
+        if (mounted) {
+          _snack('Search error: $e');
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } else {
+      // Use getPlayers with search parameter for all players
+      await _loadPlayers();
+    }
+  }
+  
+  // 🔥 NEW: Toggle between "My Players" and "All Players"
+  void _toggleMyPlayersFilter(bool value) {
+    setState(() {
+      _showMyPlayersOnly = value;
+      _page = 1;
+      _players = []; // Clear current list
+    });
+    _loadPlayers();
   }
 
   @override
@@ -258,7 +316,7 @@ class _PlayerListScreenState extends State<PlayerListScreen>
 
   // ─── Search & Filter (matching community feed style) ───────────────────────
 
-  Widget _buildSearchFilterSection() {
+Widget _buildSearchFilterSection() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       color: Colors.white,
@@ -310,39 +368,118 @@ class _PlayerListScreenState extends State<PlayerListScreen>
             ),
           ),
           const SizedBox(height: 14),
-          // Role filter chips
-          SizedBox(
-            height: 38,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _roles.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
+          // 🔥 NEW: My Players / All Players Toggle
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: _kBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _kBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // All Players Option
+                GestureDetector(
+                  onTap: () => _toggleMyPlayersFilter(false),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: !_showMyPlayersOnly ? AppColors.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.people_rounded,
+                          size: 14,
+                          color: !_showMyPlayersOnly ? Colors.white : _kTextSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'All Players',
+                          style: TextStyle(
+                            color: !_showMyPlayersOnly ? Colors.white : _kTextSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // My Players Option
+                GestureDetector(
+                  onTap: () => _toggleMyPlayersFilter(true),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _showMyPlayersOnly ? AppColors.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.person_rounded,
+                          size: 14,
+                          color: _showMyPlayersOnly ? Colors.white : _kTextSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'My Players',
+                          style: TextStyle(
+                            color: _showMyPlayersOnly ? Colors.white : _kTextSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Role filter chips (hide when showing My Players only - no search needed)
+          if (!_showMyPlayersOnly)
+            SizedBox(
+              height: 38,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _roles.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _buildFilterChip(
+                      label: 'All',
+                      icon: Icons.people_rounded,
+                      isSelected: _selectedRole == null,
+                      color: AppColors.primary,
+                      onTap: () {
+                        setState(() => _selectedRole = null);
+                        _loadPlayers();
+                      },
+                    );
+                  }
+                  final role = _roles[index - 1];
                   return _buildFilterChip(
-                    label: 'All',
-                    icon: Icons.people_rounded,
-                    isSelected: _selectedRole == null,
-                    color: AppColors.primary,
+                    label: _formatRoleLabel(role),
+                    icon: _roleIcon(role),
+                    isSelected: _selectedRole == role,
+                    color: _roleColor(role),
                     onTap: () {
-                      setState(() => _selectedRole = null);
+                      setState(() => _selectedRole = role);
                       _loadPlayers();
                     },
                   );
-                }
-                final role = _roles[index - 1];
-                return _buildFilterChip(
-                  label: _formatRoleLabel(role),
-                  icon: _roleIcon(role),
-                  isSelected: _selectedRole == role,
-                  color: _roleColor(role),
-                  onTap: () {
-                    setState(() => _selectedRole = role);
-                    _loadPlayers();
-                  },
-                );
-              },
+                },
+              ),
             ),
-          ),
         ],
       ),
     );

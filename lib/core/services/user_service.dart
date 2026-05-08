@@ -1,12 +1,16 @@
 ﻿import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
+import '../config/api_config.dart';
+import '../services/api_client.dart';
 
 class UserService {
+  final ApiClient _apiClient = ApiClient();
   static const String _userIdKey = 'user_id';
   static const String _userNameKey = 'user_name';
   static const String _userEmailKey = 'user_email';
 
-  // Save user data
+  // Local storage methods (unchanged)
   static Future<void> saveUserData({
     required String userId,
     String? userName,
@@ -18,37 +22,32 @@ class UserService {
     if (userEmail != null) await prefs.setString(_userEmailKey, userEmail);
   }
 
-  // Get user ID
-static Future<String?> getUserId() async {
+  static Future<String?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
     String? userId = prefs.getString(_userIdKey);
     if (userId == null || userId.isEmpty) {
-      debugPrint('⚠️ No user ID found, using demo for notifications');
+      debugPrint('⚠️ No user ID found, using demo');
       await createDemoUser();
       userId = 'demo_user_123';
     }
     return userId;
   }
 
-  // Get user name
   static Future<String?> getUserName() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_userNameKey);
   }
 
-  // Get user email
   static Future<String?> getUserEmail() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_userEmailKey);
   }
 
-  // Check if user is logged in
   static Future<bool> isLoggedIn() async {
     final userId = await getUserId();
     return userId != null && userId.isNotEmpty;
   }
 
-  // Clear user data (logout)
   static Future<void> clearUserData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userIdKey);
@@ -56,7 +55,6 @@ static Future<String?> getUserId() async {
     await prefs.remove(_userEmailKey);
   }
 
-  // Create a demo user for testing
   static Future<void> createDemoUser() async {
     await saveUserData(
       userId: 'demo_user_123',
@@ -64,4 +62,72 @@ static Future<String?> getUserId() async {
       userEmail: 'demo@example.com',
     );
   }
+
+  // NEW: API methods for followers/connections
+  Future<Map<String, dynamic>> getFollowers({Map<String, dynamic>? queryParameters}) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.users}/followers',
+        queryParameters: queryParameters,
+      );
+      return {
+        'success': true,
+        'data': response.data,
+      };
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(e));
+    } catch (e) {
+      throw Exception('Failed to load followers: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getFollowing({Map<String, dynamic>? queryParameters}) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.users}/following',
+        queryParameters: queryParameters,
+      );
+      return {
+        'success': true,
+        'data': response.data,
+      };
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(e));
+    } catch (e) {
+      throw Exception('Failed to load following: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> followUser(String userId) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.users}/follow/$userId',
+      );
+      return {
+        'success': true,
+        'data': response.data,
+      };
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(e));
+    } catch (e) {
+      throw Exception('Failed to follow user: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> unfollowUser(String userId) async {
+    try {
+      final response = await _apiClient.delete(
+        '${ApiConfig.users}/follow/$userId',
+      );
+      return {
+        'success': true,
+        'data': response.data,
+      };
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(e));
+    } catch (e) {
+      throw Exception('Failed to unfollow user: $e');
+    }
+  }
 }
+

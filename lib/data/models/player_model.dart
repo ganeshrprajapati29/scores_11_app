@@ -47,25 +47,47 @@ class Player extends Equatable {
     required this.updatedAt,
   });
 
-  factory Player.fromJson(Map<String, dynamic> json) {
+factory Player.fromJson(Map<String, dynamic> json) {
+    // FIXED: Handle null/undefined safely
+    final teamValue = json['team'];
+    final String? teamId;
+    if (teamValue == null) {
+      teamId = null;
+    } else if (teamValue is String) {
+      teamId = teamValue;
+    } else if (teamValue is Map<String, dynamic>) {
+      teamId = teamValue['_id'] as String?;
+    } else {
+      teamId = null;
+    }
+    
+    final teamNameValue = json['team'];
+    final String? teamLabel;
+    if (teamNameValue is Map<String, dynamic>) {
+      teamLabel = teamNameValue['name'] as String? ?? teamNameValue['shortName'] as String?;
+    } else {
+      teamLabel = json['teamName'] as String?;
+    }
+    
     return Player(
-      id: json['_id'] ?? json['id'] ?? '',
-name: json['playerName'] ?? json['user']?['name'] ?? json['name'] ?? '',
-      email: json['email'],
-      phone: json['phone'],
-      photo: json['photo'],
-      dateOfBirth: json['dateOfBirth'],
-      gender: json['gender'],
-      nationality: json['nationality'],
-      role: json['role'],
-      battingStyle: json['battingStyle'],
-      bowlingStyle: json['bowlingStyle'],
-      playerRole: json['playerRole'],
+      id: (json['_id'] ?? json['id'] ?? '') as String,
+      name: json['playerName'] ?? json['user']?['name'] ?? json['name'] ?? '',
+      email: json['email'] as String?,
+      phone: json['phone'] as String?,
+      photo: json['photo'] as String?,
+      profileImage: json['profileImage'] as String?,
+      dateOfBirth: json['dateOfBirth'] as String?,
+      gender: json['gender'] as String?,
+      nationality: json['nationality'] as String?,
+      role: json['role'] as String?,
+      battingStyle: json['battingStyle'] as String?,
+      bowlingStyle: json['bowlingStyle'] as String?,
+      playerRole: json['playerRole'] as String?,
       jerseyNumber: (json['jerseyNumber'] as num?)?.toInt() ?? 0,
-team: json['team'] is String ? json['team'] : json['team']?['_id'],
-      teamName: json['team']?['name'] ?? json['team']?['shortName'] ?? json['teamName'],
-      country: json['country'],
-      stats: json['stats'] != null ? PlayerStats.fromJson(json['stats']) : null,
+      team: teamId,
+      teamName: teamLabel,
+      country: json['country'] as String?,
+      stats: json['stats'] != null ? PlayerStats.fromJson(json['stats'] as Map<String, dynamic>) : null,
       isActive: json['isActive'] ?? true,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),

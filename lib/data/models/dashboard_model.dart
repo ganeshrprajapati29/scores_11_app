@@ -1,6 +1,7 @@
 ﻿// lib/data/models/dashboard_model.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../data/models/tournament_model.dart';
 
 // ==================== Main Dashboard Model ====================
@@ -21,22 +22,65 @@ class DashboardData {
     required this.timestamp,
   });
 
-  factory DashboardData.fromJson(Map<String, dynamic> json) {
+factory DashboardData.fromJson(Map<String, dynamic> json) {
+    // ✅ FIX: Handle quickStats being null, String, Map, or any other type
+    Map<String, dynamic> safeQuickStats = {};
+    final rawQuickStats = json['quickStats'];
+    if (rawQuickStats is Map<String, dynamic>) {
+      safeQuickStats = rawQuickStats;
+    } else if (rawQuickStats != null) {
+      debugPrint('⚠️ quickStats type: ${rawQuickStats.runtimeType} - using empty stats');
+    }
+
+    // ✅ FIX: Handle lists safely - check type before casting
+    List<LiveMatch> safeLiveMatches = [];
+    List<UpcomingMatch> safeUpcomingMatches = [];
+    List<TrendingPlayer> safeTrendingPlayers = [];
+    List<Tournament> safeLatestTournaments = [];
+
+    try {
+      if (json['liveMatches'] is List) {
+        safeLiveMatches = (json['liveMatches'] as List)
+            .where((e) => e is Map<String, dynamic>)
+            .map((e) => LiveMatch.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) { debugPrint('⚠️.liveMatches error: $e'); }
+
+    try {
+      if (json['upcomingMatches'] is List) {
+        safeUpcomingMatches = (json['upcomingMatches'] as List)
+            .where((e) => e is Map<String, dynamic>)
+            .map((e) => UpcomingMatch.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) { debugPrint('⚠️ upcomingMatches error: $e'); }
+
+    try {
+      if (json['trendingPlayers'] is List) {
+        safeTrendingPlayers = (json['trendingPlayers'] as List)
+            .where((e) => e is Map<String, dynamic>)
+            .map((e) => TrendingPlayer.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) { debugPrint('⚠️ trendingPlayers error: $e'); }
+
+    try {
+      if (json['latestTournaments'] is List) {
+        safeLatestTournaments = (json['latestTournaments'] as List)
+            .where((e) => e is Map<String, dynamic>)
+            .map((e) => Tournament.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) { debugPrint('⚠️ latestTournaments error: $e'); }
+
     return DashboardData(
-      liveMatches: (json['liveMatches'] as List? ?? [])
-          .map((e) => LiveMatch.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      upcomingMatches: (json['upcomingMatches'] as List? ?? [])
-          .map((e) => UpcomingMatch.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      trendingPlayers: (json['trendingPlayers'] as List? ?? [])
-          .map((e) => TrendingPlayer.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      latestTournaments: (json['latestTournaments'] as List? ?? [])
-          .map((e) => Tournament.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      quickStats: QuickStats.fromJson(json['quickStats'] as Map<String, dynamic>? ?? {}),
-      timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
+      liveMatches: safeLiveMatches,
+      upcomingMatches: safeUpcomingMatches,
+      trendingPlayers: safeTrendingPlayers,
+      latestTournaments: safeLatestTournaments,
+      quickStats: QuickStats.fromJson(safeQuickStats),
+      timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -74,16 +118,17 @@ class QuickStats {
     required this.liveMatches,
   });
 
-  factory QuickStats.fromJson(Map<String, dynamic> json) {
+factory QuickStats.fromJson(Map<String, dynamic> json) {
+    // ✅ FIX: Handle both int and String types for all fields
     return QuickStats(
-      totalMatches: json['totalMatches'] ?? 0,
-      totalTournaments: json['totalTournaments'] ?? 0,
-      totalTeams: json['totalTeams'] ?? 0,
-      totalPlayers: json['totalPlayers'] ?? 0,
-      todayMatches: json['todayMatches'] ?? 0,
-      weekMatches: json['weekMatches'] ?? 0,
-      activeTournaments: json['activeTournaments'] ?? 0,
-      liveMatches: json['liveMatches'] ?? 0,
+      totalMatches: int.tryParse(json['totalMatches']?.toString() ?? '0') ?? 0,
+      totalTournaments: int.tryParse(json['totalTournaments']?.toString() ?? '0') ?? 0,
+      totalTeams: int.tryParse(json['totalTeams']?.toString() ?? '0') ?? 0,
+      totalPlayers: int.tryParse(json['totalPlayers']?.toString() ?? '0') ?? 0,
+      todayMatches: int.tryParse(json['todayMatches']?.toString() ?? '0') ?? 0,
+      weekMatches: int.tryParse(json['weekMatches']?.toString() ?? '0') ?? 0,
+      activeTournaments: int.tryParse(json['activeTournaments']?.toString() ?? '0') ?? 0,
+      liveMatches: int.tryParse(json['liveMatches']?.toString() ?? '0') ?? 0,
     );
   }
 
@@ -115,13 +160,20 @@ class Team {
     this.logo,
   });
 
-  factory Team.fromJson(Map<String, dynamic> json) {
-    return Team(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      shortName: json['shortName'] ?? '',
-      logo: json['logo'],
-    );
+  factory Team.fromJson(dynamic json) {
+    // ✅ FIX: Handle Map, String, or null input
+    if (json is String) {
+      return Team(id: json, name: json, shortName: json);
+    }
+    if (json is Map) {
+      return Team(
+        id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+        name: json['name']?.toString() ?? '',
+        shortName: json['shortName']?.toString() ?? json['name']?.toString().substring(0, 1) ?? '',
+        logo: json['logo']?.toString(),
+      );
+    }
+    return Team(id: '', name: 'Unknown', shortName: '?');
   }
 
   Map<String, dynamic> toJson() {
@@ -148,6 +200,10 @@ class LiveMatch {
   final String? scoreString;
   final int? team1Score;
   final int? team2Score;
+  final String? venue;
+  final String? venueCity;
+  final String? matchType;
+  final String? result;
 
   LiveMatch({
     required this.id,
@@ -161,21 +217,35 @@ class LiveMatch {
     this.scoreString,
     this.team1Score,
     this.team2Score,
+    this.venue,
+    this.venueCity,
+    this.matchType,
+    this.result,
   });
 
-  factory LiveMatch.fromJson(Map<String, dynamic> json) {
+  factory LiveMatch.fromJson(dynamic json) {
+    // ✅ FIX: Handle dynamic input (Map, String, null)
+    Map<String, dynamic> safeJson = {};
+    if (json is Map) {
+      safeJson = Map<String, dynamic>.from(json);
+    }
+    
     return LiveMatch(
-      id: json['id'] ?? '',
-      team1: Team.fromJson(json['team1'] ?? {}),
-      team2: Team.fromJson(json['team2'] ?? {}),
-      status: json['status'] ?? '',
-      format: json['format'] ?? '',
-      scheduledDate: DateTime.tryParse(json['scheduledDate'] ?? '') ?? DateTime.now(),
-      tournament: Tournament.fromJson(json['tournament'] ?? {}),
-      innings: json['innings'],
-      scoreString: json['scoreString'],
-      team1Score: json['team1Score'],
-      team2Score: json['team2Score'],
+      id: safeJson['_id']?.toString() ?? safeJson['id']?.toString() ?? '',
+      team1: Team.fromJson(safeJson['team1']),
+      team2: Team.fromJson(safeJson['team2']),
+      status: safeJson['status']?.toString() ?? '',
+      format: safeJson['format']?.toString() ?? '',
+      scheduledDate: DateTime.tryParse(safeJson['scheduledDate']?.toString() ?? '') ?? DateTime.now(),
+      tournament: Tournament.fromJson(safeJson['tournament'] ?? {}),
+      innings: safeJson['innings'] is Map ? Map<String, dynamic>.from(safeJson['innings']) : null,
+      scoreString: safeJson['scoreString']?.toString() ?? safeJson['score']?.toString(),
+      team1Score: int.tryParse(safeJson['team1Score']?.toString() ?? safeJson['team1Runs']?.toString() ?? ''),
+      team2Score: int.tryParse(safeJson['team2Score']?.toString() ?? safeJson['team2Runs']?.toString() ?? ''),
+      venue: safeJson['venue']?.toString(),
+      venueCity: safeJson['venueCity']?.toString() ?? safeJson['city']?.toString(),
+      matchType: safeJson['matchType']?.toString() ?? safeJson['type']?.toString(),
+      result: safeJson['result']?.toString(),
     );
   }
 
@@ -192,7 +262,55 @@ class LiveMatch {
       'scoreString': scoreString,
       'team1Score': team1Score,
       'team2Score': team2Score,
+      'venue': venue,
+      'venueCity': venueCity,
+      'matchType': matchType,
+      'result': result,
     };
+  }
+
+  // Format scheduled date for display
+  String get formattedDate {
+    final now = DateTime.now();
+    final diff = scheduledDate.difference(now);
+    
+    if (diff.isNegative) {
+      // Past match - show result
+      if (result != null && result!.isNotEmpty) {
+        return result!;
+      }
+      return status == 'completed' ? 'Completed' : '$team1Score - $team2Score';
+    }
+    
+    // Today
+    if (scheduledDate.day == now.day && 
+        scheduledDate.month == now.month && 
+        scheduledDate.year == now.year) {
+      return 'Today, ${_formatTime(scheduledDate)}';
+    }
+    
+    // Tomorrow
+    final tomorrow = now.add(const Duration(days: 1));
+    if (scheduledDate.day == tomorrow.day && 
+        scheduledDate.month == tomorrow.month && 
+        scheduledDate.year == tomorrow.year) {
+      return 'Tomorrow, ${_formatTime(scheduledDate)}';
+    }
+    
+    // Other days
+    return '${_formatDate(scheduledDate)}, ${_formatTime(scheduledDate)}';
+  }
+
+  String _formatTime(DateTime dt) {
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$hour:$minute $period';
+  }
+
+  String _formatDate(DateTime dt) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${dt.day} ${months[dt.month - 1]}';
   }
 }
 
@@ -214,14 +332,20 @@ class UpcomingMatch {
     required this.tournament,
   });
 
-  factory UpcomingMatch.fromJson(Map<String, dynamic> json) {
+  factory UpcomingMatch.fromJson(dynamic json) {
+    // ✅ FIX: Handle dynamic input (Map, String, null)
+    Map<String, dynamic> safeJson = {};
+    if (json is Map) {
+      safeJson = Map<String, dynamic>.from(json);
+    }
+    
     return UpcomingMatch(
-      id: json['id'] ?? '',
-      team1: Team.fromJson(json['team1'] ?? {}),
-      team2: Team.fromJson(json['team2'] ?? {}),
-      format: json['format'] ?? '',
-      scheduledDate: DateTime.tryParse(json['scheduledDate'] ?? '') ?? DateTime.now(),
-      tournament: Tournament.fromJson(json['tournament'] ?? {}),
+      id: safeJson['id']?.toString() ?? '',
+      team1: Team.fromJson(safeJson['team1']),
+      team2: Team.fromJson(safeJson['team2']),
+      format: safeJson['format']?.toString() ?? '',
+      scheduledDate: DateTime.tryParse(safeJson['scheduledDate']?.toString() ?? '') ?? DateTime.now(),
+      tournament: Tournament.fromJson(safeJson['tournament'] ?? {}),
     );
   }
 
@@ -257,15 +381,21 @@ class TrendingPlayer {
     required this.stats,
   });
 
-  factory TrendingPlayer.fromJson(Map<String, dynamic> json) {
+  factory TrendingPlayer.fromJson(dynamic json) {
+    // ✅ FIX: Handle dynamic input (Map, String, null)
+    Map<String, dynamic> safeJson = {};
+    if (json is Map) {
+      safeJson = Map<String, dynamic>.from(json);
+    }
+    
     return TrendingPlayer(
-      rank: json['rank'] ?? 0,
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      jerseyNumber: json['jerseyNumber'] ?? 0,
-      role: json['role'] ?? '',
-      team: Team.fromJson(json['team'] ?? {}),
-      stats: PlayerStats.fromJson(json['stats'] ?? {}),
+      rank: int.tryParse(safeJson['rank']?.toString() ?? '0') ?? 0,
+      id: safeJson['id']?.toString() ?? '',
+      name: safeJson['name']?.toString() ?? '',
+      jerseyNumber: int.tryParse(safeJson['jerseyNumber']?.toString() ?? '0') ?? 0,
+      role: safeJson['role']?.toString() ?? '',
+      team: Team.fromJson(safeJson['team']),
+      stats: PlayerStats.fromJson(safeJson['stats']),
     );
   }
 
@@ -298,13 +428,19 @@ class PlayerStats {
     required this.strikeRate,
   });
 
-  factory PlayerStats.fromJson(Map<String, dynamic> json) {
+  factory PlayerStats.fromJson(dynamic json) {
+    // ✅ FIX: Handle dynamic input (Map, String, null)
+    Map<String, dynamic> safeJson = {};
+    if (json is Map) {
+      safeJson = Map<String, dynamic>.from(json);
+    }
+    
     return PlayerStats(
-      runs: json['runs'] ?? 0,
-      wickets: json['wickets'] ?? 0,
-      matches: json['matches'] ?? 0,
-      average: (json['average'] ?? 0).toDouble(),
-      strikeRate: (json['strikeRate'] ?? 0).toDouble(),
+      runs: int.tryParse(safeJson['runs']?.toString() ?? '0') ?? 0,
+      wickets: int.tryParse(safeJson['wickets']?.toString() ?? '0') ?? 0,
+      matches: int.tryParse(safeJson['matches']?.toString() ?? '0') ?? 0,
+      average: double.tryParse(safeJson['average']?.toString() ?? '0') ?? 0.0,
+      strikeRate: double.tryParse(safeJson['strikeRate']?.toString() ?? '0') ?? 0.0,
     );
   }
 

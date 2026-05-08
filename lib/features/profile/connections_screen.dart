@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/user_service.dart';
+import '../../../data/services/chat_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/custom_appbar.dart';
-import '../../../data/services/user_service.dart';
+import '../chat/chat_screen.dart';
 
 class ConnectionsScreen extends StatefulWidget {
   const ConnectionsScreen({super.key});
@@ -13,6 +15,7 @@ class ConnectionsScreen extends StatefulWidget {
 class _ConnectionsScreenState extends State<ConnectionsScreen>
     with SingleTickerProviderStateMixin {
   final UserService _userService = UserService();
+  final ChatService _chatService = ChatService();
 
   List<dynamic> _followers = [];
   List<dynamic> _following = [];
@@ -52,8 +55,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
           SnackBar(
             content: Text('Error loading connections: $e'),
             behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
         setState(() => _isLoading = false);
@@ -65,15 +67,42 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
     try {
       await _userService.unfollowUser(userId);
       _loadConnections();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unfollowed successfully')),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
             behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
+        );
+      }
+    }
+  }
+
+  Future<void> _startChat(Map<String, dynamic> user) async {
+    try {
+      final chatInfo = await _chatService.getChatByUserId(user['id'] ?? user['_id']);
+      final chatId = chatInfo['chatId'] ?? '';
+      
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatId: chatId,
+              otherUser: {...user, 'id': user['id'] ?? user['_id']},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error starting chat: $e')),
         );
       }
     }
@@ -92,8 +121,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
       ),
       body: _isLoading
           ? Center(
-              child: CircularProgressIndicator(
-                  color: AppColors.primary, strokeWidth: 2.5),
+              child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5),
             )
           : TabBarView(
               controller: _tabController,
@@ -102,12 +130,14 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
                   users: _followers,
                   type: 'followers',
                   onAction: _unfollowUser,
+                  onChat: _startChat,
                   onRefresh: _loadConnections,
                 ),
                 _ConnectionList(
                   users: _following,
                   type: 'following',
                   onAction: _unfollowUser,
+                  onChat: _startChat,
                   onRefresh: _loadConnections,
                 ),
               ],
@@ -125,14 +155,8 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
         indicatorColor: AppColors.primary,
         indicatorWeight: 2.5,
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: const TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-        ),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
         tabs: [
           Tab(
             child: Row(
@@ -161,10 +185,8 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
 }
 
 // ─── Count Badge ─────────────────────────────────────────────────────────────
-
 class _CountBadge extends StatelessWidget {
   final int count;
-
   const _CountBadge({required this.count});
 
   @override
@@ -177,28 +199,25 @@ class _CountBadge extends StatelessWidget {
       ),
       child: Text(
         '$count',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: AppColors.primary,
-        ),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary),
       ),
     );
   }
 }
 
 // ─── Connection List ──────────────────────────────────────────────────────────
-
 class _ConnectionList extends StatelessWidget {
   final List<dynamic> users;
   final String type;
   final Function(String) onAction;
+  final Function(Map<String, dynamic>) onChat;
   final Future<void> Function() onRefresh;
 
   const _ConnectionList({
     required this.users,
     required this.type,
     required this.onAction,
+    required this.onChat,
     required this.onRefresh,
   });
 
@@ -212,7 +231,7 @@ class _ConnectionList extends StatelessWidget {
       onRefresh: onRefresh,
       color: AppColors.primary,
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
         itemCount: users.length,
         itemBuilder: (context, index) {
           final user = users[index];
@@ -220,6 +239,7 @@ class _ConnectionList extends StatelessWidget {
             user: user,
             type: type,
             onAction: onAction,
+            onChat: onChat,
           );
         },
       ),
@@ -228,10 +248,8 @@ class _ConnectionList extends StatelessWidget {
 }
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
-
 class _EmptyState extends StatelessWidget {
   final String type;
-
   const _EmptyState({required this.type});
 
   @override
@@ -249,31 +267,18 @@ class _EmptyState extends StatelessWidget {
                 color: const Color(0xFFF0F2F8),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.people_outline_rounded,
-                size: 38,
-                color: const Color(0xFFCCCCCC),
-              ),
+              child: Icon(Icons.people_outline_rounded, size: 38, color: const Color(0xFFCCCCCC)),
             ),
             const SizedBox(height: 16),
             Text(
               'No $type yet',
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A2E),
-              ),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
             ),
             const SizedBox(height: 6),
             Text(
-              type == 'followers'
-                  ? 'Nobody is following you yet'
-                  : 'You are not following anyone yet',
+              type == 'followers' ? 'Nobody is following you yet' : 'You are not following anyone yet',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF999999),
-              ),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF999999)),
             ),
           ],
         ),
@@ -283,98 +288,74 @@ class _EmptyState extends StatelessWidget {
 }
 
 // ─── User Tile ────────────────────────────────────────────────────────────────
-
 class _UserTile extends StatelessWidget {
   final dynamic user;
   final String type;
   final Function(String) onAction;
+  final Function(Map<String, dynamic>) onChat;
 
   const _UserTile({
     required this.user,
     required this.type,
     required this.onAction,
+    required this.onChat,
   });
 
   @override
   Widget build(BuildContext context) {
-    final name = user['name'] ?? 'Unknown';
+    final name = user['name'] ?? user['fullName'] ?? 'Unknown';
     final role = user['role'] ?? user['playingStyle'] ?? 'Player';
-    final avatarUrl = user['avatar']?['url'] ?? user['profileImage'];
-    final userId = user['id'] ?? '';
-    final initial =
-        name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final avatarUrl = user['avatar']?['url'] ?? user['avatar'] ?? user['profileImage'];
+    final userId = user['id'] ?? user['_id'] ?? '';
 
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/profile/$userId'),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Avatar
-            _UserAvatar(
-              avatarUrl: avatarUrl,
-              initial: initial,
-            ),
-            const SizedBox(width: 12),
-            // Name & Role
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A2E),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () => onChat(user),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Avatar
+              _UserAvatar(avatarUrl: avatarUrl, initial: name.isNotEmpty ? name[0].toUpperCase() : '?'),
+              const SizedBox(width: 16),
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.sports_cricket_rounded,
-                        size: 12,
-                        color: const Color(0xFFAAAAAA),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          role,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF888888),
-                            fontWeight: FontWeight.w500,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.sports_cricket_rounded, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            role,
+                            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            // Action Button
-            _ActionButton(
-              label: type == 'followers' ? 'Remove' : 'Unfollow',
-              isDestructive: true,
-              onPressed: () => onAction(userId),
-            ),
-          ],
+              // Action
+              _ActionButton(
+                label: type == 'followers' ? 'Remove' : 'Unfollow',
+                isDestructive: true,
+                onPressed: () => onAction(userId),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -382,7 +363,6 @@ class _UserTile extends StatelessWidget {
 }
 
 // ─── User Avatar ─────────────────────────────────────────────────────────────
-
 class _UserAvatar extends StatelessWidget {
   final String? avatarUrl;
   final String initial;
@@ -392,21 +372,18 @@ class _UserAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 56,
+      height: 56,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.15),
-          width: 2,
-        ),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2), width: 2),
       ),
       child: ClipOval(
-        child: avatarUrl != null
+        child: avatarUrl != null && avatarUrl!.isNotEmpty
             ? Image.network(
                 avatarUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _AvatarFallback(initial: initial),
+                errorBuilder: (context, error, stackTrace) => _AvatarFallback(initial: initial),
               )
             : _AvatarFallback(initial: initial),
       ),
@@ -416,18 +393,17 @@ class _UserAvatar extends StatelessWidget {
 
 class _AvatarFallback extends StatelessWidget {
   final String initial;
-
   const _AvatarFallback({required this.initial});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.primary.withOpacity(0.08),
+      color: AppColors.primary.withOpacity(0.1),
       child: Center(
         child: Text(
           initial,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             color: AppColors.primary,
           ),
@@ -438,7 +414,6 @@ class _AvatarFallback extends StatelessWidget {
 }
 
 // ─── Action Button ────────────────────────────────────────────────────────────
-
 class _ActionButton extends StatelessWidget {
   final String label;
   final bool isDestructive;
@@ -455,30 +430,25 @@ class _ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isDestructive
-              ? const Color(0xFFFFEBEE)
-              : AppColors.primary.withOpacity(0.1),
+          color: isDestructive ? const Color(0xFFFFF2F2) : AppColors.primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isDestructive
-                ? const Color(0xFFFFCDD2)
-                : AppColors.primary.withOpacity(0.2),
+            color: isDestructive ? const Color(0xFFFFB3B3) : AppColors.primary.withOpacity(0.3),
             width: 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: isDestructive
-                ? const Color(0xFFC62828)
-                : AppColors.primary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isDestructive ? const Color(0xFFE74C3C) : AppColors.primary,
           ),
         ),
       ),
     );
   }
 }
+

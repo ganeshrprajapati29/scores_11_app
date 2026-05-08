@@ -236,7 +236,7 @@ class CacheService {
     await _prefs?.setInt('${key}_time', DateTime.now().millisecondsSinceEpoch);
   }
 
-  Map<String, dynamic>? getCachedScorecard(String matchId, {int ttlMinutes = 10}) {
+Map<String, dynamic>? getCachedScorecard(String matchId, {int ttlMinutes = 10}) {
     final key = 'scorecard_$matchId';
     final cacheTime = _prefs?.getInt('${key}_time');
     if (cacheTime == null) return null;
@@ -248,6 +248,13 @@ class CacheService {
     final data = _prefs?.getString(key);
     if (data == null) return null;
     return jsonDecode(data);
+  }
+
+  /// Clear scorecard cache for a specific match
+  Future<void> clearScorecard(String matchId) async {
+    final key = 'scorecard_$matchId';
+    await _prefs?.remove(key);
+    await _prefs?.remove('${key}_time');
   }
 
   // ==================== CACHE MANAGEMENT ====================

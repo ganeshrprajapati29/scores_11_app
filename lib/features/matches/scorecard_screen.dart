@@ -138,12 +138,22 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
     );
   }
 
-  Widget _buildMatchHeader(FullScorecard scorecard) {
+Widget _buildMatchHeader(FullScorecard scorecard) {
     final match = scorecard.match;
     final currentInnings = scorecard.innings.isNotEmpty ? scorecard.innings[0] : null;
     if (currentInnings == null) return const SizedBox.shrink();
 
-    final battingTeam = currentInnings.battingTeam;
+    // Determine which team is batting
+    final bool isTeam1Batting = match.currentInnings == 1 || match.currentInnings == null;
+    final battingTeamName = isTeam1Batting 
+        ? (match.team1.isNotEmpty ? match.team1 : 'Team 1')
+        : (match.team2.isNotEmpty ? match.team2 : 'Team 2');
+    
+    // Truncate long team names
+    final displayName = battingTeamName.length > 20 
+        ? '${battingTeamName.substring(0, 17)}...' 
+        : battingTeamName;
+
     final totalRuns = currentInnings.totalRuns;
     final totalWickets = currentInnings.totalWickets;
     final oversDisplay = currentInnings.oversDisplay;
@@ -161,15 +171,14 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
       ),
       child: Column(
         children: [
-
-            Text(
-              battingTeam ?? 'Batting',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
+          Text(
+            displayName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
             ),
+          ),
           const SizedBox(height: 8),
           Text(
             '$totalRuns/$totalWickets',
@@ -207,13 +216,20 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
     );
   }
 
-  Widget _buildStatsRow(FullScorecard scorecard) {
+Widget _buildStatsRow(FullScorecard scorecard) {
     final currentInnings = scorecard.innings.isNotEmpty ? scorecard.innings[0] : null;
     if (currentInnings == null) return const SizedBox.shrink();
 
-    final runRate = currentInnings.runRate.toStringAsFixed(2);
+    final runRate = currentInnings.runRate > 0 ? currentInnings.runRate.toStringAsFixed(2) : '0.00';
     final extrasTotal = currentInnings.extras.total;
     final wickets = currentInnings.totalWickets;
+
+// Try to get partnership data from scorecard.partnership
+    String partnership = '-';
+    if (scorecard.partnerships.isNotEmpty) {
+      final p = scorecard.partnerships[0] as Map<String, dynamic>;
+      partnership = '${p['runs']}/${p['wickets']}';
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -243,7 +259,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
             child: Column(
               children: [
                 const Text('Partnership', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-                const Text('10/1 (24)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(partnership, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -470,10 +486,25 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
 
   }
 
-  Widget _buildTeamsHeader(ScorecardProvider provider) {
+Widget _buildTeamsHeader(ScorecardProvider provider) {
     final match = provider.match;
     if (match == null) return const SizedBox.shrink();
 
+    // Get actual team names with fallbacks - team1 and team2 are String properties
+    final team1Name = match.team1.isNotEmpty ? match.team1 : 'Team 1';
+    final team2Name = match.team2.isNotEmpty ? match.team2 : 'Team 2';
+    
+    // Handle long team names - truncate for display if too long
+    String getShortName(String name) {
+      if (name.length > 15) {
+        return name.substring(0, 12) + '...';
+      }
+      return name;
+    }
+    
+    final team1Short = getShortName(team1Name);
+    final team2Short = getShortName(team2Name);
+    
     final team1Score = '${match.score.team1.runs}/${match.score.team1.wickets} (${match.score.team1.overs})';
     final team2Score = '${match.score.team2.runs}/${match.score.team2.wickets} (${match.score.team2.overs})';
     
@@ -496,9 +527,9 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Team 1',  // TODO: match.team1 ?? 
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    Text(
+                      team1Short,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -531,9 +562,9 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
-                      'Team 2',  // TODO: match.team2 ??
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    Text(
+                      team2Short,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -550,6 +581,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          // Current innings info
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -567,7 +599,7 @@ class _ScorecardScreenState extends State<ScorecardScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${match.venue?.name ?? ''}, ${match.format}',
+            '${match.venue?.name ?? ''} • ${match.format}',
             style: const TextStyle(color: Colors.white60, fontSize: 12),
           ),
         ],

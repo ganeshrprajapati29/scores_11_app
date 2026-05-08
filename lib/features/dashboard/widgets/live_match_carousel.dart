@@ -193,7 +193,7 @@ class LiveMatchCard extends StatelessWidget {
             score: match.team2Score?.toString(),
             isLeading: match.team2Score != null && match.team2Score! > (match.team1Score ?? 0),
           ),
-          const Spacer(),
+const Spacer(),
           // Tournament
           Text(
             match.tournament.name,
@@ -203,6 +203,41 @@ class LiveMatchCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             maxLines: 1,
+          ),
+          const SizedBox(height: 4),
+          // Venue and Date/Time
+          Row(
+            children: [
+              Icon(Icons.location_on, size: 10, color: Colors.grey[400]),
+              const SizedBox(width: 2),
+              Expanded(
+                child: Text(
+                  '${match.venue ?? match.venueCity ?? ''}',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 9,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          // Date/Time
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              match.formattedDate,
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 8,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
