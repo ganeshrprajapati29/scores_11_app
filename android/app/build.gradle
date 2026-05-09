@@ -41,10 +41,10 @@ android {
 
     namespace "com.scores11.app"
 
-    // ✅ Stable SDK
+// ✅ UPDATED compileSdk (36 required by AndroidX dependencies)
     compileSdk 36
 
-    // ✅ Stable NDK
+    // ✅ UPDATED NDK (27+ required by plugins)
     ndkVersion "27.0.12077973"
 
     compileOptions {
@@ -62,9 +62,9 @@ android {
         applicationId "com.scores11.app"
 
         // ✅ Stable minimum sdk
-        minSdkVersion flutter.minSdkVersion
+        minSdkVersion 24
 
-        targetSdk 34
+targetSdk 36
 
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
@@ -94,7 +94,7 @@ android {
 
             signingConfig signingConfigs.release
 
-            // ✅ IMPORTANT
+            // ✅ IMPORTANT: Disable minification for stable release
             minifyEnabled false
             shrinkResources false
             debuggable false
@@ -133,27 +133,32 @@ flutter {
 // =========================
 configurations.all {
 
-    resolutionStrategy {
+resolutionStrategy {
 
-        force 'androidx.core:core:1.12.0'
+        // ✅ UPDATED for compileSdk 36 compatibility
+        force 'androidx.core:core:1.17.0'
+        force 'androidx.activity:activity:1.12.4'
+        force 'androidx.activity:activity-ktx:1.12.4'
+        force 'androidx.fragment:fragment:1.8.7'
         force 'androidx.versionedparcelable:versionedparcelable:1.1.1'
     }
 }
 
 dependencies {
 
-// ✅ Stable Kotlin
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.3.0"
+// ✅ STABLE Kotlin (1.9.22 is production-ready)
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
 
     implementation 'androidx.multidex:multidex:2.0.1'
 
-    implementation 'androidx.core:core-ktx:1.12.0'
+implementation 'androidx.core:core-ktx:1.17.0'
 
-// ✅ AndroidX Activity (required for FlutterFragmentActivity)
-    implementation 'androidx.activity:activity:1.8.0'
+// ✅ AndroidX Activity (required for compileSdk 36)
+    implementation 'androidx.activity:activity:1.12.4'
+    implementation 'androidx.activity:activity-ktx:1.12.4'
     
-    // ✅ AndroidX Fragment (required for FlutterFragmentActivity)
-    implementation 'androidx.fragment:fragment:1.6.2'
+    // ✅ AndroidX Fragment (required for compileSdk 36)
+    implementation 'androidx.fragment:fragment:1.8.7'
 
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 

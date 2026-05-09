@@ -1,7 +1,7 @@
 buildscript {
 
-// ✅ Stable Kotlin Version
-    ext.kotlin_version = '2.3.0'
+// ✅ STABLE Kotlin Version
+    ext.kotlin_version = '1.9.22'
 
     repositories {
         google()
@@ -10,13 +10,13 @@ buildscript {
 
     dependencies {
 
-        // ✅ Stable Android Gradle Plugin
-        classpath 'com.android.tools.build:gradle:8.3.2'
+// ✅ STABLE AGP (8.1.4 is production-ready)
+        classpath 'com.android.tools.build:gradle:8.1.4'
 
-        // ✅ Kotlin
+// ✅ Kotlin
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
-        // ✅ Firebase / Google Services
+// ✅ Firebase / Google Services
         classpath 'com.google.gms:google-services:4.4.0'
     }
 }
