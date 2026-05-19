@@ -56,10 +56,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
     final participants = chat['participants'] as List?;
     if (participants == null || participants.length != 2) return null;
 
-    return participants.firstWhere(
-      (p) => (p['_id'] ?? p['id'])?.toString() != _currentUserId,
+    final other = participants.firstWhere(
+      (p) {
+        if (p is! Map) return false;
+        return (p['_id'] ?? p['id'])?.toString() != _currentUserId;
+      },
       orElse: () => null,
     );
+    return other is Map ? Map<String, dynamic>.from(other) : null;
   }
 
   String? _getLastMessageText(Map<String, dynamic> chat) {
@@ -74,6 +78,16 @@ class _ChatListScreenState extends State<ChatListScreen> {
       return unreadCount[_currentUserId] ?? 0;
     }
     return 0;
+  }
+
+  String? _avatarUrl(Map<String, dynamic> user) {
+    final avatar = user['avatar'];
+    if (avatar is String) return avatar.isEmpty ? null : avatar;
+    if (avatar is Map) {
+      final url = avatar['url']?.toString();
+      return url == null || url.isEmpty ? null : url;
+    }
+    return null;
   }
 
   @override
@@ -118,6 +132,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
                       final unread = _getUnreadCount(chat);
                       final lastMsgText = _getLastMessageText(chat);
+                      final avatarUrl = _avatarUrl(otherUser);
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -125,10 +140,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           contentPadding: const EdgeInsets.all(16),
                           leading: CircleAvatar(
                             radius: 24,
-                            backgroundImage: otherUser['avatar'] != null
-                                ? NetworkImage(otherUser['avatar']['url'] ?? otherUser['avatar'])
+                            backgroundImage: avatarUrl != null
+                                ? NetworkImage(avatarUrl)
                                 : null,
-                            child: otherUser['avatar'] == null
+                            child: avatarUrl == null
                                 ? Text(
                                     (otherUser['name'] ?? otherUser['fullName'] ?? '?')[0].toUpperCase(),
                                     style: const TextStyle(fontWeight: FontWeight.bold),

@@ -30,16 +30,20 @@ class ScorecardProvider extends ChangeNotifier {
   // ===============================
   // 🔥 MAIN FUNCTION
   // ===============================
-  Future<void> loadScorecard(String matchId, {bool forceRefresh = false}) async {
+  Future<void> loadScorecard(
+    String matchId, {
+    bool forceRefresh = false,
+    bool showLoading = true,
+  }) async {
     if (matchId.isEmpty) {
       _error = 'Invalid match ID';
       notifyListeners();
       return;
     }
 
-    _isLoading = true;
+    if (showLoading) _isLoading = true;
     _error = null;
-    notifyListeners();
+    if (showLoading) notifyListeners();
 
     try {
       // ✅ CACHE FIRST
@@ -92,7 +96,7 @@ class ScorecardProvider extends ChangeNotifier {
 
       _scorecard = fullScorecard;
       _hasData = true;
-      _isLive = match.status == 'live';
+      _isLive = _isLiveStatus(match.status);
 
       // ✅ CACHE SAVE SAFE
       try {
@@ -102,7 +106,7 @@ class ScorecardProvider extends ChangeNotifier {
       }
 
 // ✅ AUTO REFRESH for live matches
-if (_isLive) {
+      if (_isLive) {
         _startAutoRefresh(matchId);
       }
 
@@ -131,6 +135,7 @@ if (_isLive) {
   // ===============================
   FullScorecard _createScorecardFromApiData(Map<String, dynamic> data, Match match) {
     try {
+      final displayMatch = _matchWithApiResult(match, data);
       // Handle multiple data formats from different endpoints
       // Website format: runs, wickets, overs, runRate, extras, battingScorecard, bowlingScorecard
       // API format: innings, batting, bowling
@@ -143,87 +148,89 @@ if (_isLive) {
       dynamic bowlingScorecard = data['bowlingScorecard'] ?? data['bowling'] ?? [];
       dynamic partnership = data['partnership'] ?? {};
       
-      // If innings array exists in data, extract first innings data
+      // If innings array exists in data, build a complete professional
+      // scorecard for every innings.
       if (data['innings'] != null && data['innings'] is List && (data['innings'] as List).isNotEmpty) {
-        final inningsData = (data['innings'] as List)[0];
-        runs = runs ?? inningsData['totalRuns'];
-        wickets = wickets ?? inningsData['totalWickets'];
-        overs = overs ?? inningsData['totalOvers'];
-        extras = extras ?? inningsData['extras'] ?? {};
-      }
-      
-      // Build innings from API data
-      List<Innings> inningsList = [];
-      
-      // First innings
-      inningsList.add(Innings(
-        inningsNumber: 1,
-        battingTeam: match.team1,
-        bowlingTeam: match.team2,
-        totalRuns: _parseInt(runs),
-        totalWickets: _parseInt(wickets),
-        totalOvers: _parseOvers(overs),
-        totalBalls: (_parseOvers(overs) * 6).toInt(),
-        extras: _parseExtras(extras),
-        isCompleted: match.status != 'live',
-      ));
+        final rawInnings = data['innings'] as List;
+        final inningsList = <Innings>[];
+        final battingByInnings = <List<BatsmanStats>>[];
+        final bowlingByInnings = <List<BowlerStats>>[];
+        final fallOfWickets = <FallOfWicket>[];
 
-      // Second innings if needed
-      if (match.score.team2.runs > 0) {
-        inningsList.add(Innings(
-          inningsNumber: 2,
-          battingTeam: match.team2,
-          bowlingTeam: match.team1,
-          totalRuns: match.score.team2.runs,
-          totalWickets: match.score.team2.wickets,
-          totalOvers: match.score.team2.oversInDecimal,
-          totalBalls: (match.score.team2.oversInDecimal * 6).toInt(),
-          extras: const Extras(),
-          isCompleted: match.status == 'completed',
-        ));
+        for (final raw in rawInnings.whereType<Map>()) {
+          final inningsMap = Map<String, dynamic>.from(raw);
+          inningsList.add(Innings.fromJson(inningsMap));
+
+          final battingRaw = inningsMap['battingScorecard'];
+          battingByInnings.add(battingRaw is List
+              ? battingRaw
+                  .whereType<Map>()
+                  .map((b) => BatsmanStats.fromJson(Map<String, dynamic>.from(b)))
+                  .toList()
+              : <BatsmanStats>[]);
+
+          final bowlingRaw = inningsMap['bowlingScorecard'];
+          bowlingByInnings.add(bowlingRaw is List
+              ? bowlingRaw
+                  .whereType<Map>()
+                  .map((b) => BowlerStats.fromJson(Map<String, dynamic>.from(b)))
+                  .toList()
+              : <BowlerStats>[]);
+
+          final fowRaw = inningsMap['fallOfWickets'];
+          if (fowRaw is List) {
+            fallOfWickets.addAll(fowRaw
+                .whereType<Map>()
+                .map((w) => FallOfWicket.fromJson(Map<String, dynamic>.from(w))));
+          }
+        }
+
+        return FullScorecard(
+          match: displayMatch,
+          innings: inningsList,
+          batting: battingByInnings,
+          bowling: bowlingByInnings,
+          fallOfWickets: fallOfWickets,
+          partnerships: List<Map<String, dynamic>>.from(data['partnerships'] ?? []),
+        );
       }
 
-      // Parse batting data
-      List<BatsmanStats> battingList = [];
+      // Build innings from flat API data
+      final inningsList = <Innings>[
+        Innings(
+          inningsNumber: 1,
+          battingTeam: match.team1,
+          bowlingTeam: match.team2,
+          totalRuns: _parseInt(runs),
+          totalWickets: _parseInt(wickets),
+          totalOvers: _parseOvers(overs),
+          totalBalls: (_parseOvers(overs) * 6).toInt(),
+          extras: _parseExtras(extras),
+          isCompleted: match.status != 'live',
+        )
+      ];
+
+      final battingList = <BatsmanStats>[];
       if (battingScorecard is List) {
         for (var b in battingScorecard) {
           if (b is Map) {
-battingList.add(BatsmanStats(
-              playerId: b['player']?['_id'] ?? b['player'] ?? '',
-              playerName: b['playerName'] ?? b['player']?.toString() ?? 'Unknown',
-              runs: b['runs'] ?? 0,
-              balls: b['balls'] ?? 0,
-              fours: b['fours'] ?? 0,
-              sixes: b['sixes'] ?? 0,
-              strikeRate: (b['strikeRate'] ?? 0).toDouble(),
-              dismissal: b['dismissal'],
-              notOut: b['notOut'] == true,
-              wicketNumber: b['fallOfWickets']?['wicket'],
-            ));
+            battingList.add(BatsmanStats.fromJson(Map<String, dynamic>.from(b)));
           }
         }
       }
 
       // Parse bowling data  
-      List<BowlerStats> bowlingList = [];
+      final bowlingList = <BowlerStats>[];
       if (bowlingScorecard is List) {
         for (var b in bowlingScorecard) {
           if (b is Map) {
-            bowlingList.add(BowlerStats(
-              playerId: b['player']?['_id'] ?? b['player'] ?? '',
-              playerName: b['playerName'] ?? b['player']?.toString() ?? 'Unknown',
-              overs: _parseOvers(b['overs'] ?? '0.0'),
-              maidens: b['maidens'] ?? 0,
-              runs: b['runs'] ?? 0,
-              wickets: b['wickets'] ?? 0,
-              economy: (b['economy'] ?? 0).toDouble(),
-            ));
+            bowlingList.add(BowlerStats.fromJson(Map<String, dynamic>.from(b)));
           }
         }
       }
 
       return FullScorecard(
-        match: match,
+        match: displayMatch,
         innings: inningsList,
         batting: [battingList],
         bowling: [bowlingList],
@@ -259,6 +266,48 @@ battingList.add(BatsmanStats(
     if (value is double) return value.toInt();
     if (value is String) return int.tryParse(value) ?? 0;
     return 0;
+  }
+
+  bool _isLiveStatus(String status) {
+    const liveStatuses = {'live', 'started', 'in_progress', 'ongoing'};
+    return liveStatuses.contains(status.toLowerCase());
+  }
+
+  Match _matchWithApiResult(Match match, Map<String, dynamic> data) {
+    final apiMatch = data['match'];
+    if (apiMatch is! Map) return match;
+
+    final merged = Map<String, dynamic>.from(match.toJson());
+    merged.addAll(Map<String, dynamic>.from(apiMatch));
+
+    if (apiMatch['result'] is Map) {
+      final result = Map<String, dynamic>.from(apiMatch['result'] as Map);
+      final winnerName = result['winner'] is Map
+          ? (result['winner']['name'] ?? result['winner']['shortName'])?.toString()
+          : result['winner']?.toString();
+      final margin = result['margin']?.toString();
+
+      if ((result['message'] == null || result['message'].toString().isEmpty) &&
+          winnerName != null &&
+          winnerName.isNotEmpty &&
+          margin != null &&
+          margin.isNotEmpty) {
+        result['message'] = '$winnerName won by $margin';
+      }
+      if (winnerName != null && winnerName.isNotEmpty) {
+        result['winner'] = winnerName;
+      }
+      merged['result'] = result;
+    }
+
+    return Match.fromJson(merged);
+  }
+
+  double _parseDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
   }
 
   Extras _parseExtras(dynamic extras) {
@@ -333,8 +382,8 @@ battingList.add(BatsmanStats(
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 15),
       (timer) {
-        if (_match?.status == 'live') {
-          loadScorecard(matchId, forceRefresh: true);
+        if (_match != null && _isLiveStatus(_match!.status)) {
+          loadScorecard(matchId, forceRefresh: true, showLoading: false);
         } else {
           _stopTimer();
         }

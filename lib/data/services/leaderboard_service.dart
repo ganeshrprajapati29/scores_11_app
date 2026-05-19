@@ -22,6 +22,29 @@ class PaginatedLeaderboard {
 class LeaderboardService {
   final ApiClient _apiClient = ApiClient();
 
+  List<Map<String, dynamic>> _entries(dynamic raw) {
+    final dynamic list = raw is List
+        ? raw
+        : raw is Map
+            ? raw['data'] ?? raw['items'] ?? raw['rankings'] ?? raw['results'] ?? []
+            : [];
+    if (list is! List) return [];
+    return list
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  Map<String, dynamic> _pagination(dynamic raw) {
+    if (raw is Map && raw['pagination'] is Map) {
+      return Map<String, dynamic>.from(raw['pagination'] as Map);
+    }
+    if (raw is Map && raw['meta'] is Map) {
+      return Map<String, dynamic>.from(raw['meta'] as Map);
+    }
+    return {};
+  }
+
   /// Get top batsmen with pagination support
   Future<PaginatedLeaderboard> getTopBatsmen({
     int page = 1,
@@ -33,17 +56,15 @@ class LeaderboardService {
       'limit': limit,
       if (timeframe != null) 'timeframe': timeframe,
     };
-final response = await _apiClient.get('/leaderboard/batsmen', queryParameters: queryParams);
-    final List<dynamic> data = response.data['data'] ?? [];
-    final pagination = response.data['pagination'] ?? {};
-    
-    final entries = List<Map<String, dynamic>>.from(data);
-    
+    final response = await _apiClient.get('/leaderboard/batsmen', queryParameters: queryParams);
+    final entries = _entries(response.data);
+    final pagination = _pagination(response.data);
+
     return PaginatedLeaderboard(
       entries: entries,
       page: pagination['page'] ?? page,
       limit: pagination['limit'] ?? limit,
-      total: pagination['total'] ?? data.length,
+      total: pagination['total'] ?? entries.length,
       totalPages: pagination['pages'] ?? 1,
       hasMore: page < (pagination['pages'] ?? 1),
     );
@@ -66,17 +87,15 @@ final response = await _apiClient.get('/leaderboard/batsmen', queryParameters: q
       'limit': limit,
       if (timeframe != null) 'timeframe': timeframe,
     };
-final response = await _apiClient.get('/leaderboard/bowlers', queryParameters: queryParams);
-    final List<dynamic> data = response.data['data'] ?? [];
-    final pagination = response.data['pagination'] ?? {};
-    
-    final entries = List<Map<String, dynamic>>.from(data);
-    
+    final response = await _apiClient.get('/leaderboard/bowlers', queryParameters: queryParams);
+    final entries = _entries(response.data);
+    final pagination = _pagination(response.data);
+
     return PaginatedLeaderboard(
       entries: entries,
       page: pagination['page'] ?? page,
       limit: pagination['limit'] ?? limit,
-      total: pagination['total'] ?? data.length,
+      total: pagination['total'] ?? entries.length,
       totalPages: pagination['pages'] ?? 1,
       hasMore: page < (pagination['pages'] ?? 1),
     );
@@ -94,8 +113,7 @@ final response = await _apiClient.get('/leaderboard/bowlers', queryParameters: q
       if (timeframe != null) 'timeframe': timeframe,
     };
     final response = await _apiClient.get('/leaderboard/mvp', queryParameters: queryParams);
-    final List<dynamic> data = response.data['data'] ?? [];
-    return List<Map<String, dynamic>>.from(data);
+    return _entries(response.data);
   }
 
   Future<List<Map<String, dynamic>>> getTeamRankings({int limit = 20, String? tournamentId}) async {
@@ -104,8 +122,7 @@ final response = await _apiClient.get('/leaderboard/bowlers', queryParameters: q
       if (tournamentId != null) 'tournamentId': tournamentId,
     };
     final response = await _apiClient.get('/leaderboard/teams', queryParameters: queryParams);
-    final List<dynamic> data = response.data['data'] ?? [];
-    return List<Map<String, dynamic>>.from(data);
+    return _entries(response.data);
   }
 
   Future<Map<String, dynamic>> getPlayerRanking(String playerId) async {
@@ -125,8 +142,7 @@ final response = await _apiClient.get('/leaderboard/bowlers', queryParameters: q
       'limit': limit.toString(),
     };
     final response = await _apiClient.get('/leaderboard', queryParameters: queryParams);
-    final List<dynamic> data = response.data['data'] ?? [];
-    return List<Map<String, dynamic>>.from(data);
+    return _entries(response.data);
   }
 }
 

@@ -324,16 +324,32 @@ Future<void> _createMatch() async {
         _selectedTime!.hour,
         _selectedTime!.minute,
       );
-      await _matchService.createMatchSimple(
+      if (scheduledDateTime.isBefore(DateTime.now())) {
+        _snack('Please select a future match time', isError: true);
+        setState(() => _isLoading = false);
+        return;
+      }
+// Create the match
+      final newMatch = await _matchService.createMatchSimple(
         team1: _selectedTeam1Id!,
         team2: _selectedTeam2Id!,
         venue: venueMap,
         scheduledDate: scheduledDateTime,
         format: _format!,
       );
+      
       if (mounted) {
         _snack('Match created successfully!', isError: false);
-        Navigator.pop(context, true);
+
+        final currentRouteName = ModalRoute.of(context)?.settings.name;
+        if (currentRouteName == '/create-match') {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/scheduled-matches',
+            (route) => route.settings.name == '/dashboard' || route.isFirst,
+          );
+        } else {
+          Navigator.of(context).pop(newMatch);
+        }
       }
     } catch (e) {
       _snack('Failed to create match: ${e.toString()}', isError: true);

@@ -1,16 +1,22 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/config/theme_config.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/utils/date_utils.dart' as MatchDateUtils;
 import '../../../core/widgets/match_status_badge.dart';
 import '../../data/models/match_model.dart';
 import '../../data/services/match_service.dart';
 import 'package:shimmer/shimmer.dart';
+import 'create_match_screen.dart';
 
 class MatchListScreen extends StatefulWidget {
-  const MatchListScreen({super.key});
+  final int initialTabIndex;
+  final Match? initialMatch;
+
+  const MatchListScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.initialMatch,
+  });
 
   @override
   State<MatchListScreen> createState() => _MatchListScreenState();
@@ -20,7 +26,6 @@ class _MatchListScreenState extends State<MatchListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final MatchService _matchService = MatchService();
-  bool _returnFromCreate = false;
 
   // Pagination state for each tab
   int _livePage = 1;
@@ -40,20 +45,17 @@ class _MatchListScreenState extends State<MatchListScreen>
   List<Match> _upcomingMatches = [];
   List<Match> _completedMatches = [];
 
+  DateTime? _selectedDate;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     _loadMatches();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_returnFromCreate) {
-      _returnFromCreate = false;
-      _loadMatches(refresh: true);
-    }
   }
 
   @override
@@ -89,14 +91,6 @@ class _MatchListScreenState extends State<MatchListScreen>
     return sorted;
   }
 
-  /// Filter completed matches to show only those completed within last 30 days
-  List<Match> _filterOldCompletedMatches(List<Match> matches) {
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-    return matches.where((match) {
-      return match.scheduledDate.isAfter(thirtyDaysAgo);
-    }).toList();
-  }
-
   Future<void> _loadMatches({bool refresh = false}) async {
     if (refresh) {
       _livePage = 1;
@@ -113,25 +107,26 @@ class _MatchListScreenState extends State<MatchListScreen>
     setState(() => _isLoading = true);
     
     try {
-      // Fetch all matches in parallel for better performance
+      // Fetch all persisted matches by status so newly created scheduled
+      // matches always appear on this page. Live is public; scheduled and
+      // completed are scoped to the logged-in user's own created matches.
       final results = await Future.wait([
-        _matchService.getLiveMatches(forceRefresh: refresh),
-        _matchService.getUpcomingMatches(),
-        _matchService.getCompletedMatches(),
+        _matchService.getMatches(status: 'live', forceRefresh: refresh),
+        _matchService.getMyMatches(status: 'scheduled'),
+        _matchService.getMyMatches(status: 'completed'),
       ]);
 
-      final liveMatches = results[0];
-      final upcomingMatches = results[1];
-      final completedMatches = results[2];
+      final liveMatches = results[0].matches;
+      final upcomingMatches = results[1].matches;
+      final completedMatches = results[2].matches;
 
       setState(() {
         // Sort matches appropriately for each tab
         _liveMatches = _sortMatches(liveMatches, 'live');
         _upcomingMatches = _sortMatches(upcomingMatches, 'upcoming');
         
-        // Filter and sort completed matches
-        final filteredCompleted = _filterOldCompletedMatches(completedMatches);
-        _completedMatches = _sortMatches(filteredCompleted, 'completed');
+        // Sort completed matches
+        _completedMatches = _sortMatches(completedMatches, 'completed');
 
         // Update pagination flags
         _hasMoreLive = _liveMatches.length >= 20;
@@ -140,6 +135,7 @@ class _MatchListScreenState extends State<MatchListScreen>
 
         _isLoading = false;
       });
+      _applyInitialMatch();
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -154,6 +150,28 @@ class _MatchListScreenState extends State<MatchListScreen>
     }
   }
 
+  void _applyInitialMatch() {
+    final match = widget.initialMatch;
+    if (match == null || !mounted) return;
+
+    setState(() {
+      _liveMatches.removeWhere((m) => m.id == match.id);
+      _completedMatches.removeWhere((m) => m.id == match.id);
+      _upcomingMatches.removeWhere((m) => m.id == match.id);
+
+      if (match.isLive) {
+        _liveMatches.insert(0, match);
+        _liveMatches = _sortMatches(_liveMatches, 'live');
+      } else if (match.isCompleted) {
+        _completedMatches.insert(0, match);
+        _completedMatches = _sortMatches(_completedMatches, 'completed');
+      } else {
+        _upcomingMatches.insert(0, match);
+        _upcomingMatches = _sortMatches(_upcomingMatches, 'upcoming');
+      }
+    });
+  }
+
   Future<void> _loadMoreLive() async {
     if (_isLoadingMoreLive || !_hasMoreLive) return;
     
@@ -163,7 +181,7 @@ class _MatchListScreenState extends State<MatchListScreen>
     });
     
     try {
-      final result = await _matchService.getMatches(page: _livePage, status: 'LIVE');
+      final result = await _matchService.getMatches(page: _livePage, status: 'live');
       setState(() {
         final newMatches = _sortMatches(result.matches, 'live');
         _liveMatches.addAll(newMatches);
@@ -192,7 +210,7 @@ class _MatchListScreenState extends State<MatchListScreen>
     });
     
     try {
-      final result = await _matchService.getMatches(page: _upcomingPage, status: 'SCHEDULED');
+      final result = await _matchService.getMyMatches(page: _upcomingPage, status: 'scheduled');
       setState(() {
         final newMatches = _sortMatches(result.matches, 'upcoming');
         _upcomingMatches.addAll(newMatches);
@@ -221,10 +239,9 @@ class _MatchListScreenState extends State<MatchListScreen>
     });
     
     try {
-      final result = await _matchService.getMatches(page: _completedPage, status: 'COMPLETED');
+      final result = await _matchService.getMyMatches(page: _completedPage, status: 'completed');
       setState(() {
-        final filteredMatches = _filterOldCompletedMatches(result.matches);
-        final newMatches = _sortMatches(filteredMatches, 'completed');
+        final newMatches = _sortMatches(result.matches, 'completed');
         _completedMatches.addAll(newMatches);
         _hasMoreCompleted = result.hasMore;
         _isLoadingMoreCompleted = false;
@@ -242,6 +259,47 @@ class _MatchListScreenState extends State<MatchListScreen>
     }
   }
 
+  void _clearDateFilter() {
+    setState(() {
+      _selectedDate = null;
+    });
+  }
+
+  Future<void> _pickFilterDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? today,
+      firstDate: today.subtract(const Duration(days: 365)),
+      lastDate: today.add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: Colors.white,
+            onSurface: const Color(0xFF0D1117),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateTime(picked.year, picked.month, picked.day);
+      });
+    }
+  }
+
+  List<Match> _applyDateFilter(List<Match> matches) {
+    if (_selectedDate == null) return matches;
+    return matches.where((match) {
+      final date = match.scheduledDate;
+      return date.year == _selectedDate!.year &&
+          date.month == _selectedDate!.month &&
+          date.day == _selectedDate!.day;
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -249,36 +307,89 @@ class _MatchListScreenState extends State<MatchListScreen>
       appBar: _buildAppBar(),
       body: _isLoading
           ? _buildShimmerLoading()
-          : TabBarView(
-              controller: _tabController,
+          : Column(
               children: [
-                _MatchList(
-                  matches: _liveMatches,
-                  type: 'live',
-                  isLoadingMore: _isLoadingMoreLive,
-                  hasMore: _hasMoreLive,
-                  loadMore: _loadMoreLive,
-                  onRefresh: () => _loadMatches(refresh: true),
-                ),
-                _MatchList(
-                  matches: _upcomingMatches,
-                  type: 'upcoming',
-                  isLoadingMore: _isLoadingMoreUpcoming,
-                  hasMore: _hasMoreUpcoming,
-                  loadMore: _loadMoreUpcoming,
-                  onRefresh: () => _loadMatches(refresh: true),
-                ),
-                _MatchList(
-                  matches: _completedMatches,
-                  type: 'completed',
-                  isLoadingMore: _isLoadingMoreCompleted,
-                  hasMore: _hasMoreCompleted,
-                  loadMore: _loadMoreCompleted,
-                  onRefresh: () => _loadMatches(refresh: true),
+                _buildDateFilterBar(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _MatchList(
+                        matches: _applyDateFilter(_liveMatches),
+                        type: 'live',
+                        isLoadingMore: _isLoadingMoreLive,
+                        hasMore: _hasMoreLive,
+                        loadMore: _loadMoreLive,
+                        onRefresh: () => _loadMatches(refresh: true),
+                      ),
+                      _MatchList(
+                        matches: _applyDateFilter(_upcomingMatches),
+                        type: 'upcoming',
+                        isLoadingMore: _isLoadingMoreUpcoming,
+                        hasMore: _hasMoreUpcoming,
+                        loadMore: _loadMoreUpcoming,
+                        onRefresh: () => _loadMatches(refresh: true),
+                      ),
+                      _MatchList(
+                        matches: _applyDateFilter(_completedMatches),
+                        type: 'completed',
+                        isLoadingMore: _isLoadingMoreCompleted,
+                        hasMore: _hasMoreCompleted,
+                        loadMore: _loadMoreCompleted,
+                        onRefresh: () => _loadMatches(refresh: true),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
       floatingActionButton: _buildFAB(),
+    );
+  }
+
+  Widget _buildDateFilterBar() {
+    final label = _selectedDate == null
+        ? 'All dates'
+        : DateFormat('EEE, MMM d, yyyy').format(_selectedDate!);
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Date: $label',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0D1117),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _selectedDate = DateTime.now();
+              });
+            },
+            child: const Text('Today'),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: _pickFilterDate,
+            child: const Text('Pick Date'),
+          ),
+          if (_selectedDate != null) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: _clearDateFilter,
+              icon: const Icon(Icons.clear_rounded, size: 20),
+              tooltip: 'Clear date filter',
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -361,7 +472,7 @@ class _MatchListScreenState extends State<MatchListScreen>
                   ],
                 ),
               ),
-              const Tab(text: 'Upcoming'),
+              const Tab(text: 'Scheduled'),
               const Tab(text: 'Completed'),
             ],
           ),
@@ -389,12 +500,44 @@ class _MatchListScreenState extends State<MatchListScreen>
     );
   }
 
-  Widget _buildFAB() {
+Widget _buildFAB() {
     return FloatingActionButton.extended(
       heroTag: 'match_list_create',
-      onPressed: () {
-        setState(() => _returnFromCreate = true);
-        Navigator.pushReplacementNamed(context, '/create-match');
+      onPressed: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CreateMatchScreen()),
+        );
+        if (!mounted) return;
+        // If a match was returned (newly created), add it to the correct list
+        if (result != null && result is Match) {
+          setState(() {
+            _liveMatches.removeWhere((match) => match.id == result.id);
+            _completedMatches.removeWhere((match) => match.id == result.id);
+            _upcomingMatches.removeWhere((match) => match.id == result.id);
+
+            if (result.isLive) {
+              _liveMatches.insert(0, result);
+              _liveMatches = _sortMatches(_liveMatches, 'live');
+              _tabController.animateTo(0);
+            } else if (result.isCompleted) {
+              _completedMatches.insert(0, result);
+              _completedMatches = _sortMatches(_completedMatches, 'completed');
+              _tabController.animateTo(2);
+            } else {
+              _upcomingMatches.insert(0, result);
+              _upcomingMatches = _sortMatches(_upcomingMatches, 'upcoming');
+              _tabController.animateTo(1);
+            }
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('New match added!'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
       },
       icon: const Icon(Icons.add_rounded, size: 20),
       label: const Text(
@@ -464,6 +607,8 @@ class _MatchListState extends State<_MatchList> {
       return _EmptyState(type: widget.type);
     }
 
+    final items = _buildMatchItems();
+
     return RefreshIndicator(
       onRefresh: widget.onRefresh ?? () async {},
       color: AppColors.primary,
@@ -471,9 +616,9 @@ class _MatchListState extends State<_MatchList> {
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-        itemCount: widget.matches.length + (widget.hasMore ? 1 : 0),
+        itemCount: items.length + (widget.hasMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == widget.matches.length) {
+          if (index == items.length) {
             return widget.isLoadingMore
                 ? const Padding(
                     padding: EdgeInsets.symmetric(vertical: 20),
@@ -487,19 +632,93 @@ class _MatchListState extends State<_MatchList> {
                   )
                 : const SizedBox.shrink();
           }
-          return _MatchCard(match: widget.matches[index])
-              .animate()
-              .fadeIn(duration: 280.ms, delay: (index * 40).ms)
-              .slideY(begin: 0.06, end: 0, duration: 280.ms, delay: (index * 40).ms);
+          return items[index];
         },
       ),
     );
+  }
+
+  List<Widget> _buildMatchItems() {
+    final items = <Widget>[];
+    DateTime? currentSection;
+
+    for (var index = 0; index < widget.matches.length; index++) {
+      final match = widget.matches[index];
+      final matchSection = DateTime(
+        match.scheduledDate.year,
+        match.scheduledDate.month,
+        match.scheduledDate.day,
+      );
+
+      if (currentSection == null || currentSection != matchSection) {
+        currentSection = matchSection;
+        items.add(_MatchDateHeader(date: matchSection));
+      }
+
+      items.add(
+        _MatchCard(match: match)
+            .animate()
+            .fadeIn(duration: 280.ms, delay: (index * 40).ms)
+            .slideY(begin: 0.06, end: 0, duration: 280.ms, delay: (index * 40).ms),
+      );
+    }
+
+    return items;
   }
 }
 
 // ---------------------------------------------------------------------------
 // _EmptyState
 // ---------------------------------------------------------------------------
+
+class _MatchDateHeader extends StatelessWidget {
+  final DateTime date;
+
+  const _MatchDateHeader({required this.date});
+
+  String _label() {
+    final today = DateTime.now();
+    final normalizedToday = DateTime(today.year, today.month, today.day);
+    final sectionDate = DateTime(date.year, date.month, date.day);
+
+    if (sectionDate == normalizedToday) {
+      return 'Today';
+    }
+    if (sectionDate == normalizedToday.add(const Duration(days: 1))) {
+      return 'Tomorrow';
+    }
+    if (sectionDate == normalizedToday.subtract(const Duration(days: 1))) {
+      return 'Yesterday';
+    }
+    return DateFormat('EEE, MMM d').format(date);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF4F6F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              _label(),
+              style: const TextStyle(
+                color: Color(0xFF4B5563),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _EmptyState extends StatelessWidget {
   final String type;
@@ -510,7 +729,7 @@ class _EmptyState extends StatelessWidget {
       case 'live':
         return 'No live matches at the moment';
       case 'upcoming':
-        return 'No upcoming matches scheduled';
+        return 'No scheduled matches found';
       case 'completed':
         return 'No completed matches';
       default:
@@ -573,13 +792,14 @@ class _MatchCard extends StatelessWidget {
   void _handleMatchTap(BuildContext context) {
     final status = match.status;
     
-    if (status == 'LIVE') {
+    final normalized = status.toLowerCase();
+    if (normalized == 'live') {
       Navigator.pushNamed(context, '/live-control', arguments: match.id);
-    } else if (status == 'SCHEDULED') {
-      Navigator.pushNamed(context, '/team-select', arguments: match.id);
-    } else if (status == 'TOSS') {
+    } else if (normalized == 'team_selecting' || normalized == 'ready') {
+      Navigator.pushNamed(context, '/live-control', arguments: match.id);
+    } else if (normalized == 'toss') {
       Navigator.pushNamed(context, '/toss', arguments: match.id);
-    } else if (status == 'COMPLETED') {
+    } else if (normalized == 'completed') {
       Navigator.pushNamed(context, '/scorecard', arguments: match.id);
     } else {
       Navigator.pushNamed(context, '/match-detail', arguments: match.id);
@@ -605,8 +825,8 @@ class _MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLive = match.status == 'LIVE';
-    final isCompleted = match.status == 'COMPLETED';
+    final isLive = match.isLive;
+    final isCompleted = match.isCompleted;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -925,7 +1145,7 @@ class _TeamsRow extends StatelessWidget {
                             letterSpacing: -0.5,
                           ),
                         ),
-                        if ((match.score.team1.overs ?? '').isNotEmpty)
+                        if (match.score.team1.overs.isNotEmpty) ...[
                           Text(
                             '(${match.score.team1.overs} ov)',
                             style: const TextStyle(
@@ -934,6 +1154,7 @@ class _TeamsRow extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
+                        ],
                       ],
                     ],
                   ),
@@ -1001,7 +1222,7 @@ class _TeamsRow extends StatelessWidget {
                           ),
                           textAlign: TextAlign.end,
                         ),
-                        if ((match.score.team2.overs ?? '').isNotEmpty)
+                        if (match.score.team2.overs.isNotEmpty) ...[
                           Text(
                             '(${match.score.team2.overs} ov)',
                             style: const TextStyle(
@@ -1011,6 +1232,7 @@ class _TeamsRow extends StatelessWidget {
                             ),
                             textAlign: TextAlign.end,
                           ),
+                        ],
                       ],
                     ],
                   ),
@@ -1043,7 +1265,7 @@ class _MatchFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = match.status == 'COMPLETED';
+    final isCompleted = match.isCompleted;
     
     String getFooterText() {
       if (isLive) {
@@ -1051,6 +1273,10 @@ class _MatchFooter extends StatelessWidget {
         return 'Live • ${overs.isNotEmpty ? overs : '0.0'} overs • ${formatDate(match.scheduledDate)}';
       } else if (isCompleted) {
         // Fix: Access winner from match.result
+        final message = match.result?.message ?? '';
+        if (message.isNotEmpty) {
+          return '🏆 $message • ${formatDate(match.scheduledDate)}';
+        }
         final winner = match.result?.winner ?? 'Match completed';
         final margin = match.result?.margin ?? '';
         if (margin.isNotEmpty) {

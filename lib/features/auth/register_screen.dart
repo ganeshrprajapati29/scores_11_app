@@ -89,13 +89,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Registration successful! Please login.'),
+          content: Text('Registration successful!'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
         ),
       );
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (route) => false);
       }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -153,11 +153,12 @@ child: SafeArea(
                   
                   // Logo
                   Container(
-                    width: 70,
-                    height: 70,
+                    width: 78,
+                    height: 78,
+                    padding: const EdgeInsets.all(11),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.2),
@@ -166,17 +167,40 @@ child: SafeArea(
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.sports_cricket,
-                      size: 40,
-                      color: AppColors.primary,
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.sports_cricket,
+                        size: 40,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ).animate().fadeIn(duration: 500.ms).scale(),
                   
                   const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.14),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white.withOpacity(0.22)),
+                    ),
+                    child: const Text(
+                      'SCORES11 PROFESSIONAL CRICKET',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        letterSpacing: 0.8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ).animate().fadeIn(delay: 120.ms),
+                  
+                  const SizedBox(height: 16),
                   
                   Text(
-                    'Create Account!',
+                    'Create Your Account',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: isSmallScreen ? 28 : 32,
@@ -188,7 +212,7 @@ child: SafeArea(
                   const SizedBox(height: 8),
                   
                   Text(
-                    'Join and start playing cricket',
+                    'Build teams, score matches and track player performance',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -204,6 +228,7 @@ child: SafeArea(
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withOpacity(0.9)),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.15),
@@ -216,6 +241,31 @@ child: SafeArea(
                       key: _formKey,
                       child: Column(
                         children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.badge_outlined, color: AppColors.primary),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Account Setup', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                                    SizedBox(height: 2),
+                                    Text('Enter verified profile details', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 22),
                           // Name Field
                           TextFormField(
                             controller: _nameController,

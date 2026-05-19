@@ -6,6 +6,7 @@ import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/scorecard_provider.dart';
 import 'providers/leaderboard_provider.dart';
+import 'data/models/match_model.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
@@ -34,6 +35,7 @@ import 'features/matches/team_selection_screen.dart';
 import 'features/matches/wagon_wheel_screen.dart';
 import 'features/matches/live_score_control_screen.dart';
 import 'features/matches/toss_screen.dart';
+import 'features/matches/scheduled_matches_screen.dart';
 import 'features/teams/team_list_screen.dart';
 import 'features/teams/team_detail_screen.dart';
 import 'features/teams/create_team_screen.dart';
@@ -118,7 +120,7 @@ onGenerateRoute: (RouteSettings settings) {
         routes: {
           // Auth Routes
           '/splash': (context) => const SplashScreen(),
-          '/login': (context) => const LoginScreen(),
+          '/login': (context) => const _AuthAwareLoginScreen(),
           '/register': (context) => const RegisterScreen(),
           '/forgot-password': (context) => const ForgotPasswordScreen(),
           '/otp-verification': (context) => OTPVerificationScreen(
@@ -137,8 +139,31 @@ onGenerateRoute: (RouteSettings settings) {
           '/cricket-profile': (context) => const CricketProfileScreen(),
 
 // Match Routes
-          '/matches': (context) => const MatchListScreen(),
-          '/matches/live': (context) => const MatchListScreen(),
+          '/matches': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            final data = args is Map ? args : const {};
+            final dynamic newMatchArg = data['newMatch'];
+            Match? initialMatch;
+            if (newMatchArg is Match) {
+              initialMatch = newMatchArg;
+            } else if (newMatchArg is Map<String, dynamic>) {
+              try {
+                initialMatch = Match.fromJson(newMatchArg);
+              } catch (_) {
+                initialMatch = null;
+              }
+            }
+            return MatchListScreen(
+              initialTabIndex: int.tryParse(data['initialTab']?.toString() ?? '0') ?? 0,
+              initialMatch: initialMatch,
+            );
+          },
+          '/matches/live': (context) => const MatchListScreen(initialTabIndex: 0),
+          '/live-matches': (context) => const MatchListScreen(initialTabIndex: 0),
+          '/all-matches': (context) => const MatchListScreen(initialTabIndex: 1),
+          '/scheduled-matches': (context) => const ScheduledMatchesScreen(),
+          '/completed-matches': (context) => const ScheduledMatchesScreen(initialTabIndex: 1),
+          '/scorecards': (context) => const ScorecardScreen(matchId: ''),
           '/match-detail': (context) {
             final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
             return MatchDetailScreen(matchId: matchId);
@@ -147,9 +172,19 @@ onGenerateRoute: (RouteSettings settings) {
 // '/create-match-enhanced': (context) => CreateMatchScreen(), // Temporarily disabled - class not found
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
           '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
-          '/scorecard': (context) => ScorecardScreen(
-            matchId: ModalRoute.of(context)!.settings.arguments as String? ?? '',
-          ),
+          '/scorecard': (context) {
+            final args = ModalRoute.of(context)!.settings.arguments;
+            String matchId = '';
+            if (args is String) {
+              matchId = args;
+            } else if (args is Match) {
+              matchId = args.id;
+            } else if (args is Map) {
+              matchId =
+                  (args['_id'] ?? args['id'] ?? args['matchId'] ?? '').toString();
+            }
+            return ScorecardScreen(matchId: matchId);
+          },
           
           // Live Control Routes (new)
           '/team-select': (context) {
@@ -179,23 +214,45 @@ onGenerateRoute: (RouteSettings settings) {
 
           // Tournament Routes
           '/tournaments': (context) => const TournamentListScreen(),
-          '/tournament-detail': (context) => const TournamentDetailScreen(tournamentId: ''),
+          '/tournament-detail': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            final tournamentId = args is Map
+                ? (args['tournamentId']?.toString() ?? args['id']?.toString() ?? '')
+                : args?.toString() ?? '';
+            return TournamentDetailScreen(tournamentId: tournamentId);
+          },
           '/create-tournament': (context) => const CreateTournamentScreen(),
-          '/points-table': (context) => const PointsTableScreen(tournamentId: ''),
-          '/fixtures': (context) => const FixturesScreen(tournamentId: ''),
+          '/points-table': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            return PointsTableScreen(tournamentId: args?.toString() ?? '');
+          },
+          '/fixtures': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            return FixturesScreen(tournamentId: args?.toString() ?? '');
+          },
           '/my-tournaments': (context) => const TournamentListScreen(),
 
           // Player Routes
           '/players': (context) => const PlayerListScreen(),
+          '/public-players': (context) => const PlayerSearchScreen(),
           '/players/search': (context) => const PlayerSearchScreen(),
           '/create-player': (context) => const CreatePlayerScreen(),
           '/players/list': (context) => const PlayerListScreen(),
           '/player-search': (context) => const PlayerSearchScreen(),
           '/player-profile': (context) {
-  final routeName = ModalRoute.of(context)!.settings.name ?? '/player-profile';
-  final playerId = routeName.split('/').last;
-  return PlayerProfileScreen(playerId: playerId.isEmpty ? 'default' : playerId);
-},
+            final settings = ModalRoute.of(context)!.settings;
+            final args = settings.arguments;
+            final playerId = args is Map
+                ? (args['playerId']?.toString() ?? '')
+                : args is String
+                    ? args
+                    : (settings.name ?? '').split('/').last;
+            return PlayerProfileScreen(
+              playerId: playerId.isEmpty || playerId == 'player-profile'
+                  ? 'default'
+                  : playerId,
+            );
+          },
           '/compare-players': (context) => const PlayerSearchScreen(),
 
           // Leaderboard Routes
@@ -254,6 +311,25 @@ onGenerateRoute: (RouteSettings settings) {
           
         },
       ),
+    );
+  }
+}
+
+class _AuthAwareLoginScreen extends StatelessWidget {
+  const _AuthAwareLoginScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        if (auth.status == AuthStatus.authenticated) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (route) => false);
+          });
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        return const LoginScreen();
+      },
     );
   }
 }

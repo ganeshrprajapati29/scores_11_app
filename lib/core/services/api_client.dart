@@ -13,6 +13,16 @@ class ApiClient {
 
   late Dio _dio;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _encryptedStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
+  static const List<String> _legacyAccessTokenKeys = [
+    AppConstants.accessTokenKey,
+    'token',
+    'auth_token',
+    'jwt',
+  ];
 
   ApiClient._internal() {
     _dio = Dio(BaseOptions(
@@ -27,8 +37,8 @@ class ApiClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.read(key: AppConstants.accessTokenKey);
-        if (token != null) {
+        final token = await getAccessToken();
+        if (token != null && token.trim().isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $token';
         }
         return handler.next(options);
@@ -38,8 +48,10 @@ class ApiClient {
           final refreshed = await _refreshToken();
           if (refreshed) {
             final opts = error.requestOptions;
-            final token = await _storage.read(key: AppConstants.accessTokenKey);
-            opts.headers['Authorization'] = 'Bearer $token';
+            final token = await getAccessToken();
+            if (token != null && token.trim().isNotEmpty) {
+              opts.headers['Authorization'] = 'Bearer $token';
+            }
             final response = await _dio.fetch(opts);
             return handler.resolve(response);
           }
@@ -143,18 +155,66 @@ class ApiClient {
 
   // Token management
   Future<void> setTokens(String accessToken, String refreshToken) async {
-    await _storage.write(key: AppConstants.accessTokenKey, value: accessToken);
-    await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
+    final normalizedAccessToken = _normalizeToken(accessToken);
+    final normalizedRefreshToken = _normalizeToken(refreshToken);
+    await Future.wait([
+      _storage.write(key: AppConstants.accessTokenKey, value: normalizedAccessToken),
+      _storage.write(key: 'token', value: normalizedAccessToken),
+      _storage.write(key: AppConstants.refreshTokenKey, value: normalizedRefreshToken),
+      _encryptedStorage.write(key: AppConstants.accessTokenKey, value: normalizedAccessToken),
+      _encryptedStorage.write(key: 'token', value: normalizedAccessToken),
+      _encryptedStorage.write(key: AppConstants.refreshTokenKey, value: normalizedRefreshToken),
+    ]);
   }
 
   Future<void> clearTokens() async {
-    await _storage.delete(key: AppConstants.accessTokenKey);
-    await _storage.delete(key: AppConstants.refreshTokenKey);
+    await Future.wait([
+      _storage.delete(key: AppConstants.accessTokenKey),
+      _storage.delete(key: 'token'),
+      _storage.delete(key: 'auth_token'),
+      _storage.delete(key: 'jwt'),
+      _storage.delete(key: AppConstants.refreshTokenKey),
+      _encryptedStorage.delete(key: AppConstants.accessTokenKey),
+      _encryptedStorage.delete(key: 'token'),
+      _encryptedStorage.delete(key: 'auth_token'),
+      _encryptedStorage.delete(key: 'jwt'),
+      _encryptedStorage.delete(key: AppConstants.refreshTokenKey),
+    ]);
   }
 
   Future<String?> getAccessToken() async {
-    return await _storage.read(key: AppConstants.accessTokenKey);
+    for (final key in _legacyAccessTokenKeys) {
+      final rawToken = await _readTokenFromAnyStore(key);
+      final token = _normalizeToken(rawToken);
+      if (token != null && token.isNotEmpty) {
+        if (key != AppConstants.accessTokenKey) {
+          await Future.wait([
+            _storage.write(key: AppConstants.accessTokenKey, value: token),
+            _encryptedStorage.write(key: AppConstants.accessTokenKey, value: token),
+          ]);
+        }
+        return token;
+      }
+    }
+    return null;
   }
+
+Future<String?> _readTokenFromAnyStore(String key) async {
+  final rawDefaultToken = await _storage.read(key: key);
+  if (_normalizeToken(rawDefaultToken)?.isNotEmpty == true) return rawDefaultToken;
+
+  try {
+    return await _encryptedStorage.read(key: key);
+  } catch (_) {
+    return null;
+  }
+}
+
+String? _normalizeToken(String? token) {
+  final trimmed = token?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return trimmed.replaceFirst(RegExp(r'^Bearer\s+', caseSensitive: false), '').trim();
+}
 
 Future<Map<String, dynamic>> executeWithRetry(
   Future<Response> Function() request,
@@ -222,6 +282,9 @@ String parseDioError(
         }
 
         if (extractedMessage != null && extractedMessage.trim().isNotEmpty) {
+          if (extractedMessage.toLowerCase().contains('no token provided')) {
+            return 'Login required. Please login again and retry.';
+          }
           return extractedMessage;
         }
 

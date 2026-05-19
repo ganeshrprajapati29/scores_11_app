@@ -1,31 +1,30 @@
-﻿import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/config/theme_config.dart';
+
+import '../../core/theme/app_colors.dart';
 import '../../data/models/tournament_model.dart';
 import '../../data/services/tournament_service.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   final String tournamentId;
-  
+
   const TournamentDetailScreen({super.key, required this.tournamentId});
 
   @override
   State<TournamentDetailScreen> createState() => _TournamentDetailScreenState();
 }
 
-class _TournamentDetailScreenState extends State<TournamentDetailScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _TournamentDetailScreenState extends State<TournamentDetailScreen>
+    with SingleTickerProviderStateMixin {
   final TournamentService _tournamentService = TournamentService();
-  
+  late final TabController _tabController;
+
   Tournament? _tournament;
+  List<Map<String, dynamic>> _matches = [];
+  List<PointsTable> _pointsTable = [];
+  Map<String, dynamic> _stats = {};
   bool _isLoading = true;
+  bool _isRegistering = false;
   String? _error;
-  bool _isRegistered = false;
-  
-  // Filters
-  String _selectedFormat = 'All';
-  String _selectedStatus = 'All';
 
   @override
   void initState() {
@@ -41,304 +40,158 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
   }
 
   Future<void> _loadTournament() async {
-    try {
+    if (widget.tournamentId.isEmpty) {
       setState(() {
-        _isLoading = true;
-        _error = null;
+        _error = 'Tournament id missing';
+        _isLoading = false;
       });
-      
-      // Simulate loading - in real app, call API
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Mock tournament data
-      final tournament = Tournament(
-        id: widget.tournamentId,
-        name: 'Champions League 2024',
-        description: 'The biggest cricket tournament featuring top teams from across the country. Compete for glory and huge prize money!',
-        organizer: 'Cricket Association',
-        type: 'League',
-        format: 'T20',
-        status: 'UPCOMING',
-        startDate: DateTime(2024, 12, 1),
-        endDate: DateTime(2024, 12, 31),
-        venue: 'Wankhede Stadium, Mumbai',
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        country: 'India',
-        bannerUrl: 'https://picsum.photos/800/400',
-        logoUrl: 'https://picsum.photos/200/200',
-        entryFee: 5000,
-        prizeMoney: 500000,
-        maxTeams: 16,
-        registeredTeams: 12,
-        isPaid: true,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final results = await Future.wait<dynamic>([
+        _tournamentService.getTournamentById(widget.tournamentId),
+        _tournamentService.getTournamentMatches(widget.tournamentId),
+        _tournamentService.getPointsTable(widget.tournamentId),
+        _tournamentService.getTournamentStats(widget.tournamentId),
+      ]);
+
+      if (!mounted) return;
       setState(() {
-        _tournament = tournament;
+        _tournament = results[0] as Tournament;
+        _matches = (results[1] as List).whereType<Map<String, dynamic>>().toList();
+        _pointsTable = (results[2] as List).whereType<PointsTable>().toList();
+        _stats = results[3] is Map<String, dynamic> ? results[3] as Map<String, dynamic> : {};
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = _cleanError(e);
         _isLoading = false;
       });
     }
   }
 
+  String _cleanError(Object error) {
+    final message = error.toString().replaceFirst('Exception: ', '');
+    if (message.contains('No token provided')) {
+      return 'Tournament details public mode me load ho rahe hain. Please refresh.';
+    }
+    if (message.contains('DioException')) {
+      return 'Tournament open nahi ho paaya. Network/server check karke retry karein.';
+    }
+    return message;
+  }
+
   Future<void> _participate() async {
-    // Call backend API to participate
-    setState(() => _isRegistered = true);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Successfully registered for the tournament! ðŸŽ‰'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    setState(() => _isRegistering = true);
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Team registration will open from your teams screen.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isRegistering = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _isLoading 
-          ? Center(child: CircularProgressIndicator())
+      backgroundColor: const Color(0xFFF6F8FC),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : _error != null
-              ? Center(child: Text('Error: $_error'))
-              : _buildContent(),
-      bottomNavigationBar: _tournament != null ? _buildBottomBar() : null,
+              ? _ErrorState(message: _error!, onRetry: _loadTournament)
+              : _tournament == null
+                  ? _ErrorState(message: 'Tournament not found', onRetry: _loadTournament)
+                  : _buildContent(_tournament!),
+      bottomNavigationBar: _tournament == null ? null : _buildBottomBar(_tournament!),
     );
   }
 
-  Widget _buildContent() {
-    return CustomScrollView(
-      slivers: [
-        // Hero Banner
+  Widget _buildContent(Tournament tournament) {
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) => [
         SliverAppBar(
-          expandedHeight: 250,
+          expandedHeight: 240,
           pinned: true,
+          stretch: true,
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: 'Refresh',
+              onPressed: _loadTournament,
+            ),
+          ],
           flexibleSpace: FlexibleSpaceBar(
+            titlePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             title: Text(
-              _tournament!.name,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                shadows: [Shadow(color: Colors.black, blurRadius: 10)],
+              tournament.name.isEmpty ? 'Tournament' : tournament.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
+            background: _HeroHeader(tournament: tournament),
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(52),
+            child: Container(
+              color: Colors.white,
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                labelColor: AppColors.primary,
+                unselectedLabelColor: const Color(0xFF64748B),
+                indicatorColor: AppColors.primary,
+                tabs: const [
+                  Tab(text: 'Overview'),
+                  Tab(text: 'Teams'),
+                  Tab(text: 'Matches'),
+                  Tab(text: 'Points'),
+                  Tab(text: 'Prize'),
+                ],
               ),
             ),
-            background: Stack(
-              fit: StackFit.expand,
-              children: [
-                _tournament!.bannerUrl != null
-                    ? Image.network(_tournament!.bannerUrl!, fit: BoxFit.cover)
-                    : Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [AppColors.primary, AppColors.primaryDark],
-                          ),
-                        ),
-                        child: Icon(Icons.emoji_events, size: 80, color: Colors.white30),
-                      ),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            IconButton(icon: Icon(Icons.share), onPressed: () {}),
-            IconButton(icon: Icon(Icons.bookmark_border), onPressed: () {}),
-          ],
-        ),
-        
-        // Tournament Info
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Status & Format Chips
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildChip(_tournament!.format, Icons.sports_cricket, AppColors.primary),
-                    _buildChip(_tournament!.type, Icons.emoji_events, AppColors.secondary),
-                    _buildChip(_tournament!.status, Icons.circle, _tournament!.status == 'LIVE' ? AppColors.error : AppColors.success),
-                  ],
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Description
-                Text(
-                  _tournament!.description ?? 'No description available',
-                  style: TextStyle(color: Colors.grey[700], height: 1.5),
-                ),
-                
-                const SizedBox(height: 24),
-                
-                // Quick Info Cards
-                Row(
-                  children: [
-                    Expanded(child: _buildInfoCard('ðŸ“…', 'Start Date', _formatDate(_tournament!.startDate))),
-                    Expanded(child: _buildInfoCard('ðŸŸï¸', 'Venue', _tournament!.venue ?? 'TBD')),
-                  ],
-                ),
-                
-                const SizedBox(height: 12),
-                
-                Row(
-                  children: [
-                    Expanded(child: _buildInfoCard('ðŸ‘¥', 'Teams', '${_tournament!.registeredTeams}/${_tournament!.maxTeams}')),
-                    Expanded(child: _buildInfoCard('ðŸ’°', 'Entry Fee', 'â‚¹${_tournament!.entryFee}')),
-                  ],
-                ),
-                
-                if (_tournament!.prizeMoney != null) ...[
-                  const SizedBox(height: 12),
-                  _buildInfoCard('ðŸ†', 'Prize Money', 'â‚¹${_tournament!.prizeMoney}'),
-                ],
-                
-                const SizedBox(height: 24),
-                
-                // Filters
-                Text('Filters', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildFilterChip('All', 'All'),
-                      _buildFilterChip('T20', 'T20'),
-                      _buildFilterChip('ODI', 'ODI'),
-                      _buildFilterChip('Test', 'Test'),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Tab Bar
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    labelColor: AppColors.primary,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    indicator: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    tabs: const [
-                      Tab(text: 'ðŸ“Š Overview'),
-                      Tab(text: 'ðŸ‘¥ Teams'),
-                      Tab(text: 'ðŸ“… Matches'),
-                      Tab(text: 'ðŸ“ˆ Points'),
-                      Tab(text: 'ðŸ† Prizes'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        
-        // Tab Content
-        SliverFillRemaining(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildOverviewTab(),
-              _buildTeamsTab(),
-              _buildMatchesTab(),
-              _buildPointsTab(),
-              _buildPrizesTab(),
-            ],
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildChip(String label, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          _OverviewTab(tournament: tournament, stats: _stats),
+          _TeamsTab(tournament: tournament),
+          _MatchesTab(matches: _matches),
+          _PointsTab(points: _pointsTable),
+          _PrizeTab(tournament: tournament),
         ],
       ),
     );
   }
 
-  Widget _buildInfoCard(String emoji, String title, String value) {
+  Widget _buildBottomBar(Tournament tournament) {
+    final isClosed = tournament.isCompleted || tournament.status == 'CANCELLED';
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 24)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String value) {
-    final isSelected = _selectedFormat == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {
-          setState(() => _selectedFormat = value);
-        },
-        selectedColor: AppColors.primary.withValues(alpha: 0.2),
-        checkmarkColor: AppColors.primary,
-      ),
-    );
-  }
-
-  Widget _buildBottomBar() {
-    return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 18,
+            offset: const Offset(0, -6),
+          ),
+        ],
       ),
       child: SafeArea(
         child: Row(
@@ -348,24 +201,34 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Entry Fee', style: TextStyle(color: Colors.grey[600])),
-                  Text('â‚¹${_tournament!.entryFee}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text('Entry Fee', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                  Text(
+                    _money(tournament.entryFee),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               flex: 2,
-              child: ElevatedButton(
-                onPressed: _isRegistered ? null : _participate,
+              child: ElevatedButton.icon(
+                onPressed: isClosed || _isRegistering ? null : _participate,
+                icon: _isRegistering
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.group_add_rounded, size: 18),
+                label: Text(isClosed ? 'Registration Closed' : 'Register Team'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _isRegistered ? Colors.green : AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFFE2E8F0),
+                  disabledForegroundColor: const Color(0xFF64748B),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: Text(
-                  _isRegistered ? 'âœ“ Registered' : 'Participate Now',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -374,373 +237,601 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> with Si
       ),
     );
   }
+}
 
-  Widget _buildOverviewTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Tournament Rules
-          Text('ðŸ“‹ Tournament Rules', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          _buildRuleItem('1', 'Each team must have minimum 11 players'),
-          _buildRuleItem('2', 'Match will be of 20 overs per side'),
-          _buildRuleItem('3', 'No bowler can bowl more than 4 overs'),
-          _buildRuleItem('4', 'Decision of umpire will be final'),
-          _buildRuleItem('5', 'Entry fee is non-refundable'),
-          
-          const SizedBox(height: 24),
-          
-          // Organizer Info
-          Text('ðŸ‘¤ Organized By', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: AppColors.primary,
-                  child: Text(_tournament!.organizer[0], style: const TextStyle(color: Colors.white)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_tournament!.organizer, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text('Tournament Organizer', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                    ],
-                  ),
-                ),
-                IconButton(icon: Icon(Icons.chat), onPressed: () {}),
+class _HeroHeader extends StatelessWidget {
+  final Tournament tournament;
+
+  const _HeroHeader({required this.tournament});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = tournament.bannerUrl ?? tournament.banner ?? tournament.logoUrl ?? tournament.logo;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (imageUrl != null && imageUrl.isNotEmpty)
+          Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _fallbackBackground(),
+          )
+        else
+          _fallbackBackground(),
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.15),
+                Colors.black.withOpacity(0.72),
               ],
             ),
           ),
-          
-          const SizedBox(height: 24),
-          
-          // Venue Info
-          Text('ðŸ“ Venue Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          Container(
-            height: 150,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.map, size: 48, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text('Map View'),
-                  Text('Tap to see on Google Maps', style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRuleItem(String number, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 24, height: 24,
-            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(12)),
-            child: Center(child: Text(number, style: const TextStyle(color: Colors.white, fontSize: 12))),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(text)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTeamsTab() {
-    // Mock registered teams
-    final List<Map<String, dynamic>> teams = [
-      {'name': 'Mumbai Indians', 'players': 15, 'captain': 'Rohit Sharma'},
-      {'name': 'Chennai Super Kings', 'players': 14, 'captain': 'MS Dhoni'},
-      {'name': 'Royal Challengers Bangalore', 'players': 15, 'captain': 'Virat Kohli'},
-      {'name': 'Kolkata Knight Riders', 'players': 14, 'captain': 'Shreyas Iyer'},
-    ];
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: teams.length,
-      itemBuilder: (context, index) {
-        final team = teams[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                child: Text('${index + 1}', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(team['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text('Captain: ${team['captain']}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                    Text('${team['players']} players', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right),
-            ],
-          ),
-        ).animate().fadeIn(delay: Duration(milliseconds: index * 100)).slideX(begin: 0.1);
-      },
-    );
-  }
-
-  Widget _buildMatchesTab() {
-    // Mock matches
-    final matches = [
-      {'team1': 'Mumbai Indians', 'team2': 'CSK', 'date': 'Dec 1', 'time': '7:00 PM', 'status': 'SCHEDULED'},
-      {'team1': 'RCB', 'team2': 'KKR', 'date': 'Dec 2', 'time': '3:00 PM', 'status': 'SCHEDULED'},
-      {'team1': 'MI', 'team2': 'RCB', 'date': 'Dec 3', 'time': '7:00 PM', 'status': 'SCHEDULED'},
-    ];
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: matches.length,
-      itemBuilder: (context, index) {
-        final match = matches[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
-          child: Column(
-            children: [
-              Text(match['date']!, style: TextStyle(color: Colors.grey[600])),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildMatchTeam(match['team1']!),
-                  Text('VS', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
-                  _buildMatchTeam(match['team2']!),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(match['time']!, style: TextStyle(color: Colors.grey[600])),
-                  const SizedBox(width: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(match['status']!, style: TextStyle(color: AppColors.success, fontSize: 10)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ).animate().fadeIn(delay: Duration(milliseconds: index * 100));
-      },
-    );
-  }
-
-  Widget _buildMatchTeam(String name) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 25,
-          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-          child: Text(name.isNotEmpty ? name[0] : '', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
         ),
-        const SizedBox(height: 4),
-        Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 56,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatusChip(label: tournament.status, color: _statusColor(tournament.status)),
+              _StatusChip(label: tournament.format, color: Colors.white),
+              _StatusChip(label: tournament.type, color: Colors.white),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildPointsTab() {
-    // Mock points table
-    final List<Map<String, dynamic>> teams = [
-      {'team': 'Mumbai Indians', 'played': 3, 'won': 3, 'lost': 0, 'points': 6, 'nrr': '+1.250', 'nrRate': 1.245},
-      {'team': 'Chennai Super Kings', 'played': 3, 'won': 2, 'lost': 1, 'points': 4, 'nrr': '+0.850', 'nrRate': 1.123},
-      {'team': 'Royal Challengers Bangalore', 'played': 3, 'won': 1, 'lost': 2, 'points': 2, 'nrr': '-0.450', 'nrRate': 0.945},
-      {'team': 'Kolkata Knight Riders', 'played': 3, 'won': 0, 'lost': 3, 'points': 0, 'nrr': '-1.150', 'nrRate': 1.056},
-    ];
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Table Header
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            ),
-            child: Row(
-              children: [
-                SizedBox(width: 30, child: Text('#', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                Expanded(child: Text('Team', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                SizedBox(width: 40, child: Text('P', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                SizedBox(width: 40, child: Text('W', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                SizedBox(width: 40, child: Text('L', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                SizedBox(width: 50, child: Text('Pts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                SizedBox(width: 60, child: Text('NRR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-              ],
-            ),
-          ),
-          // Table Rows
-          ...teams.asMap().entries.map((entry) {
-            final index = entry.key;
-            final team = entry.value;
-            return Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
-              ),
-              child: Row(
-                children: [
-                  SizedBox(width: 30, child: Text('${index + 1}', style: TextStyle(color: index < 2 ? AppColors.success : Colors.grey[600]))),
-                  Expanded(child: Text(team['team']!, style: const TextStyle(fontWeight: FontWeight.w500))),
-                  SizedBox(width: 40, child: Text('${team['played']}', textAlign: TextAlign.center)),
-                  SizedBox(width: 40, child: Text('${team['won']}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.green))),
-                  SizedBox(width: 40, child: Text('${team['lost']}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red))),
-                  SizedBox(width: 50, child: Text('${team['points']}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold))),
-                  SizedBox(width: 60, child: Text('${team['nrr']}', textAlign: TextAlign.center)),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPrizesTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Prize Pool
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                Text('ðŸ† Total Prize Pool', style: TextStyle(color: Colors.white, fontSize: 16)),
-                const SizedBox(height: 8),
-                Text('â‚¹${_tournament!.prizeMoney ?? 0}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Prize Distribution
-          Text('Prize Distribution', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          
-          _buildPrizeCard(1, 'â‚¹${((_tournament!.prizeMoney ?? 0) * 0.5).toInt()}', 'ðŸ¥‡ Champion', Colors.amber),
-          const SizedBox(height: 12),
-          _buildPrizeCard(2, 'â‚¹${((_tournament!.prizeMoney ?? 0) * 0.25).toInt()}', 'ðŸ¥ˆ Runner Up', Colors.grey[400]!),
-          const SizedBox(height: 12),
-          _buildPrizeCard(3, 'â‚¹${((_tournament!.prizeMoney ?? 0) * 0.15).toInt()}', 'ðŸ¥‰ Third Place', Colors.brown[300]!),
-          const SizedBox(height: 12),
-          _buildPrizeCard(4, 'â‚¹${((_tournament!.prizeMoney ?? 0) * 0.10).toInt()}', 'ðŸŽ–ï¸ Fourth Place', Colors.orange[200]!),
-          
-          const SizedBox(height: 24),
-          
-          // Individual Awards
-          Text('Individual Awards', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          _buildAwardItem('ðŸ Player of the Tournament', 'â‚¹50,000'),
-          _buildAwardItem('ðŸ”¥ Best Batsman', 'â‚¹25,000'),
-          _buildAwardItem('âš¡ Best Bowler', 'â‚¹25,000'),
-          _buildAwardItem('â­ Most Valuable Player', 'â‚¹25,000'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPrizeCard(int position, String prize, String title, Color color) {
+  Widget _fallbackBackground() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))],
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0F3B76), Color(0xFF1A56DB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
-            child: Center(child: Text('$position', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold))),
-          Text(prize, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-        ],
-      ),
+      child: Icon(Icons.emoji_events_rounded, size: 96, color: Colors.white.withOpacity(0.18)),
     );
-  }
-
-  Widget _buildAwardItem(String title, String prize) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title),
-          Text(prize, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.secondary)),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime? date) {
-    if (date == null) return 'TBD';
-    return '${date.day}/${date.month}/${date.year}';
   }
 }
 
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
 
+  const _StatusChip({required this.label, required this.color});
 
+  @override
+  Widget build(BuildContext context) {
+    final isWhite = color == Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isWhite ? Colors.white.withOpacity(0.18) : color.withOpacity(0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: isWhite ? Colors.white.withOpacity(0.28) : color.withOpacity(0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: isWhite ? Colors.white : color,
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+}
+
+class _OverviewTab extends StatelessWidget {
+  final Tournament tournament;
+  final Map<String, dynamic> stats;
+
+  const _OverviewTab({required this.tournament, required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if ((tournament.description ?? '').isNotEmpty)
+          _SectionCard(
+            title: 'About',
+            child: Text(
+              tournament.description!,
+              style: const TextStyle(color: Color(0xFF475569), height: 1.45),
+            ),
+          ),
+        _SectionCard(
+          title: 'Tournament Info',
+          child: Column(
+            children: [
+              _InfoRow(icon: Icons.calendar_today_rounded, label: 'Start', value: _date(tournament.startDate)),
+              _InfoRow(icon: Icons.event_available_rounded, label: 'End', value: _date(tournament.endDate)),
+              _InfoRow(icon: Icons.location_on_rounded, label: 'Venue', value: tournament.displayLocation),
+              _InfoRow(icon: Icons.person_rounded, label: 'Organizer', value: tournament.organizer.isEmpty ? 'Unknown' : tournament.organizer),
+              _InfoRow(icon: Icons.groups_rounded, label: 'Teams', value: '${tournament.teamsCount}/${tournament.capacityTeams}'),
+              _InfoRow(icon: Icons.sports_cricket_rounded, label: 'Overs', value: '${tournament.overs} overs'),
+            ],
+          ),
+        ),
+        _SectionCard(
+          title: 'Live Summary',
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _StatTile(label: 'Matches', value: _value(stats['totalMatches'] ?? tournament.totalMatches)),
+              _StatTile(label: 'Completed', value: _value(stats['completedMatches'])),
+              _StatTile(label: 'Upcoming', value: _value(stats['upcomingMatches'])),
+              _StatTile(label: 'Teams', value: _value(tournament.teamsCount)),
+            ],
+          ),
+        ),
+        if ((tournament.rules ?? '').isNotEmpty)
+          _SectionCard(
+            title: 'Rules',
+            child: Text(tournament.rules!, style: const TextStyle(color: Color(0xFF475569), height: 1.45)),
+          ),
+      ],
+    );
+  }
+}
+
+class _TeamsTab extends StatelessWidget {
+  final Tournament tournament;
+
+  const _TeamsTab({required this.tournament});
+
+  @override
+  Widget build(BuildContext context) {
+    if (tournament.teams.isEmpty) {
+      return const _EmptyPanel(message: 'No teams registered yet');
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: tournament.teams.length,
+      itemBuilder: (context, index) {
+        final team = tournament.teams[index];
+        return Card(
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: AppColors.primary.withOpacity(0.1),
+              child: Text('${index + 1}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+            ),
+            title: Text(team, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MatchesTab extends StatelessWidget {
+  final List<Map<String, dynamic>> matches;
+
+  const _MatchesTab({required this.matches});
+
+  @override
+  Widget build(BuildContext context) {
+    if (matches.isEmpty) {
+      return const _EmptyPanel(message: 'Fixtures are not generated yet');
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: matches.length,
+      itemBuilder: (context, index) => _MatchCard(match: matches[index]),
+    );
+  }
+}
+
+class _MatchCard extends StatelessWidget {
+  final Map<String, dynamic> match;
+
+  const _MatchCard({required this.match});
+
+  @override
+  Widget build(BuildContext context) {
+    final team1 = _teamName(match['team1'], fallback: 'Team A');
+    final team2 = _teamName(match['team2'], fallback: 'Team B');
+    final status = match['status']?.toString().toUpperCase() ?? 'SCHEDULED';
+    final date = DateTime.tryParse(match['scheduledDate']?.toString() ?? '');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(_dateTime(date), style: const TextStyle(color: Color(0xFF64748B), fontSize: 12))),
+                _MiniBadge(label: status, color: _statusColor(status)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(child: _TeamName(name: team1)),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child: Text('VS', style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+                ),
+                Expanded(child: _TeamName(name: team2, alignEnd: true)),
+              ],
+            ),
+            if ((match['venue']?.toString() ?? '').isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 15, color: Color(0xFF64748B)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      match['venue'].toString(),
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PointsTab extends StatelessWidget {
+  final List<PointsTable> points;
+
+  const _PointsTab({required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    if (points.isEmpty) {
+      return const _EmptyPanel(message: 'Points table will appear after matches start');
+    }
+    final sorted = [...points]..sort((a, b) => b.points.compareTo(a.points));
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _PointsHeader(),
+        ...sorted.asMap().entries.map((entry) => _PointsRow(rank: entry.key + 1, row: entry.value)),
+      ],
+    );
+  }
+}
+
+class _PrizeTab extends StatelessWidget {
+  final Tournament tournament;
+
+  const _PrizeTab({required this.tournament});
+
+  @override
+  Widget build(BuildContext context) {
+    final prize = tournament.prizeMoney ?? 0;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _SectionCard(
+          title: 'Prize Pool',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_money(prize), style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: AppColors.primary)),
+              const SizedBox(height: 6),
+              const Text('Final prize distribution depends on organizer settings.', style: TextStyle(color: Color(0xFF64748B))),
+            ],
+          ),
+        ),
+        _SectionCard(
+          title: 'Entry',
+          child: _InfoRow(icon: Icons.payments_rounded, label: 'Entry Fee', value: _money(tournament.entryFee)),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _SectionCard({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(child: Text(label, style: const TextStyle(color: Color(0xFF64748B)))),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _StatTile({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 108,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primary)),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+        ],
+      ),
+    );
+  }
+}
+
+class _TeamName extends StatelessWidget {
+  final String name;
+  final bool alignEnd;
+
+  const _TeamName({required this.name, this.alignEnd = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      name,
+      textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontWeight: FontWeight.w800),
+    );
+  }
+}
+
+class _MiniBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _MiniBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(999)),
+      child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+class _PointsHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(width: 34, child: Text('#', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+          Expanded(child: Text('Team', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+          _TableHead('M'),
+          _TableHead('W'),
+          _TableHead('L'),
+          _TableHead('Pts'),
+          _TableHead('NRR'),
+        ],
+      ),
+    );
+  }
+}
+
+class _TableHead extends StatelessWidget {
+  final String label;
+  const _TableHead(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(width: 42, child: Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)));
+  }
+}
+
+class _PointsRow extends StatelessWidget {
+  final int rank;
+  final PointsTable row;
+
+  const _PointsRow({required this.rank, required this.row});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(width: 34, child: Text('$rank', style: const TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(child: Text(row.team, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          _TableCell('${row.matchesPlayed}'),
+          _TableCell('${row.matchesWon}'),
+          _TableCell('${row.matchesLost}'),
+          _TableCell('${row.points}', bold: true),
+          _TableCell(row.netRunRate.toStringAsFixed(2)),
+        ],
+      ),
+    );
+  }
+}
+
+class _TableCell extends StatelessWidget {
+  final String value;
+  final bool bold;
+
+  const _TableCell(this.value, {this.bold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 42,
+      child: Text(
+        value,
+        textAlign: TextAlign.center,
+        style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w500),
+      ),
+    );
+  }
+}
+
+class _EmptyPanel extends StatelessWidget {
+  final String message;
+
+  const _EmptyPanel({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.emoji_events_outlined, size: 58, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded, size: 58, color: Colors.red.shade400),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF475569))),
+            const SizedBox(height: 18),
+            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _teamName(dynamic team, {required String fallback}) {
+  if (team is String && team.isNotEmpty) return team;
+  if (team is Map) {
+    return team['name']?.toString() ??
+        team['shortName']?.toString() ??
+        team['_id']?.toString() ??
+        team['id']?.toString() ??
+        fallback;
+  }
+  return fallback;
+}
+
+Color _statusColor(String status) {
+  switch (status.toUpperCase()) {
+    case 'LIVE':
+    case 'IN_PROGRESS':
+      return const Color(0xFFEF4444);
+    case 'COMPLETED':
+      return const Color(0xFF16A34A);
+    case 'CANCELLED':
+      return const Color(0xFF64748B);
+    default:
+      return AppColors.primary;
+  }
+}
+
+String _date(DateTime? date) {
+  if (date == null) return 'TBD';
+  return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+}
+
+String _dateTime(DateTime? date) {
+  if (date == null) return 'Schedule TBD';
+  final hour = date.hour == 0 ? 12 : (date.hour > 12 ? date.hour - 12 : date.hour);
+  final period = date.hour >= 12 ? 'PM' : 'AM';
+  return '${_date(date)}  $hour:${date.minute.toString().padLeft(2, '0')} $period';
+}
+
+String _money(num? value) {
+  final amount = value ?? 0;
+  if (amount <= 0) return 'Free';
+  return 'Rs ${amount.toStringAsFixed(0)}';
+}
+
+String _value(dynamic value) => int.tryParse(value?.toString() ?? '')?.toString() ?? '0';

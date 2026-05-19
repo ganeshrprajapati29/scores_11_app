@@ -43,6 +43,10 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
 
   bool _cameraReady   = false;
   bool _isStreaming   = false;
+  bool _isStarting    = false;
+  bool _isStopping    = false;
+  bool _isCameraBusy  = false;
+  bool _hasEnded      = false;
   bool _isMuted       = false;
   bool _isFrontCamera = false;
   bool _showKey       = false;
@@ -80,36 +84,72 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
 
   // ── Init camera + auto start stream ─────────────────────────────────────────
   Future<void> _initializeCameraAndStream() async {
+    if (_isCameraBusy) return;
+    _isCameraBusy = true;
     try {
-      _rtmpUrl   = LiveStreamService.zenstreamRtmpServer;
-      _streamKey = widget.stream.streamKey;
+      _rtmpUrl = widget.stream.rtmpUrl?.isNotEmpty == true
+          ? widget.stream.rtmpUrl!
+          : LiveStreamService.zenstreamRtmpServer;
+      _streamKey = widget.stream.streamKey.isNotEmpty
+          ? widget.stream.streamKey
+          : widget.stream.id;
 
       _cameras = await availableCameras();
       await _setupCamera(_isFrontCamera ? 1 : 0);
-      await _startStreaming();
+      if (!_isStreaming && !_isStarting && !_hasEnded) {
+        await _startStreaming();
+      }
     } catch (e) {
       debugPrint('Init error: $e');
+      if (mounted) {
+        setState(() => _cameraReady = false);
+      }
+    } finally {
+      _isCameraBusy = false;
     }
   }
 
   Future<void> _setupCamera(int index) async {
     if (_cameras == null || _cameras!.isEmpty) return;
-    final camIndex = index.clamp(0, _cameras!.length - 1);
-
-    await _cameraController?.dispose();
-    _cameraController = CameraController(
-      _cameras![camIndex],
-      ResolutionPreset.high,
-      enableAudio: !_isMuted,
+    final preferredDirection =
+        _isFrontCamera ? CameraLensDirection.front : CameraLensDirection.back;
+    final selectedCamera = _cameras!.firstWhere(
+      (camera) => camera.lensDirection == preferredDirection,
+      orElse: () => _cameras![index.clamp(0, _cameras!.length - 1).toInt()],
     );
 
-    await _cameraController!.initialize();
+    final oldController = _cameraController;
+    _cameraController = null;
+    if (mounted) setState(() => _cameraReady = false);
+    await oldController?.dispose();
+
+    try {
+      _cameraController = CameraController(
+        selectedCamera,
+        ResolutionPreset.medium,
+        enableAudio: !_isMuted,
+      );
+      await _cameraController!.initialize();
+    } catch (e) {
+      debugPrint('Camera init failed: $e');
+      await _cameraController?.dispose();
+      _cameraController = CameraController(
+        selectedCamera,
+        ResolutionPreset.low,
+        enableAudio: !_isMuted,
+      );
+      await _cameraController!.initialize();
+    }
     if (mounted) setState(() => _cameraReady = true);
   }
 
   // ── Start stream ─────────────────────────────────────────────────────────────
   Future<void> _startStreaming() async {
-    setState(() => _isStreaming = true);
+    if (_isStarting || _isStreaming || _hasEnded) return;
+    setState(() {
+      _isStarting = true;
+      _isStreaming = true;
+    });
     _streamStart = DateTime.now();
     _tickDuration();
 
@@ -117,18 +157,32 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
       await LiveStreamService.startStream(widget.stream.id);
       if (mounted) _showSnack('🎥 Stream is live!', _green);
     } catch (e) {
-      setState(() => _isStreaming = false);
+      if (mounted) {
+        setState(() {
+          _isStreaming = false;
+          _streamStart = null;
+        });
+      }
       if (mounted) _showSnack('Stream failed: $e', _red);
+    } finally {
+      if (mounted) setState(() => _isStarting = false);
     }
   }
 
   // ── Stop stream ──────────────────────────────────────────────────────────────
   Future<void> _stopStreaming() async {
+    if (_isStopping || _hasEnded) return;
+    setState(() => _isStopping = true);
     try {
+      await LiveStreamService.endStream(widget.stream.id);
       await _cameraController?.dispose();
       _cameraController = null;
+      if (!mounted) return;
       setState(() {
         _isStreaming  = false;
+        _isStarting   = false;
+        _isStopping   = false;
+        _hasEnded     = true;
         _cameraReady  = false;
         _streamStart  = null;
         _duration     = 0;
@@ -136,18 +190,23 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
       if (mounted) _showSnack('Stream ended', _muted);
     } catch (e) {
       debugPrint('Stop error: $e');
+      if (mounted) {
+        setState(() => _isStopping = false);
+        _showSnack('Unable to end stream: $e', _red);
+      }
     }
   }
 
   // ── Toggle mute ──────────────────────────────────────────────────────────────
   Future<void> _toggleMute() async {
+    if (_isCameraBusy || _hasEnded) return;
     setState(() => _isMuted = !_isMuted);
     await _setupCamera(_isFrontCamera ? 1 : 0);
   }
 
   // ── Flip camera ──────────────────────────────────────────────────────────────
   Future<void> _flipCamera() async {
-    if (_cameras == null || _cameras!.length < 2) return;
+    if (_isCameraBusy || _hasEnded || _cameras == null || _cameras!.length < 2) return;
     setState(() {
       _isFrontCamera = !_isFrontCamera;
       _cameraReady   = false;
@@ -196,6 +255,9 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (_isStreaming && !_hasEnded && widget.stream.id.isNotEmpty) {
+      LiveStreamService.endStream(widget.stream.id);
+    }
     _pulseCtrl?.dispose();
     _cameraController?.dispose();
     super.dispose();
@@ -203,12 +265,11 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_cameraController == null ||
-        !_cameraController!.value.isInitialized) return;
-
     if (state == AppLifecycleState.inactive) {
       _cameraController?.dispose();
-    } else if (state == AppLifecycleState.resumed) {
+      _cameraController = null;
+      if (mounted) setState(() => _cameraReady = false);
+    } else if (state == AppLifecycleState.resumed && !_hasEnded) {
       _initializeCameraAndStream();
     }
   }
@@ -407,7 +468,30 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
           fit: StackFit.expand,
           children: [
             // Camera feed or loader
-            if (_cameraReady && _cameraController != null)
+            if (_hasEnded)
+              const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.stop_circle_outlined, color: _white70, size: 42),
+                    SizedBox(height: 12),
+                    Text(
+                      'Stream ended',
+                      style: TextStyle(
+                        color: _white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'Your broadcast is now offline',
+                      style: TextStyle(color: _white40, fontSize: 13),
+                    ),
+                  ],
+                ),
+              )
+            else if (_cameraReady && _cameraController != null)
               CameraPreview(_cameraController!)
             else
               Center(
@@ -743,7 +827,7 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: _isStreaming ? _stopStreaming : null,
+            onTap: _isStreaming && !_isStopping ? _stopStreaming : null,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -754,7 +838,11 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  _isStreaming ? 'Stop Stream' : 'Stream Offline',
+                  _isStopping
+                      ? 'Ending Stream...'
+                      : _isStreaming
+                          ? 'Stop Stream'
+                          : 'Stream Offline',
                   style: TextStyle(
                     color: _isStreaming ? _white : _muted,
                     fontSize: 15,

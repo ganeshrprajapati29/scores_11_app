@@ -5,10 +5,28 @@ import '../../core/services/api_client.dart';
 class ChatService {
   final ApiClient _apiClient = ApiClient();
 
+  dynamic _unwrap(dynamic raw) {
+    if (raw is Map) return raw['data'] ?? raw['chats'] ?? raw['messages'] ?? raw;
+    return raw;
+  }
+
+  String? idFrom(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value;
+    if (value is Map) {
+      return (value['_id'] ?? value['id'] ?? value['userId'])?.toString();
+    }
+    return value.toString();
+  }
+
   Future<List<Map<String, dynamic>>> getChats() async {
     try {
-      final response = await _apiClient.get('${ApiConfig.baseUrl}/chat');
-      return List<Map<String, dynamic>>.from(response.data ?? []);
+      final response = await _apiClient.get('/chat');
+      final data = _unwrap(response.data);
+      if (data is List) {
+        return data.whereType<Map>().map((chat) => Map<String, dynamic>.from(chat)).toList();
+      }
+      return [];
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(e));
     } catch (e) {
@@ -19,8 +37,12 @@ class ChatService {
   /// Get messages for specific chat by chatId
   Future<List<Map<String, dynamic>>> getMessages(String chatId) async {
     try {
-      final response = await _apiClient.get('${ApiConfig.baseUrl}/chat/$chatId');
-      return List<Map<String, dynamic>>.from(response.data ?? []);
+      final response = await _apiClient.get('/chat/$chatId');
+      final data = _unwrap(response.data);
+      if (data is List) {
+        return data.whereType<Map>().map((message) => Map<String, dynamic>.from(message)).toList();
+      }
+      return [];
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(e));
     } catch (e) {
@@ -36,11 +58,15 @@ class ChatService {
       
       // Find chat with this receiver
       final chat = chats.firstWhere(
-        (chat) => chat['participants']?.any((p) => p['_id'] == receiverUserId || p['id'] == receiverUserId) ?? false,
-orElse: () => {},
+        (chat) {
+          final participants = chat['participants'];
+          return participants is List &&
+              participants.any((p) => idFrom(p) == receiverUserId);
+        },
+        orElse: () => {},
       );
 
-      if (chat != null) {
+      if (chat.isNotEmpty) {
         chat['chatId'] = chat['id'] ?? chat['_id'];
         return chat;
       }
@@ -53,12 +79,17 @@ orElse: () => {},
     }
   }
 
-  Future<void> sendMessage(String receiverUserId, String text) async {
+  Future<Map<String, dynamic>> sendMessage(String receiverUserId, String text) async {
     try {
-      await _apiClient.post(
-        '${ApiConfig.baseUrl}/chat/$receiverUserId/messages',
-        data: {'text': text},  // Backend expects 'text'
+      final response = await _apiClient.post(
+        '/chat/$receiverUserId/messages',
+        data: {
+          'receiverId': receiverUserId,
+          'text': text,
+        },
       );
+      final data = _unwrap(response.data);
+      return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(e));
     } catch (e) {

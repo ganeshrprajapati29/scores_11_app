@@ -76,12 +76,12 @@ class _TournamentListScreenState extends State<TournamentListScreen>
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _error = e.toString();
+        _error = _cleanError(e);
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading tournaments: $e'),
+            content: Text('Error loading tournaments: $_error'),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10)),
@@ -89,6 +89,14 @@ class _TournamentListScreenState extends State<TournamentListScreen>
         );
       }
     }
+  }
+
+  String _cleanError(Object error) {
+    final message = error.toString().replaceFirst('Exception: ', '');
+    if (message.contains('DioException')) {
+      return 'Tournaments load nahi ho paaye. Network/server check karke retry karein.';
+    }
+    return message;
   }
 
   Future<void> _loadMoreLive() async {

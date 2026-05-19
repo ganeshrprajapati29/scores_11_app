@@ -11,6 +11,9 @@ class AppRoutes {
   
   // Matches
   static const String matches = '/matches';
+  static const String allMatches = '/all-matches';
+  static const String scheduledMatches = '/scheduled-matches';
+  static const String completedMatches = '/completed-matches';
   static const String matchDetail = '/match/:id';
   static const String createMatch = '/create-match';
   static const String createMatchEnhanced = '/create-match-enhanced';

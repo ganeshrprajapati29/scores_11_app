@@ -2,10 +2,13 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/api_client.dart';
+import '../../core/config/api_config.dart';
 import '../../data/services/match_service.dart';
 import '../../data/models/match_model.dart';
 import '../../providers/live_score_control_provider.dart';
 import '../matches/live_score_control_screen.dart';
+import '../matches/wagon_wheel_screen.dart';
 
 class TossScreen extends StatefulWidget {
   final String matchId;
@@ -99,17 +102,57 @@ class _TossScreenState extends State<TossScreen>
     super.dispose();
   }
 
-  Future<void> _loadMatch() async {
+Future<void> _loadMatch() async {
     try {
       _match = await _matchService.getMatchById(widget.matchId);
+      
+      // Update match status based on backend status
+      _updateFlowFromMatch();
+      
+      // If match is already live, navigate to live score control
+      if (_match?.isLive == true && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LiveScoreControlScreen(matchId: widget.matchId),
+          ),
+        );
+        return;
+      }
+      
       if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Error loading match: $e');
     }
   }
+  
+  void _updateFlowFromMatch() {
+    if (_match == null) return;
+    
+    // Update flow based on match status from backend
+    final status = _match!.status.toLowerCase();
+    debugPrint('📊 Match status from backend: $status');
+    
+// If we've already done toss, go to live score
+    if (_match!.toss?.winner != null && _match!.toss?.decision != null) {
+      // Toss already done, navigate to live control
+      if (mounted) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LiveScoreControlScreen(matchId: widget.matchId),
+              ),
+            );
+          }
+        });
+      }
+    }
+  }
 
-  void _flipCoin() {
-    if (_isCoinFlipping) return;
+void _flipCoin() {
+    if (_isCoinFlipping || _coinFlipped) return;
     setState(() {
       _isCoinFlipping = true;
       _coinFlipped = false;
@@ -123,11 +166,24 @@ class _TossScreenState extends State<TossScreen>
     _coinResult = Random().nextBool() ? 'heads' : 'tails';
   }
 
+  // Open Wagon Wheel Screen
+  void _openWagonWheel() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WagonWheelScreen(
+          matchId: widget.matchId,
+          match: _match,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF060D1F),
-      appBar: AppBar(
+appBar: AppBar(
         backgroundColor: const Color(0xFF060D1F),
         elevation: 0,
         leading: IconButton(
@@ -146,6 +202,20 @@ class _TossScreenState extends State<TossScreen>
         ),
         centerTitle: true,
         actions: [
+          // Wagon Wheel Quick Access Button
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.radar_rounded,
+                  color: Color(0xFFFFD700), size: 20),
+            ),
+            onPressed: () => _openWagonWheel(),
+            tooltip: 'Wagon Wheel',
+          ),
           Container(
             margin: const EdgeInsets.only(right: 16, top: 10, bottom: 10),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -337,7 +407,7 @@ class _TossScreenState extends State<TossScreen>
         ),
         const SizedBox(height: 24),
         GestureDetector(
-          onTap: _isCoinFlipping ? null : _flipCoin,
+          onTap: (_isCoinFlipping || _coinFlipped) ? null : _flipCoin,
           child: AnimatedBuilder(
             animation: Listenable.merge([_coinAnimation, _glowAnimation]),
             builder: (context, child) {
@@ -493,7 +563,7 @@ class _TossScreenState extends State<TossScreen>
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           child: ElevatedButton.icon(
-            onPressed: _isCoinFlipping ? null : _flipCoin,
+            onPressed: (_isCoinFlipping || _coinFlipped) ? null : _flipCoin,
             icon: Icon(
               _isCoinFlipping ? Icons.hourglass_top_rounded : Icons.touch_app_rounded,
               size: 20,
@@ -502,7 +572,7 @@ class _TossScreenState extends State<TossScreen>
               _isCoinFlipping
                   ? 'Flipping...'
                   : _coinFlipped
-                      ? 'Flip Again'
+                      ? 'Coin Flipped'
                       : 'Tap to Flip',
               style: const TextStyle(
                 fontSize: 15,
@@ -742,21 +812,23 @@ class _TossScreenState extends State<TossScreen>
     try {
       final winnerTeamName =
           tossWinner == 'team1' ? _match!.team1 : _match!.team2;
+      final winnerTeamId =
+          tossWinner == 'team1' ? _match!.team1Id : _match!.team2Id;
 
-      await _matchService.updateToss(
-          widget.matchId, winnerTeamName, selectedDecision!);
+      _match = await _matchService.updateToss(
+          widget.matchId, winnerTeamId, selectedDecision!);
 
       debugPrint(
           '✅ Toss saved: $winnerTeamName won toss and chose to ${selectedDecision == 'bat' ? 'bat' : 'bowl'} first');
 
-      await _matchService.updateMatchStatus(widget.matchId, 'LIVE');
+      // Backend moves the match to team selection after toss; scoring goes live after XI initialization.
 
       debugPrint('✅ Match status updated to LIVE');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Toss completed! Match is now LIVE.'),
+            content: Text('$winnerTeamName won the toss. Confirm Playing XI next.'),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -774,10 +846,13 @@ class _TossScreenState extends State<TossScreen>
       }
     } catch (e) {
       debugPrint('Error saving toss: $e');
+      await _loadMatch();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Toss completed! (Status update failed: $e)'),
+            content: Text(_match?.toss?.winner != null
+                ? 'Toss already completed. Opening match setup.'
+                : 'Toss failed: $e'),
             backgroundColor: Colors.orange,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

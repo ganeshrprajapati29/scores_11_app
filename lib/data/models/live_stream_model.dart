@@ -10,6 +10,10 @@ class LiveStreamModel {
   final String? streamUrl;
   final String? rtmpUrl;
   final String? hlsUrl;
+  final String provider;
+  final String? youtubeUrl;
+  final String? youtubeVideoId;
+  final String? youtubeEmbedUrl;
   String status;
   int viewerCount;
   int likes;
@@ -42,6 +46,10 @@ class LiveStreamModel {
     this.streamUrl,
     this.rtmpUrl,
     this.hlsUrl,
+    this.provider = 'zenstream',
+    this.youtubeUrl,
+    this.youtubeVideoId,
+    this.youtubeEmbedUrl,
     required this.status,
     required this.viewerCount,
     required this.likes,
@@ -65,36 +73,42 @@ class LiveStreamModel {
 
   factory LiveStreamModel.fromJson(Map<String, dynamic> json) {
     return LiveStreamModel(
-      id: json['_id'] ?? json['id'] ?? '',
-      userId: json['userId'] is Map ? json['userId']['_id'] : json['userId'],
-      title: json['title'] ?? '',
-      description: json['description'],
-      streamType: json['streamType'] ?? 'mobile',
-      streamQuality: json['streamQuality'] ?? '720p',
-      thumbnail: json['thumbnail'],
-      streamKey: json['streamKey'] ?? '',
-      streamUrl: json['streamUrl'],
-      rtmpUrl: json['rtmpUrl'],
-      hlsUrl: json['hlsUrl'],
-      status: json['status'] ?? 'pending',
-      viewerCount: json['viewerCount'] ?? 0,
-      likes: json['likes'] ?? 0,
-      category: json['category'] ?? 'other',
-      tags: json['tags'] != null ? List<String>.from(json['tags']) : [],
-      isPrivate: json['isPrivate'] ?? false,
-      password: json['password'],
-      scheduledAt: json['scheduledAt'] != null ? DateTime.parse(json['scheduledAt']) : null,
-      startedAt: json['startedAt'] != null ? DateTime.parse(json['startedAt']) : null,
-      endedAt: json['endedAt'] != null ? DateTime.parse(json['endedAt']) : null,
-      duration: json['duration'] ?? 0,
-      location: json['location'] != null ? LiveLocation.fromJson(json['location']) : null,
-      pricing: json['pricing'] != null ? Pricing.fromJson(json['pricing']) : null,
-      equipment: json['equipment'] != null ? Equipment.fromJson(json['equipment']) : null,
-      lookingFor: json['lookingFor'] != null ? List<String>.from(json['lookingFor']) : [],
-      requirements: json['requirements'],
-      isFeatured: json['isFeatured'] ?? false,
-      isPremium: json['isPremium'] ?? false,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      id: (json['_id'] ?? json['id'] ?? json['streamId'] ?? '').toString(),
+      userId: json['userId'] is Map
+          ? (json['userId']['_id'] ?? json['userId']['id'] ?? '').toString()
+          : (json['userId'] ?? '').toString(),
+      title: (json['title'] ?? 'Live Stream').toString(),
+      description: json['description']?.toString(),
+      streamType: (json['streamType'] ?? 'mobile').toString(),
+      streamQuality: (json['streamQuality'] ?? '720p').toString(),
+      thumbnail: json['thumbnail']?.toString(),
+      streamKey: (json['streamKey'] ?? json['zenstreamStreamKey'] ?? json['key'] ?? json['streamId'] ?? json['_id'] ?? json['id'] ?? '').toString(),
+      streamUrl: (json['streamUrl'] ?? json['playbackUrl'] ?? json['zenstreamPlayerUrl'])?.toString(),
+      rtmpUrl: (json['rtmpUrl'] ?? json['zenstreamRtmpUrl'])?.toString(),
+      hlsUrl: (json['hlsUrl'] ?? json['hls_url'] ?? json['playbackUrl'])?.toString(),
+      provider: (json['provider'] ?? (json['youtubeVideoId'] != null ? 'youtube' : 'zenstream')).toString(),
+      youtubeUrl: json['youtubeUrl']?.toString(),
+      youtubeVideoId: (json['youtubeVideoId'] ?? json['youtubeId'])?.toString(),
+      youtubeEmbedUrl: json['youtubeEmbedUrl']?.toString(),
+      status: (json['status'] ?? 'pending').toString(),
+      viewerCount: int.tryParse((json['viewerCount'] ?? json['viewers'] ?? 0).toString()) ?? 0,
+      likes: int.tryParse((json['likes'] ?? 0).toString()) ?? 0,
+      category: (json['category'] ?? 'cricket').toString(),
+      tags: json['tags'] is List ? List<String>.from(json['tags']) : [],
+      isPrivate: json['isPrivate'] == true,
+      password: json['password']?.toString(),
+      scheduledAt: DateTime.tryParse(json['scheduledAt']?.toString() ?? ''),
+      startedAt: DateTime.tryParse(json['startedAt']?.toString() ?? ''),
+      endedAt: DateTime.tryParse(json['endedAt']?.toString() ?? ''),
+      duration: int.tryParse((json['duration'] ?? 0).toString()) ?? 0,
+      location: json['location'] is Map ? LiveLocation.fromJson(Map<String, dynamic>.from(json['location'])) : null,
+      pricing: json['pricing'] is Map ? Pricing.fromJson(Map<String, dynamic>.from(json['pricing'])) : null,
+      equipment: json['equipment'] is Map ? Equipment.fromJson(Map<String, dynamic>.from(json['equipment'])) : null,
+      lookingFor: json['lookingFor'] is List ? List<String>.from(json['lookingFor']) : [],
+      requirements: json['requirements']?.toString(),
+      isFeatured: json['isFeatured'] == true,
+      isPremium: json['isPremium'] == true,
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -108,6 +122,8 @@ class LiveStreamModel {
         return 'Live Session';
       case 'watch':
         return 'Watch Party';
+      case 'youtube':
+        return 'YouTube Live';
       default:
         return streamType;
     }
@@ -128,6 +144,7 @@ class LiveStreamModel {
 
   bool get isLive => status == 'live';
   bool get isFree => pricing?.type == 'free' || pricing == null;
+  bool get isYoutube => provider == 'youtube' || streamType == 'youtube' || youtubeVideoId != null;
 }
 
 class LiveLocation {

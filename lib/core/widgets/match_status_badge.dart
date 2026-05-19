@@ -31,6 +31,11 @@ class MatchStatusBadge extends StatelessWidget {
         icon = Icons.check_circle;
         break;
       case 'SCHEDULED':
+      case 'UPCOMING':
+        bgColor = Colors.orange.withOpacity(0.1);
+        textColor = Colors.orange;
+        icon = Icons.schedule;
+        break;
       default:
         bgColor = Colors.orange.withOpacity(0.1);
         textColor = Colors.orange;
@@ -78,10 +83,15 @@ class MatchStatusBadge extends StatelessWidget {
   
   String _getDisplayText(String status) {
     switch (status.toUpperCase()) {
-      case 'LIVE': return 'LIVE';
-      case 'COMPLETED': return 'Completed';
-      case 'SCHEDULED': return 'Upcoming';
-      default: return status;
+      case 'LIVE':
+        return 'LIVE';
+      case 'COMPLETED':
+        return 'Completed';
+      case 'SCHEDULED':
+      case 'UPCOMING':
+        return 'Upcoming';
+      default:
+        return status;
     }
   }
 }

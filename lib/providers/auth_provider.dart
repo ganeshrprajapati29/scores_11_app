@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logger/logger.dart';
 import '../../data/services/auth_service.dart';
@@ -65,11 +66,17 @@ class AuthProvider extends ChangeNotifier {
           _status = AuthStatus.authenticated;
         } catch (e) {
           _logger.w('Failed to get user profile, token might be invalid: $e');
-          await _storage.delete(key: AppConstants.accessTokenKey);
-          await _storage.delete(key: AppConstants.refreshTokenKey);
-          _user = null;
-          _userStats = null;
-          _status = AuthStatus.unauthenticated;
+          final isAuthFailure = e is DioException &&
+              (e.response?.statusCode == 401 || e.response?.statusCode == 403);
+          if (isAuthFailure) {
+            await _storage.delete(key: AppConstants.accessTokenKey);
+            await _storage.delete(key: AppConstants.refreshTokenKey);
+            _user = null;
+            _userStats = null;
+            _status = AuthStatus.unauthenticated;
+          } else {
+            _status = AuthStatus.authenticated;
+          }
         }
       } else {
         _status = AuthStatus.unauthenticated;
@@ -219,7 +226,7 @@ Future<bool> register({
       _errorMessage = null;
       _safeNotifyListeners();
 
-final response = await _authService.register(
+      final response = await _authService.register(
         name: name,
         email: email,
         password: password,
@@ -242,15 +249,24 @@ final response = await _authService.register(
         final accessToken = data is Map ? data['accessToken'] : null;
         final refreshToken = data is Map ? data['refreshToken'] : null;
         
-        if (accessToken != null) {
-          await _storage.write(key: AppConstants.accessTokenKey, value: accessToken.toString());
-        }
-        if (refreshToken != null) {
-          await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken.toString());
+        // Verify tokens are present
+        if (accessToken == null || refreshToken == null) {
+          _errorMessage = 'Failed to retrieve authentication tokens';
+          _status = AuthStatus.error;
+          _safeNotifyListeners();
+          return false;
         }
         
+        // Save tokens
+        await _storage.write(key: AppConstants.accessTokenKey, value: accessToken.toString());
+        await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken.toString());
+        
+        _logger.i('Registration successful - tokens saved');
+        
         final userData = data is Map ? data['user'] : null;
-        if (userData != null) {
+        if (userData is UserModel) {
+          _user = userData;
+        } else if (userData != null) {
           dynamic parsedData = userData;
           if (userData is List) {
             parsedData = userData.isNotEmpty ? userData.first : null;
@@ -272,7 +288,8 @@ final response = await _authService.register(
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = 'An unexpected error occurred during registration';
+      _logger.e('Registration error: $e');
       _status = AuthStatus.error;
       _safeNotifyListeners();
       return false;

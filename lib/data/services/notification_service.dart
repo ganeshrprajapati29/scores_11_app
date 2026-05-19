@@ -15,10 +15,20 @@ class NotificationService {
         'limit': limit.toString(),
       },
     );
-    final List<dynamic> data = response.data['data'] ?? [];
-    final pagination = response.data['pagination'] ?? {};
+    final raw = response.data;
+    final List<dynamic> data = raw is Map
+        ? (raw['data'] is List
+            ? raw['data'] as List<dynamic>
+            : raw['notifications'] is List
+                ? raw['notifications'] as List<dynamic>
+                : [])
+        : [];
+    final pagination = raw is Map && raw['pagination'] is Map ? raw['pagination'] as Map : {};
     
-    final notifications = data.map((json) => NotificationModel.fromJson(json as Map<String, dynamic>)).toList();
+    final notifications = data
+        .whereType<Map>()
+        .map((json) => NotificationModel.fromJson(Map<String, dynamic>.from(json)))
+        .toList();
     
     return PaginatedNotifications(
       notifications: notifications,
@@ -60,7 +70,12 @@ class NotificationService {
   Future<int> getUnreadCount() async {
     try {
       final response = await _apiClient.get('${ApiConfig.notifications}/unread-count');
-      return response.data['count'] ?? 0;
+      final data = response.data;
+      final nested = data is Map && data['data'] is Map ? data['data'] as Map : null;
+      final rawCount = data is Map
+          ? (data['count'] ?? data['unreadCount'] ?? nested?['count'] ?? nested?['unreadCount'])
+          : data;
+      return int.tryParse(rawCount?.toString() ?? '') ?? 0;
     } catch (e) {
       debugPrint('Error fetching notification count: $e');
       return 0;

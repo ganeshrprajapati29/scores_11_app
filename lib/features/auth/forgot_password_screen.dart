@@ -113,8 +113,9 @@ child: SafeArea(
                   // Logo and Title
                   Center(
                     child: Container(
-                      width: 80,
-                      height: 80,
+                      width: 84,
+                      height: 84,
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -126,16 +127,40 @@ child: SafeArea(
                           ),
                         ],
                       ),
-                      child: Icon(
-                        Icons.lock_reset,
-                        size: 45,
-                        color: AppColors.primary,
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.lock_reset,
+                          size: 45,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                   ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.8, 0.8)),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.14),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: Colors.white.withOpacity(0.22)),
+                      ),
+                      child: const Text(
+                        'SCORES11 ACCOUNT SECURITY',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          letterSpacing: 0.8,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ).animate().fadeIn(delay: 120.ms, duration: 500.ms),
+                  const SizedBox(height: 20),
                   Text(
-                    'Forgot Password?',
+                    'Recover Password',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
@@ -159,6 +184,7 @@ child: SafeArea(
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withOpacity(0.9)),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.1),
@@ -208,6 +234,31 @@ child: SafeArea(
       key: _formKey,
       child: Column(
         children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.mark_email_read_outlined, color: AppColors.primary),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('OTP Verification', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                    SizedBox(height: 2),
+                    Text('We will send reset code securely', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
           TextFormField(
             controller: _emailController,
             focusNode: _emailFocusNode,

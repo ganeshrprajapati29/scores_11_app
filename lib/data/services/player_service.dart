@@ -22,13 +22,11 @@ class PaginatedPlayers {
     required this.hasMore,
   });
 
-factory PaginatedPlayers.fromJson(Map<String, dynamic> json) {
-    // FIXED: Handle both List and Map responses
+  factory PaginatedPlayers.fromJson(Map<String, dynamic> json) {
     List<dynamic> dataList = [];
     if (json['data'] is List) {
       dataList = json['data'] as List<dynamic>;
     } else if (json['data'] is Map<String, dynamic>) {
-      // Single player object - wrap in list
       dataList = [json['data']];
     }
     final pagination = json['pagination'] ?? <String, dynamic>{};
@@ -43,7 +41,6 @@ factory PaginatedPlayers.fromJson(Map<String, dynamic> json) {
   }
 }
 
-/// PlayerSearchResult class for player search results with pagination
 class PlayerSearchResult {
   final List<Player> players;
   final bool hasMore;
@@ -68,13 +65,30 @@ class PlayerSearchResult {
 
 class PlayerService {
   final ApiClient _apiClient = ApiClient();
+
+  List<dynamic> _extractPlayerList(dynamic responseData) {
+    if (responseData is List) return responseData;
+    if (responseData is! Map) return const [];
+
+    final data = responseData['data'];
+    if (data is List) return data;
+    if (data is Map) {
+      final nestedPlayers = data['players'];
+      if (nestedPlayers is List) return nestedPlayers;
+      final nestedData = data['data'];
+      if (nestedData is List) return nestedData;
+    }
+
+    final players = responseData['players'];
+    if (players is List) return players;
+    return const [];
+  }
   final CacheService _cacheService = CacheService();
 
-/// Search only MY players (created by logged in user)
+  /// Search only MY players (created by logged in user)
   /// Requires authentication - returns only players created by the current user
   Future<List<Player>> searchMyPlayers(String query, {int limit = 20}) async {
     try {
-      // Use authenticated endpoint - returns only the current user's players
       final response = await _apiClient.get(
         '${ApiConfig.baseUrl}/players/my/search',
         queryParameters: {'q': query, 'limit': limit},
@@ -94,12 +108,9 @@ class PlayerService {
     }
   }
 
-/// Get all MY players (created by logged in user) - paginated
-  /// 🔥 FIX: This uses authenticated endpoint - backend gets userId from auth token
-  /// Returns players where user: req.user.userId (via player.user field)
+  /// Get all MY players (created by logged in user) - paginated
   Future<PaginatedPlayers> getMyPlayers({int page = 1, int limit = 20}) async {
     try {
-      // 🔥 FIXED: Use the authenticated /my endpoint which gets userId from JWT token
       final response = await _apiClient.get(
         '${ApiConfig.baseUrl}/players/my',
         queryParameters: {'page': page, 'limit': limit},
@@ -117,7 +128,7 @@ class PlayerService {
     }
   }
 
-/// Search all public players (all users' players)
+  /// Search all public players (all users' players)
   Future<List<Player>> searchPlayers(String query, {int limit = 20}) async {
     try {
       final response = await _apiClient.get(
@@ -151,24 +162,29 @@ class PlayerService {
         'page': page.toString(),
         'limit': limit.toString(),
         if (search != null && search.isNotEmpty) 'search': search,
-        if (filter != null && filter != 'all') 'role': filter,
+        if (filter != null && filter != 'all') 'playerType': filter,
       };
       
-final response = await _apiClient.get(
-        '${ApiConfig.baseUrl}/public/players',
+      final response = await _apiClient.get(
+        '${ApiConfig.users}/players/public',
         queryParameters: queryParams,
       );
       
       if (response.statusCode == 200) {
         final data = response.data;
-        final List<Player> players = (data['players'] as List)
+        final rawData = data['data'];
+        final rawPlayers = rawData is Map && rawData['players'] is List
+            ? rawData['players']
+            : data['players'] ?? rawData ?? [];
+        final pagination = data['pagination'] ?? {};
+        final List<Player> players = (rawPlayers as List)
             .map((json) => Player.fromJson(json))
             .toList();
         
         return PlayerSearchResult(
           players: players,
-          hasMore: data['hasMore'] ?? false,
-          total: data['total'] ?? 0,
+          hasMore: data['hasMore'] ?? ((pagination['page'] ?? page) < (pagination['pages'] ?? page)),
+          total: data['total'] ?? pagination['total'] ?? players.length,
         );
       } else {
         throw Exception('Failed to load public players');
@@ -178,7 +194,7 @@ final response = await _apiClient.get(
     }
   }
 
-  /// Updated getPlayers method with filter parameter
+  /// Get players with filter parameter
   Future<PlayerSearchResult> getPlayers({
     required int page,
     String? search,
@@ -193,21 +209,23 @@ final response = await _apiClient.get(
         if (filter != null && filter != 'all') 'role': filter,
       };
       
-final response = await _apiClient.get(
+      final response = await _apiClient.get(
         '${ApiConfig.baseUrl}/players',
         queryParameters: queryParams,
       );
       
       if (response.statusCode == 200) {
         final data = response.data;
-        final List<Player> players = (data['players'] as List)
+        final rawPlayers = data['players'] ?? data['data'] ?? [];
+        final pagination = data['pagination'] ?? {};
+        final List<Player> players = (rawPlayers as List)
             .map((json) => Player.fromJson(json))
             .toList();
         
         return PlayerSearchResult(
           players: players,
-          hasMore: data['hasMore'] ?? false,
-          total: data['total'] ?? 0,
+          hasMore: data['hasMore'] ?? ((pagination['page'] ?? page) < (pagination['pages'] ?? page)),
+          total: data['total'] ?? pagination['total'] ?? players.length,
         );
       } else {
         throw Exception('Failed to load players');
@@ -217,6 +235,7 @@ final response = await _apiClient.get(
     }
   }
 
+  /// Get players by team ID
   Future<List<Player>> getPlayersByTeam(String teamId) async {
     try {
       final response = await _apiClient.get(
@@ -224,8 +243,12 @@ final response = await _apiClient.get(
       );
 
       if (response.statusCode == 200) {
-        final List data = response.data['data'] ?? [];
-        final players = data.map((json) => Player.fromJson(json)).toList();
+        final data = _extractPlayerList(response.data);
+        final players = data
+            .whereType<Map>()
+            .map((json) => Player.fromJson(Map<String, dynamic>.from(json)))
+            .where((player) => player.id.isNotEmpty)
+            .toList();
         return players;
       }
       throw Exception(response.data['message'] ?? 'Failed to load team players');
@@ -237,6 +260,7 @@ final response = await _apiClient.get(
     }
   }
 
+  /// Get player by ID (public endpoint)
   Future<Player> getPlayerById(String id) async {
     try {
       final response = await _apiClient.get(
@@ -256,6 +280,7 @@ final response = await _apiClient.get(
     }
   }
 
+  /// Get trending players
   Future<List<Player>> getTrendingPlayers({int limit = 10}) async {
     try {
       final response = await _apiClient.get(
@@ -264,7 +289,7 @@ final response = await _apiClient.get(
       );
       if (response.statusCode == 200) {
         final List data = response.data['data'] ?? [];
-return data.map((json) => Player.fromJson(json)).toList();
+        return data.map((json) => Player.fromJson(json)).toList();
       }
       return [];
     } catch (e) {
@@ -272,11 +297,7 @@ return data.map((json) => Player.fromJson(json)).toList();
     }
   }
 
-  void clearCache() {
-    _cacheService.clearAll();
-  }
-
-/// Create new player - FIXED: Use auth endpoint when logged in to associate with user
+  /// Create new player - associates with logged in user
   Future<Player> createPlayer({
     required String name,
     String? role,
@@ -290,56 +311,56 @@ return data.map((json) => Player.fromJson(json)).toList();
     Map<String, dynamic>? stats,
   }) async {
     try {
-      // FIXED: Transform UI values (lowercase) to backend expected format
-      // UI passes: 'batsman', 'bowler', 'all-rounder', 'wicket-keeper'
-      // Backend accepts: 'batsman', 'bowler', 'all-rounder', 'wicket-keeper'
+      // Transform UI values to backend expected format
       final roleMap = {
-        'batsman': 'batsman',
+        'bat': 'batsman',
         'bowler': 'bowler',
+        'ar': 'all-rounder',
+        'wk': 'wicket-keeper',
+        'batsman': 'batsman',
+        'bowl': 'bowler',
+        'bwl': 'bowler',
         'all-rounder': 'all-rounder',
         'wicket-keeper': 'wicket-keeper',
       };
 
-      // Transform batting style - UI passes these exact values
       final battingStyleMap = {
+        'rhb': 'right-hand bat',
+        'lhb': 'left-hand bat',
         'right-hand bat': 'right-hand bat',
         'left-hand bat': 'left-hand bat',
       };
 
-      // Transform bowling style - UI passes these exact values
       final bowlingStyleMap = {
-        'right-arm fast': 'right-arm fast',
-        'right-arm medium': 'right-arm medium',
-        'left-arm fast': 'left-arm fast',
-        'left-arm medium': 'left-arm medium',
-        'off-spin': 'off-spin',
-        'leg-spin': 'leg-spin',
+        'rfm': 'right-arm fast',
+        'rwm': 'right-arm medium',
+        'lfm': 'left-arm fast',
+        'lwm': 'left-arm medium',
+        'la': 'leg-spin',
+        'oa': 'off-spin',
         'none': 'none',
       };
 
       final transformedData = {
         'playerName': name,
-        'role': roleMap[role] ?? role ?? 'batsman',
-        'battingStyle': battingStyleMap[battingStyle] ?? battingStyle ?? 'right-hand bat',
-        'bowlingStyle': bowlingStyleMap[bowlingStyle] ?? bowlingStyle ?? 'none',
-        if (team != null) 'team': team,
+        'role': roleMap[role?.toLowerCase()] ?? role ?? 'batsman',
+        'battingStyle': battingStyleMap[battingStyle?.toLowerCase()] ?? battingStyle ?? 'right-hand bat',
+        'bowlingStyle': bowlingStyleMap[bowlingStyle?.toLowerCase()] ?? bowlingStyle ?? 'none',
+        if (team != null && team.isNotEmpty) 'team': team,
         if (jerseyNumber != null) 'jerseyNumber': jerseyNumber,
-        if (phone != null) 'phone': phone,
-        if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
-        if (nationality != null) 'nationality': nationality,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+        if (dateOfBirth != null && dateOfBirth.isNotEmpty) 'dateOfBirth': dateOfBirth,
+        if (nationality != null && nationality.isNotEmpty) 'nationality': nationality,
         if (stats != null) 'stats': stats,
       };
 
-      // IMPORTANT: Use protected endpoint with auth to associate player with user
-      // This will link the player to the logged-in user for "my players" search
       final response = await _apiClient.post(
-        '${ApiConfig.baseUrl}/players',  // Uses auth header internally
+        '${ApiConfig.baseUrl}/players',
         data: transformedData,
       );
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         _cacheService.clearAll();
-        // FIXED: Handle response structure - may be directly in 'data' or nested
         final playerData = response.data['data'] ?? response.data;
         if (playerData is Map<String, dynamic>) {
           return Player.fromJson(playerData);
@@ -353,5 +374,51 @@ return data.map((json) => Player.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Failed to create player: $e');
     }
+  }
+
+  /// Update player
+  Future<Player> updatePlayer(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.put(
+        '${ApiConfig.baseUrl}/players/$id',
+        data: data,
+      );
+
+      if (response.statusCode == 200) {
+        _cacheService.clearAll();
+        final playerData = response.data['data'] ?? response.data;
+        return Player.fromJson(playerData);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to update player');
+    } on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
+    } catch (e) {
+      throw Exception('Failed to update player: $e');
+    }
+  }
+
+  /// Delete player
+  Future<void> deletePlayer(String id) async {
+    try {
+      final response = await _apiClient.delete(
+        '${ApiConfig.baseUrl}/players/$id',
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception(response.data['message'] ?? 'Failed to delete player');
+      }
+      _cacheService.clearAll();
+    } on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
+    } catch (e) {
+      throw Exception('Failed to delete player: $e');
+    }
+  }
+
+  /// Clear cache
+  void clearCache() {
+    _cacheService.clearAll();
   }
 }

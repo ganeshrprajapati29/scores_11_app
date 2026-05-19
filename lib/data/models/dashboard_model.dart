@@ -200,10 +200,19 @@ class LiveMatch {
   final String? scoreString;
   final int? team1Score;
   final int? team2Score;
+  final int? team1Wickets;
+  final int? team2Wickets;
+  final String? team1Overs;
+  final String? team2Overs;
+  final int currentInnings;
   final String? venue;
   final String? venueCity;
   final String? matchType;
   final String? result;
+  final String? tossWinner;
+  final String? tossDecision;
+  final int? target;
+  final int? requiredRuns;
 
   LiveMatch({
     required this.id,
@@ -217,10 +226,19 @@ class LiveMatch {
     this.scoreString,
     this.team1Score,
     this.team2Score,
+    this.team1Wickets,
+    this.team2Wickets,
+    this.team1Overs,
+    this.team2Overs,
+    this.currentInnings = 1,
     this.venue,
     this.venueCity,
     this.matchType,
     this.result,
+    this.tossWinner,
+    this.tossDecision,
+    this.target,
+    this.requiredRuns,
   });
 
   factory LiveMatch.fromJson(dynamic json) {
@@ -239,15 +257,123 @@ class LiveMatch {
       scheduledDate: DateTime.tryParse(safeJson['scheduledDate']?.toString() ?? '') ?? DateTime.now(),
       tournament: Tournament.fromJson(safeJson['tournament'] ?? {}),
       innings: safeJson['innings'] is Map ? Map<String, dynamic>.from(safeJson['innings']) : null,
-      scoreString: safeJson['scoreString']?.toString() ?? safeJson['score']?.toString(),
-      team1Score: int.tryParse(safeJson['team1Score']?.toString() ?? safeJson['team1Runs']?.toString() ?? ''),
-      team2Score: int.tryParse(safeJson['team2Score']?.toString() ?? safeJson['team2Runs']?.toString() ?? ''),
+      scoreString: safeJson['scoreString']?.toString() ?? _scoreText(safeJson),
+      team1Score: int.tryParse(safeJson['team1Score']?.toString() ?? safeJson['team1Runs']?.toString() ?? safeJson['score']?['team1']?['runs']?.toString() ?? ''),
+      team2Score: int.tryParse(safeJson['team2Score']?.toString() ?? safeJson['team2Runs']?.toString() ?? safeJson['score']?['team2']?['runs']?.toString() ?? ''),
+      team1Wickets: int.tryParse(safeJson['team1Wickets']?.toString() ?? safeJson['score']?['team1']?['wickets']?.toString() ?? ''),
+      team2Wickets: int.tryParse(safeJson['team2Wickets']?.toString() ?? safeJson['score']?['team2']?['wickets']?.toString() ?? ''),
+      team1Overs: _readOvers(safeJson, 1),
+      team2Overs: _readOvers(safeJson, 2),
+      currentInnings: int.tryParse(safeJson['currentInnings']?.toString() ?? safeJson['currentInningsScore']?['inningsNumber']?.toString() ?? '1') ?? 1,
       venue: safeJson['venue']?.toString(),
       venueCity: safeJson['venueCity']?.toString() ?? safeJson['city']?.toString(),
       matchType: safeJson['matchType']?.toString() ?? safeJson['type']?.toString(),
-      result: safeJson['result']?.toString(),
+      result: _readResultText(safeJson),
+      tossWinner: _readTossValue(safeJson, 'winner'),
+      tossDecision: _readTossValue(safeJson, 'decision'),
+      target: int.tryParse(safeJson['target']?.toString() ?? safeJson['result']?['target']?.toString() ?? ''),
+      requiredRuns: int.tryParse(safeJson['requiredRuns']?.toString() ?? safeJson['result']?['requiredRuns']?.toString() ?? ''),
     );
   }
+
+  static String? _readResultText(Map<String, dynamic> json) {
+    final result = json['result'];
+    if (result is Map) {
+      return result['message']?.toString() ?? result['winner']?['name']?.toString() ?? result['winner']?.toString();
+    }
+    return result?.toString();
+  }
+
+  static String? _readTossValue(Map<String, dynamic> json, String key) {
+    final directKeys = key == 'winner'
+        ? const ['tossWinner', 'tossWinnerId', 'toss_winner']
+        : const ['tossDecision', 'toss_decision'];
+    for (final directKey in directKeys) {
+      final direct = json[directKey];
+      if (direct is Map) {
+        final text = direct['shortName']?.toString() ??
+            direct['name']?.toString() ??
+            direct['_id']?.toString();
+        if (text != null && text.isNotEmpty) return text;
+      }
+      final text = direct?.toString();
+      if (text != null && text.isNotEmpty) return text;
+    }
+
+    final toss = json['toss'];
+    if (toss is! Map) return null;
+    final value = toss[key];
+    if (value is Map) {
+      return value['shortName']?.toString() ?? value['name']?.toString() ?? value['_id']?.toString();
+    }
+    return value?.toString();
+  }
+
+  static String? _scoreText(Map<String, dynamic> json) {
+    final score = json['score'];
+    if (score is! Map) return null;
+    final team1 = score['team1'];
+    final team2 = score['team2'];
+    String formatTeam(dynamic data) {
+      if (data is! Map) return '0/0 (0.0)';
+      return '${data['runs'] ?? 0}/${data['wickets'] ?? 0} (${data['overs'] ?? '0.0'})';
+    }
+    return '${formatTeam(team1)} | ${formatTeam(team2)}';
+  }
+
+  static String? _readOvers(Map<String, dynamic> json, int team) {
+    final directKey = team == 1 ? 'team1Overs' : 'team2Overs';
+    final direct = json[directKey]?.toString();
+    if (direct != null && direct.isNotEmpty) return direct;
+
+    final score = json['score'];
+    if (score is Map) {
+      final teamScore = score[team == 1 ? 'team1' : 'team2'];
+      if (teamScore is Map) {
+        final overs = teamScore['overs']?.toString();
+        if (overs != null && overs.isNotEmpty) return overs;
+      }
+    }
+    return null;
+  }
+
+  String? scoreForTeam(int team) {
+    final runs = team == 1 ? team1Score : team2Score;
+    if (runs == null) return null;
+    final wickets = team == 1 ? team1Wickets : team2Wickets;
+    final overs = team == 1 ? team1Overs : team2Overs;
+    final score = '$runs/${wickets ?? 0}';
+    if (overs == null || overs.isEmpty) return score;
+    return '$score ($overs ov)';
+  }
+
+  bool get isActuallyLive {
+    final normalized = status.toLowerCase().trim();
+    if (normalized == 'completed' || normalized == 'finished' || normalized == 'cancelled') {
+      return false;
+    }
+    if (result != null && result!.trim().isNotEmpty && normalized != 'live') {
+      return false;
+    }
+    return normalized == 'live' || normalized == 'in_progress' || normalized == 'started';
+  }
+
+  String get liveSummary {
+    if (result != null && result!.trim().isNotEmpty) return result!;
+    if (target != null && currentInnings == 2) {
+      final needed = requiredRuns == null ? '' : ' - $requiredRuns needed';
+      return 'Target $target$needed';
+    }
+    if (tossWinner != null && tossWinner!.trim().isNotEmpty) {
+      final decision = tossDecision == null || tossDecision!.trim().isEmpty
+          ? ''
+          : ' chose ${tossDecision!.toLowerCase()}';
+      return 'Toss: $tossWinner$decision';
+    }
+    return 'Innings $currentInnings in progress';
+  }
+
+  bool get hasAnyScore => team1Score != null || team2Score != null || (scoreString?.isNotEmpty ?? false);
 
   Map<String, dynamic> toJson() {
     return {
@@ -262,10 +388,19 @@ class LiveMatch {
       'scoreString': scoreString,
       'team1Score': team1Score,
       'team2Score': team2Score,
+      'team1Wickets': team1Wickets,
+      'team2Wickets': team2Wickets,
+      'team1Overs': team1Overs,
+      'team2Overs': team2Overs,
+      'currentInnings': currentInnings,
       'venue': venue,
       'venueCity': venueCity,
       'matchType': matchType,
       'result': result,
+      'tossWinner': tossWinner,
+      'tossDecision': tossDecision,
+      'target': target,
+      'requiredRuns': requiredRuns,
     };
   }
 
@@ -340,7 +475,7 @@ class UpcomingMatch {
     }
     
     return UpcomingMatch(
-      id: safeJson['id']?.toString() ?? '',
+      id: safeJson['_id']?.toString() ?? safeJson['id']?.toString() ?? '',
       team1: Team.fromJson(safeJson['team1']),
       team2: Team.fromJson(safeJson['team2']),
       format: safeJson['format']?.toString() ?? '',
@@ -387,15 +522,19 @@ class TrendingPlayer {
     if (json is Map) {
       safeJson = Map<String, dynamic>.from(json);
     }
+    final player = safeJson['player'] is Map
+        ? Map<String, dynamic>.from(safeJson['player'] as Map)
+        : safeJson;
+    final statsJson = safeJson['stats'] ?? player['stats'] ?? safeJson;
     
     return TrendingPlayer(
       rank: int.tryParse(safeJson['rank']?.toString() ?? '0') ?? 0,
-      id: safeJson['id']?.toString() ?? '',
-      name: safeJson['name']?.toString() ?? '',
-      jerseyNumber: int.tryParse(safeJson['jerseyNumber']?.toString() ?? '0') ?? 0,
-      role: safeJson['role']?.toString() ?? '',
-      team: Team.fromJson(safeJson['team']),
-      stats: PlayerStats.fromJson(safeJson['stats']),
+      id: player['_id']?.toString() ?? player['id']?.toString() ?? safeJson['_id']?.toString() ?? safeJson['id']?.toString() ?? '',
+      name: player['name']?.toString() ?? player['playerName']?.toString() ?? safeJson['name']?.toString() ?? '',
+      jerseyNumber: int.tryParse(player['jerseyNumber']?.toString() ?? safeJson['jerseyNumber']?.toString() ?? '0') ?? 0,
+      role: player['role']?.toString() ?? safeJson['role']?.toString() ?? '',
+      team: Team.fromJson(player['team'] ?? safeJson['team']),
+      stats: PlayerStats.fromJson(statsJson),
     );
   }
 
@@ -436,11 +575,11 @@ class PlayerStats {
     }
     
     return PlayerStats(
-      runs: int.tryParse(safeJson['runs']?.toString() ?? '0') ?? 0,
-      wickets: int.tryParse(safeJson['wickets']?.toString() ?? '0') ?? 0,
-      matches: int.tryParse(safeJson['matches']?.toString() ?? '0') ?? 0,
+      runs: int.tryParse((safeJson['runs'] ?? safeJson['totalRuns'] ?? safeJson['battingRuns'] ?? '0').toString()) ?? 0,
+      wickets: int.tryParse((safeJson['wickets'] ?? safeJson['totalWickets'] ?? safeJson['bowlingWickets'] ?? '0').toString()) ?? 0,
+      matches: int.tryParse((safeJson['matches'] ?? safeJson['totalMatches'] ?? safeJson['matchesPlayed'] ?? '0').toString()) ?? 0,
       average: double.tryParse(safeJson['average']?.toString() ?? '0') ?? 0.0,
-      strikeRate: double.tryParse(safeJson['strikeRate']?.toString() ?? '0') ?? 0.0,
+      strikeRate: double.tryParse((safeJson['strikeRate'] ?? safeJson['sr'] ?? safeJson['battingStrikeRate'] ?? '0').toString()) ?? 0.0,
     );
   }
 

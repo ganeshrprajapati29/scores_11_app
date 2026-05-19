@@ -27,17 +27,25 @@ class AuthService {
     String? dateOfBirth,
     String? nationality,
   }) async {
+    // Check internet connectivity first
+    final connectivity = ConnectivityService();
+    final isOnline = await connectivity.isConnected();
+    if (!isOnline) {
+      _logger.w('No internet connection');
+      return {'success': false, 'message': 'No Internet Connection. Please check your network.'};
+    }
+
     try {
       if (kDebugMode) _logger.i('Register API call');
       
       final username = email.split('@').first.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_').toLowerCase();
       
-      final response = await _apiClient.post(
+final response = await _apiClient.post(
         '${ApiConfig.auth}/register',
         data: {
           'email': email,
           'password': password,
-          'fullName': name,
+          'name': name,  // FIX: Use 'name' instead of 'fullName' to match backend
           'username': username,
           if (phone != null && phone.isNotEmpty) 'phone': phone,
           'role': role,
@@ -57,9 +65,16 @@ class AuthService {
         final accessToken = data['accessToken'] ?? data['token'];
         final refreshToken = data['refreshToken'];
         
-        if (accessToken != null && refreshToken != null) {
-          await _apiClient.setTokens(accessToken.toString(), refreshToken.toString());
+        // Verify tokens are present before saving
+        if (accessToken == null || refreshToken == null) {
+          if (kDebugMode) _logger.e('Register response missing tokens');
+          return {'success': false, 'message': 'Server error: No authentication tokens received'};
         }
+        
+        // Save tokens using the API client method
+        await _apiClient.setTokens(accessToken.toString(), refreshToken.toString());
+        
+        if (kDebugMode) _logger.i('Tokens saved successfully');
         
         final userModel = UserModel.fromJson(userData);
         return {
@@ -67,13 +82,17 @@ class AuthService {
           'data': {'user': userModel, 'accessToken': accessToken, 'refreshToken': refreshToken}
         };
       }
-      return {'success': false, 'message': response.data?['message'] ?? 'Registration failed'};
+      
+      // Handle error responses from server
+      final errorMessage = response.data?['message'] ?? response.data?['data']?['message'];
+      return {'success': false, 'message': errorMessage?.toString() ?? 'Registration failed'};
     } on DioException catch (e) {
       if (kDebugMode) _logger.e('Register DioException: ${e.type}, ${e.response?.statusCode}');
+      if (kDebugMode && e.response?.data != null) _logger.e('Error details: ${e.response?.data}');
       return {'success': false, 'message': _handleDioError(e)};
     } catch (e) {
       if (kDebugMode) _logger.e('Register error: $e');
-      return {'success': false, 'message': e.toString()};
+      return {'success': false, 'message': 'An unexpected error occurred. Please try again.'};
     }
   }
 

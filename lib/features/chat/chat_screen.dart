@@ -27,12 +27,15 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
+  bool _isSending = false;
   String? _currentUserId;
+  late String _chatId;
   Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    _chatId = widget.chatId;
     _initUserId();
     _loadMessages();
     _startAutoRefresh();
@@ -52,13 +55,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadMessages() async {
-    if (widget.chatId.isEmpty) {
+    if (_chatId.isEmpty) {
       setState(() => _isLoading = false);
       return;
     }
     setState(() => _isLoading = true);
     try {
-      _messages = await _chatService.getMessages(widget.chatId);
+      _messages = await _chatService.getMessages(_chatId);
       _scrollToBottom();
     } catch (e) {
       if (mounted) {
@@ -74,14 +77,37 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty || _currentUserId == null) return;
+    if (_messageController.text.trim().isEmpty || _currentUserId == null || _isSending) return;
 
     final text = _messageController.text.trim();
+    final receiverId = _receiverId;
+    if (receiverId == null || receiverId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to identify this player for chat')),
+      );
+      return;
+    }
     _messageController.clear();
+    setState(() => _isSending = true);
 
     try {
-      await _chatService.sendMessage(widget.otherUser['_id'] ?? widget.otherUser['id'], text);
-      await _loadMessages(); // Refresh messages
+      final sent = await _chatService.sendMessage(receiverId, text);
+      _chatId = _chatService.idFrom(sent['chat']) ?? _chatId;
+      if (_chatId.isEmpty) {
+        final chatInfo = await _chatService.getChatByUserId(receiverId);
+        _chatId = chatInfo['chatId']?.toString() ?? '';
+      }
+      if (_chatId.isEmpty) {
+        _messages.add({
+          'text': text,
+          'senderId': _currentUserId,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+        setState(() {});
+        _scrollToBottom();
+      } else {
+        await _loadMessages();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -89,8 +115,13 @@ class _ChatScreenState extends State<ChatScreen> {
         );
         _messageController.text = text; // Restore
       }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
     }
   }
+
+  String? get _receiverId =>
+      (widget.otherUser['_id'] ?? widget.otherUser['id'] ?? widget.otherUser['userId'])?.toString();
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
@@ -106,7 +137,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _startAutoRefresh() {
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (mounted) _loadMessages();
+      if (mounted && _chatId.isNotEmpty && !_isSending) _loadMessages();
     });
   }
 
@@ -257,8 +288,14 @@ crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      onPressed: _sendMessage,
-                      icon: const Icon(Icons.send, color: Colors.white),
+                      onPressed: _isSending ? null : _sendMessage,
+                      icon: _isSending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.send, color: Colors.white),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                     ),

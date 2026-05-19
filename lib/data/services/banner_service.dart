@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../../core/config/api_config.dart';
+import 'package:flutter/foundation.dart';
 import '../../core/services/api_client.dart';
 import '../models/banner_model.dart';
 
@@ -11,12 +9,15 @@ class BannerService {
   /// Get active banners for dashboard (position: 'home')
   Future<List<Banner>> getDashboardBanners() async {
     try {
-      final response = await _apiClient.dio.get(
-        '${ApiConfig.baseUrl}/banners/public/home',
-      );
+      final response = await _apiClient.get('/banners/public/home');
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
+        final raw = response.data;
+        final List<dynamic> data = raw is List
+            ? raw
+            : raw is Map && raw['data'] is List
+                ? raw['data'] as List
+                : const [];
         return data.map((json) => Banner.fromJson(json)).toList();
       }
       return [];

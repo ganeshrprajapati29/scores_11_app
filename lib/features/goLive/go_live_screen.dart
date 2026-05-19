@@ -53,6 +53,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
   final _titleCtrl = TextEditingController();
   final _descCtrl  = TextEditingController();
   final _reqCtrl   = TextEditingController();
+  final _youtubeUrlCtrl = TextEditingController();
 
   String _streamType   = 'mobile';
   String _quality      = '720p';
@@ -82,6 +83,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _reqCtrl.dispose();
+    _youtubeUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -134,7 +136,6 @@ class _GoLiveScreenState extends State<GoLiveScreen>
   }
 
   Future<void> _loadStreams() async {
-    if (!await _checkAuth()) return;
     setState(() {
       _isLoading = true;
       _error     = null;
@@ -174,6 +175,11 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       return;
     }
 
+    if (_streamType == 'youtube' && _youtubeUrlCtrl.text.trim().isEmpty) {
+      _snack('Please enter YouTube Live URL or video ID', isError: true);
+      return;
+    }
+
     setState(() => _isCreating = true);
     try {
       final data = {
@@ -182,6 +188,8 @@ class _GoLiveScreenState extends State<GoLiveScreen>
             ? null
             : _descCtrl.text.trim(),
         'streamType': _streamType,
+        'provider': _streamType == 'youtube' ? 'youtube' : 'zenstream',
+        if (_streamType == 'youtube') 'youtubeUrl': _youtubeUrlCtrl.text.trim(),
         'streamQuality': _quality,
         'isPrivate': _isPrivate,
         'pricing': {
@@ -198,16 +206,21 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       final created = await LiveStreamService.createStream(data);
       debugPrint('🎥 Created stream ${created.id}, starting...');
       await LiveStreamService.startStream(created.id);
-
       _snack(
-          'RTMP Ready! Server: ${LiveStreamService.zenstreamRtmpServer} | Key: ${created.streamKey}',
-          isError: false);
+        created.isYoutube
+            ? 'YouTube Live added. Viewers can watch now.'
+            : 'RTMP Ready! Server: ${LiveStreamService.zenstreamRtmpServer} | Key: ${created.streamKey.isNotEmpty ? created.streamKey : created.id}',
+        isError: false,
+      );
 
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-              builder: (_) => StreamPreviewScreen(stream: created)),
+            builder: (_) => created.isYoutube
+                ? LivePlayerScreen(streamId: created.id, isHost: true)
+                : StreamPreviewScreen(stream: created),
+          ),
         );
       }
     } catch (e) {
@@ -797,6 +810,19 @@ class _GoLiveScreenState extends State<GoLiveScreen>
 
           // Stream type
           _sectionLabel('Stream Type'),
+          _streamTypeCard('youtube', 'YT', 'YouTube Live', 'Paste live URL'),
+          if (_streamType == 'youtube') ...[
+            const SizedBox(height: 12),
+            _card(
+              child: _field(
+                controller: _youtubeUrlCtrl,
+                label: 'YouTube Live URL or Video ID *',
+                hint: 'https://youtube.com/watch?v=...',
+                icon: Icons.smart_display_rounded,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(

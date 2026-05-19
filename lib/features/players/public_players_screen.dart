@@ -1,7 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import '../../data/services/public_players_service.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/user_service.dart';
 import '../../core/widgets/custom_appbar.dart';
+import '../../data/models/team_model.dart';
+import '../../data/services/chat_service.dart';
+import '../../data/services/public_players_service.dart';
+import '../../data/services/team_service.dart';
+import '../chat/chat_screen.dart';
 
 class PublicPlayersScreen extends StatefulWidget {
   const PublicPlayersScreen({super.key});
@@ -12,19 +19,42 @@ class PublicPlayersScreen extends StatefulWidget {
 
 class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
   final PublicPlayersService _service = PublicPlayersService();
+  final TeamService _teamService = TeamService();
   List<PublicPlayer> _players = [];
+  List<Team> _myTeams = [];
   bool _isLoading = false;
+  bool _isAddingPlayer = false;
+  Timer? _searchDebounce;
   String? _error;
   String _searchQuery = '';
   String? _selectedPlayerType;
 
   @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+@override
   void initState() {
     super.initState();
     _loadPlayers();
+    _loadMyTeams();
+  }
+
+  Future<void> _loadMyTeams() async {
+    try {
+      final teams = await _teamService.getMyTeams();
+      if (mounted) {
+        setState(() => _myTeams = teams);
+      }
+    } catch (e) {
+      // Silently fail - user may not have any teams
+    }
   }
 
   Future<void> _loadPlayers({String? search, String? playerType}) async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
@@ -35,11 +65,13 @@ class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
         search: search,
         playerType: playerType,
       );
+      if (!mounted) return;
       setState(() {
         _players = response.players;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -49,7 +81,13 @@ class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
 
   void _onSearch(String query) {
     _searchQuery = query;
-    _loadPlayers(search: query.isEmpty ? null : query);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      _loadPlayers(
+        search: _searchQuery.trim().isEmpty ? null : _searchQuery.trim(),
+        playerType: _selectedPlayerType,
+      );
+    });
   }
 
   void _onFilterByType(String? playerType) {
@@ -60,7 +98,7 @@ class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppbar(title: 'Find Players'),
+      appBar: const CustomAppBar(title: 'Find Players'),
       body: Column(
         children: [
           // Search Bar
@@ -184,6 +222,7 @@ class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
           final player = _players[index];
           return _PlayerCard(
             player: player,
+            onViewProfile: () => _openPlayerProfile(player),
             onAddToTeam: () => _showAddToTeamDialog(player),
           );
         },
@@ -191,29 +230,112 @@ class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
     );
   }
 
-  void _showAddToTeamDialog(PublicPlayer player) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add to Team'),
-        content: Text('Add ${player.fullName} to your team?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${player.fullName} added to team!')),
-              );
-            },
-            child: const Text('Add'),
-          ),
-        ],
+  void _openPlayerProfile(PublicPlayer player) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PublicPlayerProfileView(player: player),
       ),
     );
+  }
+
+void _showAddToTeamDialog(PublicPlayer player) {
+    if (_myTeams.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You need to create a team first to add players'),
+        ),
+      );
+      return;
+    }
+
+    Team? selectedTeam;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add to Team'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Select a team to add ${player.fullName}:'),
+              const SizedBox(height: 16),
+              if (_myTeams.isEmpty)
+                const Text('No teams found. Create a team first.')
+              else
+                DropdownButton<Team>(
+                  isExpanded: true,
+                  value: selectedTeam,
+                  hint: const Text('Select Team'),
+                  items: _myTeams.map((team) {
+                    return DropdownMenuItem(
+                      value: team,
+                      child: Text(team.name),
+                    );
+                  }).toList(),
+                  onChanged: (team) {
+                    setDialogState(() => selectedTeam = team);
+                  },
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _isAddingPlayer
+                  ? null
+                  : () async {
+                      if (selectedTeam == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please select a team')),
+                        );
+                        return;
+                      }
+
+                      Navigator.pop(dialogContext);
+                      await _addPlayerToTeam(selectedTeam!, player);
+                    },
+              child: _isAddingPlayer
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+Future<void> _addPlayerToTeam(Team team, PublicPlayer player) async {
+    setState(() => _isAddingPlayer = true);
+
+    try {
+      await _teamService.addPlayer(team.id, player.playerIdForTeam);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${player.fullName} added to ${team.name}!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add player: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isAddingPlayer = false);
+      }
+    }
   }
 }
 
@@ -242,10 +364,12 @@ class _FilterChip extends StatelessWidget {
 
 class _PlayerCard extends StatelessWidget {
   final PublicPlayer player;
+  final VoidCallback onViewProfile;
   final VoidCallback onAddToTeam;
 
   const _PlayerCard({
     required this.player,
+    required this.onViewProfile,
     required this.onAddToTeam,
   });
 
@@ -253,7 +377,10 @@ class _PlayerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
+      child: InkWell(
+        onTap: onViewProfile,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
@@ -297,14 +424,15 @@ class _PlayerCard extends StatelessWidget {
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 4),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
                       _InfoChip(
                         icon: Icons.sports_cricket,
                         label: player.playerType,
                       ),
                       if (player.city != null) ...[
-                        const SizedBox(width: 8),
                         _InfoChip(
                           icon: Icons.location_on,
                           label: player.city!,
@@ -332,12 +460,326 @@ class _PlayerCard extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                minimumSize: const Size(44, 34),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: const Text('Add'),
             ),
           ],
         ),
+        ),
+      ),
+    );
+  }
+}
+
+class PublicPlayerProfileView extends StatefulWidget {
+  final PublicPlayer player;
+
+  const PublicPlayerProfileView({super.key, required this.player});
+
+  @override
+  State<PublicPlayerProfileView> createState() => _PublicPlayerProfileViewState();
+}
+
+class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
+  final UserService _userService = UserService();
+  final ChatService _chatService = ChatService();
+
+  bool _isLoadingFollowStatus = true;
+  bool _isFollowing = false;
+  bool _isActionProcessing = false;
+  String? _followError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFollowStatus();
+  }
+
+  Future<void> _loadFollowStatus() async {
+    bool followQuerySuccess = false;
+    try {
+      final result = await _userService.getFollowing();
+      if (!mounted) return;
+      if (result['success'] == true) {
+        followQuerySuccess = true;
+        final following = result['data'] is List ? result['data'] as List<dynamic> : <dynamic>[];
+        setState(() {
+          _isFollowing = following.any((item) {
+            if (item is Map) {
+              final id = item['_id']?.toString() ?? item['id']?.toString();
+              return id == widget.player.connectionUserId;
+            }
+            return false;
+          });
+          _followError = null;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _followError = e.toString();
+      });
+    }
+    if (!mounted) return;
+    setState(() {
+      _isLoadingFollowStatus = false;
+      if (!followQuerySuccess && _followError == null) {
+        _followError = 'Unable to load follow status';
+      }
+    });
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_isActionProcessing) return;
+
+    setState(() => _isActionProcessing = true);
+    try {
+      final result = _isFollowing
+          ? await _userService.unfollowUser(widget.player.connectionUserId)
+          : await _userService.followUser(widget.player.connectionUserId);
+
+      if (result['success'] == true) {
+        if (!mounted) return;
+        setState(() {
+          _isFollowing = !_isFollowing;
+          _followError = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_isFollowing ? 'Followed successfully' : 'Unfollowed successfully'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        final message = result['message']?.toString() ?? 'Unable to update follow status';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Action failed: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isActionProcessing = false);
+      }
+    }
+  }
+
+  Future<void> _openChat() async {
+    try {
+      final chat = await _chatService.getChatByUserId(widget.player.connectionUserId);
+      if (!mounted) return;
+      final chatId = chat['chatId']?.toString() ?? '';
+      final otherUser = {
+        '_id': widget.player.connectionUserId,
+        'playerId': widget.player.id,
+        'name': widget.player.fullName.isNotEmpty ? widget.player.fullName : widget.player.username,
+      };
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(chatId: chatId, otherUser: otherUser),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to open chat: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = widget.player.cricketProfile;
+    final location = [
+      widget.player.city,
+      widget.player.state,
+    ].where((part) => part != null && part.trim().isNotEmpty).join(', ');
+
+    return Scaffold(
+      appBar: CustomAppBar(title: widget.player.fullName.isEmpty ? 'Player Profile' : widget.player.fullName),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 42,
+                    backgroundColor: AppColors.primary,
+                    backgroundImage: widget.player.avatar?.url != null && widget.player.avatar!.url!.isNotEmpty
+                        ? NetworkImage(widget.player.avatar!.url!)
+                        : null,
+                    child: widget.player.avatar?.url == null || widget.player.avatar!.url!.isEmpty
+                        ? Text(
+                            widget.player.fullName.isNotEmpty ? widget.player.fullName[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 30,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.player.fullName.isEmpty ? 'Unknown Player' : widget.player.fullName,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  ),
+                  if (widget.player.username.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text('@${widget.player.username}', style: TextStyle(color: Colors.grey[600])),
+                  ],
+                  if (location.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.location_on_outlined, size: 16, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            location,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isActionProcessing ? null : _toggleFollow,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isFollowing ? Colors.grey[700] : AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: _isLoadingFollowStatus
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                        )
+                      : Text(_isFollowing ? 'Unfollow' : 'Follow'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _openChat,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: BorderSide(color: AppColors.primary.withOpacity(0.9)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('Message'),
+                ),
+              ),
+            ],
+          ),
+          if (_followError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _followError!,
+              style: const TextStyle(color: Colors.red, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 16),
+          _ProfileSection(
+            title: 'Playing Style',
+            children: [
+              _ProfileRow(label: 'Role', value: profile?.playerType ?? widget.player.playerType),
+              _ProfileRow(label: 'Batting', value: profile?.battingStyle ?? 'N/A'),
+              _ProfileRow(label: 'Bowling', value: profile?.bowlingStyle ?? 'N/A'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _ProfileSection(
+            title: 'Career Stats',
+            children: [
+              _ProfileRow(label: 'Matches', value: (profile?.matchesPlayed ?? widget.player.stats?.matchesPlayed ?? 0).toString()),
+              _ProfileRow(label: 'Runs', value: (profile?.totalRuns ?? 0).toString()),
+              _ProfileRow(label: 'Wickets', value: (profile?.totalWickets ?? 0).toString()),
+              _ProfileRow(label: 'Highest Score', value: (profile?.highestScore ?? 0).toString()),
+              _ProfileRow(
+                label: 'Batting Average',
+                value: profile?.battingAverage?.toStringAsFixed(1) ?? '0.0',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _ProfileSection({required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ProfileRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: TextStyle(color: Colors.grey[600]))),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value.isEmpty ? 'N/A' : value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ),
     );
   }

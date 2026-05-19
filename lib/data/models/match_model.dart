@@ -83,16 +83,27 @@ class Match extends Equatable {
       startTime: json['startTime'],
       overs: json['overs'] ?? 20,
       status: json['status'] ?? 'SCHEDULED',
-      toss: json['toss'] != null ? Toss.fromJson(json['toss']) : null,
+      toss: _parseToss(json),
       innings: json['innings'] != null 
           ? (json['innings'] as List).map((e) => Innings.fromJson(e)).toList()
           : [],
-      currentInnings: json['currentInnings'] ?? 1,
+      currentInnings: int.tryParse(
+            (json['currentInnings'] ??
+                    json['currentInningsScore']?['inningsNumber'] ??
+                    json['inningsNumber'] ??
+                    1)
+                .toString(),
+          ) ??
+          1,
       battingOrder: json['battingOrder'] != null 
           ? (json['battingOrder'] as List).map((e) => BattingOrder.fromJson(e as Map<String, dynamic>)).toList()
           : [],
-      score: json['score'] != null ? MatchScore.fromJson(json['score']) : MatchScore.empty(),
-      result: json['result'] != null ? MatchResult.fromJson(json['result']) : null,
+      score: json['score'] is Map
+          ? MatchScore.fromJson(Map<String, dynamic>.from(json['score'] as Map))
+          : MatchScore.fromJson(json),
+      result: json['result'] is Map
+          ? MatchResult.fromJson(Map<String, dynamic>.from(json['result'] as Map))
+          : MatchResult.fromJson(json),
       officials: json['officials'] != null ? MatchOfficials.fromJson(json['officials']) : null,
       weather: json['weather'] != null ? Weather.fromJson(json['weather']) : null,
       pitch: json['pitch'] != null ? Pitch.fromJson(json['pitch']) : null,
@@ -105,8 +116,8 @@ class Match extends Equatable {
       isActive: json['isActive'] ?? true,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
-      team1Data: json['team1Data'],
-      team2Data: json['team2Data'],
+      team1Data: json['team1Data'] ?? (json['team1'] is Map ? json['team1'] : null),
+      team2Data: json['team2Data'] ?? (json['team2'] is Map ? json['team2'] : null),
     );
   }
 
@@ -140,12 +151,69 @@ class Match extends Equatable {
       'isActive': isActive,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'team1Data': team1Data,
+      'team2Data': team2Data,
     };
   }
 
-  bool get isLive => status == 'LIVE';
-  bool get isCompleted => status == 'COMPLETED';
-  bool get isScheduled => status == 'SCHEDULED';
+  static Toss? _parseToss(Map<String, dynamic> json) {
+    Toss? parsedToss;
+    if (json['toss'] is Map<String, dynamic>) {
+      parsedToss = Toss.fromJson(json['toss'] as Map<String, dynamic>);
+    } else if (json['toss'] is Map) {
+      parsedToss = Toss.fromJson(Map<String, dynamic>.from(json['toss'] as Map));
+    }
+
+    final winner = json['tossWinner'] ??
+        json['tossWinnerId'] ??
+        json['toss_winner'] ??
+        json['tossWinnerTeam'] ??
+        json['tossWinnerTeamId'];
+    final decision = json['tossDecision'] ??
+        json['toss_decision'] ??
+        json['decision'] ??
+        json['tossChoice'];
+
+    final parsedWinner = parsedToss?.winner;
+    final parsedDecision = parsedToss?.decision;
+    if (parsedWinner == null &&
+        parsedDecision == null &&
+        winner == null &&
+        decision == null) {
+      return null;
+    }
+
+    return Toss(
+      winner: _readTossValue(parsedWinner ?? winner),
+      decision: _readTossValue(parsedDecision ?? decision),
+      decidedAt: parsedToss?.decidedAt,
+    );
+  }
+
+  static String? _readTossValue(dynamic value) {
+    if (value == null) return null;
+    if (value is Map) {
+      return (value['shortName'] ??
+              value['name'] ??
+              value['teamName'] ??
+              value['_id'] ??
+              value['id'] ??
+              value['value'])
+          ?.toString();
+    }
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  String get normalizedStatus => status.toLowerCase();
+  bool get isLive => normalizedStatus == 'live';
+  bool get isCompleted => normalizedStatus == 'completed';
+  bool get isScheduled => normalizedStatus == 'scheduled';
+  bool get isUpcoming => normalizedStatus == 'upcoming' || normalizedStatus == 'scheduled';
+  bool get isTeamSelecting => normalizedStatus == 'team_selecting';
+  bool get isReady => normalizedStatus == 'ready';
+  String get team1Id => team1Data is Map ? (team1Data['_id'] ?? team1Data['id'] ?? team1).toString() : team1;
+  String get team2Id => team2Data is Map ? (team2Data['_id'] ?? team2Data['id'] ?? team2).toString() : team2;
 
   String get team1ScoreDisplay {
     return '${score.team1.runs}/${score.team1.wickets} (${score.team1.overs})';
@@ -204,10 +272,36 @@ class Toss extends Equatable {
 
   factory Toss.fromJson(Map<String, dynamic> json) {
     return Toss(
-      winner: json['winner'] is String ? json['winner'] : json['winner']?['name'],
-      decision: json['decision'],
-      decidedAt: json['decidedAt'] != null ? DateTime.parse(json['decidedAt']) : null,
+      winner: _readValue(
+        json['winner'] ??
+            json['tossWinner'] ??
+            json['tossWinnerId'] ??
+            json['team'] ??
+            json['winningTeam'],
+      ),
+      decision: _readValue(
+        json['decision'] ??
+            json['tossDecision'] ??
+            json['toss_decision'] ??
+            json['choice'],
+      ),
+      decidedAt: DateTime.tryParse(json['decidedAt']?.toString() ?? ''),
     );
+  }
+
+  static String? _readValue(dynamic value) {
+    if (value == null) return null;
+    if (value is Map) {
+      return (value['shortName'] ??
+              value['name'] ??
+              value['teamName'] ??
+              value['_id'] ??
+              value['id'] ??
+              value['value'])
+          ?.toString();
+    }
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
   }
 
   Map<String, dynamic> toJson() {
@@ -372,10 +466,35 @@ class MatchScore extends Equatable {
   const MatchScore({required this.team1, required this.team2});
 
   factory MatchScore.fromJson(Map<String, dynamic> json) {
-    return MatchScore(
-      team1: json['team1'] != null ? TeamScore.fromJson(json['team1']) : const TeamScore(),
-      team2: json['team2'] != null ? TeamScore.fromJson(json['team2']) : const TeamScore(),
+    final team1Json = _scoreMap(
+      json['team1'],
+      runs: json['team1Score'] ?? json['team1Runs'] ?? json['team1TotalRuns'],
+      wickets: json['team1Wickets'] ?? json['team1TotalWickets'],
+      overs: json['team1Overs'] ?? json['team1TotalOvers'],
     );
+    final team2Json = _scoreMap(
+      json['team2'],
+      runs: json['team2Score'] ?? json['team2Runs'] ?? json['team2TotalRuns'],
+      wickets: json['team2Wickets'] ?? json['team2TotalWickets'],
+      overs: json['team2Overs'] ?? json['team2TotalOvers'],
+    );
+    return MatchScore(
+      team1: TeamScore.fromJson(team1Json),
+      team2: TeamScore.fromJson(team2Json),
+    );
+  }
+
+  static Map<String, dynamic> _scoreMap(
+    dynamic value, {
+    dynamic runs,
+    dynamic wickets,
+    dynamic overs,
+  }) {
+    final map = value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
+    if (runs != null) map['runs'] = runs;
+    if (wickets != null) map['wickets'] = wickets;
+    if (overs != null) map['overs'] = overs;
+    return map;
   }
 
   factory MatchScore.empty() {
@@ -411,10 +530,16 @@ class TeamScore extends Equatable {
 
   factory TeamScore.fromJson(Map<String, dynamic> json) {
     return TeamScore(
-      runs: json['runs'] ?? 0,
-      wickets: json['wickets'] ?? 0,
-      overs: json['overs'] ?? '0.0',
-      innings: json['innings'] ?? 1,
+      runs: int.tryParse(
+            (json['runs'] ?? json['totalRuns'] ?? json['score'] ?? 0).toString(),
+          ) ??
+          0,
+      wickets: int.tryParse(
+            (json['wickets'] ?? json['wkts'] ?? json['totalWickets'] ?? 0).toString(),
+          ) ??
+          0,
+      overs: (json['overs'] ?? json['totalOvers'] ?? json['over'] ?? '0.0').toString(),
+      innings: int.tryParse((json['innings'] ?? json['inningsNumber'] ?? 1).toString()) ?? 1,
     );
   }
 
@@ -430,7 +555,7 @@ class TeamScore extends Equatable {
   double get oversInDecimal {
     if (overs.isEmpty) return 0.0;
     final parts = overs.split('.');
-    if (parts.length < 2) return int.tryParse(parts[0] ?? '0')?.toDouble() ?? 0.0;
+    if (parts.length < 2) return int.tryParse(parts[0])?.toDouble() ?? 0.0;
     final oversInt = int.tryParse(parts[0]) ?? 0;
     final ballsInt = int.tryParse(parts[1]) ?? 0;
     return oversInt + (ballsInt / 6);
@@ -444,6 +569,7 @@ class MatchResult extends Equatable {
   final String? winner;
   final String? margin;
   final String? method;
+  final String? message;
   final String? playerOfMatch;
   final int? target;
   final int? requiredRuns;
@@ -453,6 +579,7 @@ class MatchResult extends Equatable {
     this.winner,
     this.margin,
     this.method,
+    this.message,
     this.playerOfMatch,
     this.target,
     this.requiredRuns,
@@ -461,14 +588,30 @@ class MatchResult extends Equatable {
 
   factory MatchResult.fromJson(Map<String, dynamic> json) {
     return MatchResult(
-      winner: json['winner'] is String ? json['winner'] : json['winner']?['name'],
-      margin: json['margin'],
-      method: json['method'],
-      playerOfMatch: json['playerOfMatch'] is String ? json['playerOfMatch'] : json['playerOfMatch']?['playerName'],
-      target: json['target'],
-      requiredRuns: json['requiredRuns'],
-      requiredBalls: json['requiredBalls'],
+      winner: _readName(json['winner'] ?? json['winnerTeam'] ?? json['winningTeam']),
+      margin: json['margin']?.toString(),
+      method: json['method']?.toString(),
+      message: json['message']?.toString() ?? json['resultMessage']?.toString(),
+      playerOfMatch: _readName(json['playerOfMatch'] ?? json['mom']),
+      target: int.tryParse((json['target'] ?? json['targetRuns'] ?? '').toString()),
+      requiredRuns: int.tryParse((json['requiredRuns'] ?? json['runsRequired'] ?? '').toString()),
+      requiredBalls: int.tryParse((json['requiredBalls'] ?? json['ballsRemaining'] ?? '').toString()),
     );
+  }
+
+  static String? _readName(dynamic value) {
+    if (value == null) return null;
+    if (value is Map) {
+      return (value['shortName'] ??
+              value['name'] ??
+              value['teamName'] ??
+              value['playerName'] ??
+              value['_id'] ??
+              value['id'])
+          ?.toString();
+    }
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
   }
 
   Map<String, dynamic> toJson() {
@@ -476,6 +619,7 @@ class MatchResult extends Equatable {
       'winner': winner,
       'margin': margin,
       'method': method,
+      'message': message,
       'playerOfMatch': playerOfMatch,
       'target': target,
       'requiredRuns': requiredRuns,
@@ -484,7 +628,7 @@ class MatchResult extends Equatable {
   }
 
   @override
-  List<Object?> get props => [winner, margin, method, playerOfMatch, target, requiredRuns, requiredBalls];
+  List<Object?> get props => [winner, margin, method, message, playerOfMatch, target, requiredRuns, requiredBalls];
 }
 
 class MatchOfficials extends Equatable {

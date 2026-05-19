@@ -63,6 +63,23 @@ class UserService {
     );
   }
 
+  List<dynamic> _extractList(dynamic raw, String key) {
+    if (raw is List) return raw;
+    if (raw is Map) {
+      final data = raw['data'];
+      if (data is List) return data;
+      if (data is Map) {
+        final keyed = data[key];
+        if (keyed is List) return keyed;
+        final nestedData = data['data'];
+        if (nestedData is List) return nestedData;
+      }
+      final keyed = raw[key];
+      if (keyed is List) return keyed;
+    }
+    return const [];
+  }
+
   // NEW: API methods for followers/connections
   Future<Map<String, dynamic>> getFollowers({Map<String, dynamic>? queryParameters}) async {
     try {
@@ -72,7 +89,8 @@ class UserService {
       );
       return {
         'success': true,
-        'data': response.data,
+        'data': _extractList(response.data, 'followers'),
+        'raw': response.data,
       };
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(e));
@@ -89,7 +107,8 @@ class UserService {
       );
       return {
         'success': true,
-        'data': response.data,
+        'data': _extractList(response.data, 'following'),
+        'raw': response.data,
       };
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(e));
@@ -130,4 +149,3 @@ class UserService {
     }
   }
 }
-

@@ -58,6 +58,12 @@ class QuickActionsGrid extends StatelessWidget {
               route: '/players',
             ),
             QuickActionCard(
+              icon: Icons.person_search_rounded,
+              title: 'Public Search',
+              color: Color(0xFF0EA5E9),
+              route: '/public-players',
+            ),
+            QuickActionCard(
               icon: Icons.groups_rounded,
               title: 'Teams',
               color: Color(0xFF2E7D32),
@@ -87,6 +93,18 @@ class QuickActionsGrid extends StatelessWidget {
               title: 'Live Matches',
               color: Color(0xFF00796B),
               route: '/live-matches',
+            ),
+            QuickActionCard(
+              icon: Icons.event_available_rounded,
+              title: 'Scheduled',
+              color: Color(0xFF2563EB),
+              route: '/scheduled-matches',
+            ),
+            QuickActionCard(
+              icon: Icons.fact_check_rounded,
+              title: 'Completed',
+              color: Color(0xFF059669),
+              route: '/completed-matches',
             ),
             QuickActionCard(
               icon: Icons.live_tv_rounded,

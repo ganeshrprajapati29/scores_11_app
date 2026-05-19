@@ -49,7 +49,7 @@ class _LiveMatchCarouselState extends State<LiveMatchCarousel> {
     }
     
     return SizedBox(
-      height: 160,
+      height: 190,
       child: Stack(
         children: [
           PageView.builder(
@@ -59,7 +59,7 @@ class _LiveMatchCarouselState extends State<LiveMatchCarousel> {
             itemBuilder: (context, index) {
               final match = widget.matches[index];
               return GestureDetector(
-                onTap: () => Navigator.pushNamed(context, '/match-detail/${match.id}'),
+                onTap: () => Navigator.pushNamed(context, '/scorecard', arguments: match.id),
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 12.0),
                   child: LiveMatchCard(match: match),
@@ -117,7 +117,7 @@ class LiveMatchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 240,
+      width: 260,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -180,21 +180,22 @@ class LiveMatchCard extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          // Team 1
+          const SizedBox(height: 10),
           LiveTeamRow(
             teamName: match.team1.shortName,
-            score: match.team1Score?.toString(),
+            score: _teamScore(match, 1),
             isLeading: match.team1Score != null && match.team1Score! > (match.team2Score ?? 0),
           ),
           const SizedBox(height: 6),
           // Team 2
           LiveTeamRow(
             teamName: match.team2.shortName,
-            score: match.team2Score?.toString(),
+            score: _teamScore(match, 2),
             isLeading: match.team2Score != null && match.team2Score! > (match.team1Score ?? 0),
           ),
-const Spacer(),
-          // Tournament
+          const SizedBox(height: 8),
+          _MatchMetaLine(match: match),
+          const Spacer(),
           Text(
             match.tournament.name,
             style: TextStyle(
@@ -204,8 +205,6 @@ const Spacer(),
             ),
             maxLines: 1,
           ),
-          const SizedBox(height: 4),
-          // Venue and Date/Time
           Row(
             children: [
               Icon(Icons.location_on, size: 10, color: Colors.grey[400]),
@@ -222,24 +221,60 @@ const Spacer(),
               ),
             ],
           ),
-          const SizedBox(height: 2),
-          // Date/Time
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              match.formattedDate,
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 8,
-                fontWeight: FontWeight.w600,
-              ),
+        ],
+      ),
+    );
+  }
+
+  String? _teamScore(LiveMatch match, int team) {
+    final parsedScore = match.scoreForTeam(team);
+    if (parsedScore != null) return parsedScore;
+
+    final score = match.scoreString;
+    if (score != null && score.contains('|')) {
+      final parts = score.split('|');
+      return team == 1 ? parts.first.trim() : parts.last.trim();
+    }
+    final runs = team == 1 ? match.team1Score : match.team2Score;
+    return runs == null ? null : '$runs/0';
+  }
+}
+
+class _MatchMetaLine extends StatelessWidget {
+  final LiveMatch match;
+  const _MatchMetaLine({required this.match});
+
+  @override
+  Widget build(BuildContext context) {
+    final chips = <String>[
+      'Inn ${match.currentInnings}',
+      if (match.target != null) 'Target ${match.target}',
+      if (match.requiredRuns != null) '${match.requiredRuns} needed',
+      if (match.tossWinner != null)
+        'Toss: ${match.tossWinner}${match.tossDecision != null ? ' ${match.tossDecision}' : ''}',
+    ];
+
+    return SizedBox(
+      height: 24,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: chips.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, index) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            chips[index],
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
             ),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -3,8 +3,10 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/models/match_model.dart';
+import '../../providers/live_score_control_provider.dart';
 
 class WagonWheelScreen extends StatefulWidget {
   final String matchId;
@@ -163,17 +165,48 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
     });
   }
 
-  void _confirmShot() {
+  Future<void> _confirmShot() async {
     if (_selectedZone == null || _selectedRing == null) return;
     HapticFeedback.mediumImpact();
 
     final zone = _zones[_selectedZone!];
     final runs = _ringRuns[_selectedRing!];
+    final zoneIndex = _selectedZone!;
+    final ringIndex = _selectedRing!;
+
+    try {
+      final provider = context.read<LiveScoreControlProvider>();
+      await provider.addWagonShot(
+        runs: runs,
+        zone: zoneIndex,
+        label: zone['label'] as String,
+      );
+      if (!mounted) return;
+      if (provider.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.error!),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Open wagon wheel from live score control after setting striker and bowler.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _recentShots.insert(0, {
-        'zone': _selectedZone,
-        'ring': _selectedRing,
+        'zone': zoneIndex,
+        'ring': ringIndex,
         'runs': runs,
         'label': zone['label'],
         'color': zone['primaryColor'],

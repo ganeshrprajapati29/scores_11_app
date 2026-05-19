@@ -4,7 +4,6 @@ import '../models/match_model.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/cache_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart';
 
 /// Pagination response wrapper
 class PaginatedMatches {
@@ -119,6 +118,41 @@ class MatchService {
       tournament: tournament,
     );
     return result.matches;
+  }
+
+  /// Get only matches created by the logged-in user.
+  Future<PaginatedMatches> getMyMatches({
+    int page = 1,
+    int limit = 20,
+    String? status,
+  }) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.matches}/my-matches',
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+          if (status != null) 'status': status,
+        },
+      );
+      if (response.statusCode == 200) {
+        final List data = response.data['data'] ?? [];
+        final pagination = response.data['pagination'] ?? {};
+        final matches = data.map((json) => Match.fromJson(json)).toList();
+
+        return PaginatedMatches(
+          matches: matches,
+          page: pagination['page'] ?? page,
+          limit: pagination['limit'] ?? limit,
+          total: pagination['total'] ?? data.length,
+          totalPages: pagination['pages'] ?? 1,
+          hasMore: page < (pagination['pages'] ?? 1),
+        );
+      }
+      throw Exception(response.data['message'] ?? 'Failed to get your matches');
+    } catch (e) {
+      rethrow;
+    }
   }
 
   /// Get match by ID with caching
@@ -277,7 +311,12 @@ class MatchService {
   }
 
 /// Get live matches - uses dedicated endpoint with sorting (newest first)
-  Future<List<Match>> getLiveMatches({bool forceRefresh = false, String sort = 'scheduledDate', String order = 'desc'}) async {
+  Future<List<Match>> getLiveMatches({
+    bool forceRefresh = false,
+    int limit = 25,
+    String sort = 'updatedAt',
+    String order = 'desc',
+  }) async {
     if (!forceRefresh) {
       final cachedData = _cacheService.getCachedLiveMatches(ttlMinutes: 1);
       if (cachedData != null) {
@@ -289,8 +328,10 @@ class MatchService {
       final response = await _apiClient.get(
         '${ApiConfig.matches}/live',
         queryParameters: {
+          'limit': limit.toString(),
           'sort': sort,
           'order': order,
+          if (forceRefresh) 'forceRefresh': 'true',
         },
       );
       if (response.statusCode == 200) {
@@ -313,8 +354,13 @@ class MatchService {
     }
   }
 
-  /// Get upcoming matches - uses dedicated endpoint with sorting (soonest first)
-  Future<List<Match>> getUpcomingMatches({int limit = 10, String sort = 'scheduledDate', String order = 'asc'}) async {
+/// Get upcoming matches - uses dedicated endpoint with sorting (soonest first)
+  Future<List<Match>> getUpcomingMatches({int limit = 10, String sort = 'scheduledDate', String order = 'asc', bool forceRefresh = false}) async {
+    // For force refresh, clear cache first
+    if (forceRefresh) {
+      _cacheService.clearMatchesCache();
+    }
+    
     try {
       final response = await _apiClient.get(
         '${ApiConfig.matches}/upcoming',
@@ -322,6 +368,7 @@ class MatchService {
           'limit': limit.toString(),
           'sort': sort,
           'order': order,
+          if (forceRefresh) 'forceRefresh': 'true',
         },
       );
       if (response.statusCode == 200) {
@@ -420,14 +467,13 @@ class MatchService {
     required DateTime scheduledDate,
     String format = 't20',
   }) async {
-    final dateStr = DateFormat('yyyy-MM-dd').format(scheduledDate);
     final startTimeStr = '${scheduledDate.hour.toString().padLeft(2, '0')}:${scheduledDate.minute.toString().padLeft(2, '0')}';
 
     final data = {
       'team1': team1,
       'team2': team2,
       'venue': venue,
-      'scheduledDate': dateStr,
+      'scheduledDate': scheduledDate.toIso8601String(),
       'startTime': startTimeStr,
       'format': format,
     };
@@ -488,7 +534,7 @@ class MatchService {
     try {
       final response = await _apiClient.patch(
         '${ApiConfig.matches}/$id/status',
-        data: {'status': status},
+        data: {'status': status.toLowerCase()},
       );
       if (response.statusCode == 200) {
         _cacheService.clearMatchesCache();
@@ -523,15 +569,24 @@ class MatchService {
     try {
       final response = await _apiClient.patch(
         '${ApiConfig.matches}/$id/toss',
-        data: {'tossWinner': winner, 'tossDecision': decision},
+        data: {'winner': winner, 'decision': decision.toLowerCase()},
+        options: Options(validateStatus: (status) => status != null && status >= 100),
       );
       if (response.statusCode == 200) {
         _cacheService.clearMatchesCache();
         return Match.fromJson(response.data['data']);
       }
-      throw Exception(response.data['message'] ?? 'Failed to update toss');
+      final data = response.data;
+      final message = data is Map ? data['message']?.toString() : null;
+      throw Exception(message ?? 'Failed to update toss');
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(
+        e,
+        defaultMessage: 'Toss update failed. Please try again.',
+      ));
     } catch (e) {
-      rethrow;
+      final message = e.toString().replaceFirst('Exception: ', '');
+      throw Exception(message);
     }
   }
 
@@ -574,14 +629,27 @@ class MatchService {
   /// Initialize match for scoring (set batting order)
   Future<void> initializeMatch(String matchId, List<Map<String, dynamic>> battingOrder) async {
     try {
-      final response = await _apiClient.post('/scoring/match/$matchId/initialize', 
-        data: {'battingOrder': battingOrder});
+      final response = await _apiClient.post(
+        '/scoring/match/$matchId/initialize',
+        data: {'battingOrder': battingOrder},
+        options: Options(validateStatus: (status) => status != null && status >= 100),
+      );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception(response.data['message'] ?? 'Failed to initialize match');
+        final data = response.data;
+        final message = data is Map
+            ? data['message']?.toString()
+            : null;
+        throw Exception(message ?? 'Failed to initialize match');
       }
       _cacheService.clearMatchCache(matchId);
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(
+        e,
+        defaultMessage: 'Match initialize failed. Please try again.',
+      ));
     } catch (e) {
-      rethrow;
+      final message = e.toString().replaceFirst('Exception: ', '');
+      throw Exception(message);
     }
   }
 
@@ -643,13 +711,21 @@ class MatchService {
   Future<void> setStriker(String matchId, String batsmanId) async {
     try {
       final response = await _apiClient.patch('/scoring/match/$matchId/striker',
-        data: {'batsmanId': batsmanId});
+        data: {'batsmanId': batsmanId},
+        options: Options(validateStatus: (status) => status != null && status >= 100));
       if (response.statusCode != 200) {
-        throw Exception(response.data['message'] ?? 'Failed to set striker');
+        final data = response.data;
+        final message = data is Map ? data['message']?.toString() : null;
+        throw Exception(message ?? 'Failed to set striker');
       }
       _cacheService.clearMatchCache(matchId);
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(
+        e,
+        defaultMessage: 'Failed to set striker. Please try again.',
+      ));
     } catch (e) {
-      rethrow;
+      throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -657,13 +733,21 @@ class MatchService {
   Future<void> setNonStriker(String matchId, String batsmanId) async {
     try {
       final response = await _apiClient.patch('/scoring/match/$matchId/non-striker',
-        data: {'batsmanId': batsmanId});
+        data: {'batsmanId': batsmanId},
+        options: Options(validateStatus: (status) => status != null && status >= 100));
       if (response.statusCode != 200) {
-        throw Exception(response.data['message'] ?? 'Failed to set non-striker');
+        final data = response.data;
+        final message = data is Map ? data['message']?.toString() : null;
+        throw Exception(message ?? 'Failed to set non-striker');
       }
       _cacheService.clearMatchCache(matchId);
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(
+        e,
+        defaultMessage: 'Failed to set non-striker. Please try again.',
+      ));
     } catch (e) {
-      rethrow;
+      throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -671,13 +755,21 @@ class MatchService {
   Future<void> setBowler(String matchId, String bowlerId) async {
     try {
       final response = await _apiClient.patch('/scoring/match/$matchId/bowler',
-        data: {'bowlerId': bowlerId});
+        data: {'bowlerId': bowlerId},
+        options: Options(validateStatus: (status) => status != null && status >= 100));
       if (response.statusCode != 200) {
-        throw Exception(response.data['message'] ?? 'Failed to set bowler');
+        final data = response.data;
+        final message = data is Map ? data['message']?.toString() : null;
+        throw Exception(message ?? 'Failed to set bowler');
       }
       _cacheService.clearMatchCache(matchId);
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(
+        e,
+        defaultMessage: 'Failed to set bowler. Please try again.',
+      ));
     } catch (e) {
-      rethrow;
+      throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 

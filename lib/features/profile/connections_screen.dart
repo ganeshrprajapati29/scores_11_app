@@ -44,8 +44,8 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
 
       if (mounted) {
         setState(() {
-          _followers = followersResult['data'] ?? [];
-          _following = followingResult['data'] ?? [];
+          _followers = followersResult['data'] is List ? followersResult['data'] as List<dynamic> : [];
+          _following = followingResult['data'] is List ? followingResult['data'] as List<dynamic> : [];
           _isLoading = false;
         });
       }
@@ -85,7 +85,11 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
 
   Future<void> _startChat(Map<String, dynamic> user) async {
     try {
-      final chatInfo = await _chatService.getChatByUserId(user['id'] ?? user['_id']);
+      final userId = (user['id'] ?? user['_id'] ?? user['userId'])?.toString();
+      if (userId == null || userId.isEmpty) {
+        throw Exception('User id missing');
+      }
+      final chatInfo = await _chatService.getChatByUserId(userId);
       final chatId = chatInfo['chatId'] ?? '';
       
       if (mounted) {
@@ -94,7 +98,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
           MaterialPageRoute(
             builder: (context) => ChatScreen(
               chatId: chatId,
-              otherUser: {...user, 'id': user['id'] ?? user['_id']},
+              otherUser: {...user, 'id': userId, '_id': userId},
             ),
           ),
         );

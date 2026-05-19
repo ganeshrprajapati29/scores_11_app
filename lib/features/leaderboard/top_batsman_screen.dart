@@ -1,38 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/widgets/custom_appbar.dart';
-import 'package:provider/provider.dart';
-import '../../../providers/leaderboard_provider.dart';
-import '../../../data/services/leaderboard_service.dart';
-
-class Batsman {
-  final String name;
-  final String team;
-  final int runs;
-  final int matches;
-  final double avg;
-  final double sr;
-  final int fours;
-  final int sixes;
-  final String image;
-  final int rank;
-  final String initials;
-
-  Batsman({
-    required this.name,
-    required this.team,
-    required this.runs,
-    required this.matches,
-    required this.avg,
-    required this.sr,
-    required this.fours,
-    required this.sixes,
-    required this.image,
-    required this.rank,
-    required this.initials,
-  });
-}
+import 'package:flutter/material.dart';
+import '../../data/services/leaderboard_service.dart';
 
 class TopBatsmanScreen extends StatefulWidget {
   const TopBatsmanScreen({super.key});
@@ -43,58 +10,29 @@ class TopBatsmanScreen extends StatefulWidget {
 
 class _TopBatsmanScreenState extends State<TopBatsmanScreen>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  int _selectedTab = 0;
+  late final TabController _tabController;
+  final LeaderboardService _service = LeaderboardService();
+  final Map<_RankTab, List<Map<String, dynamic>>> _data = {};
+  final Set<_RankTab> _loading = {};
+  String? _error;
 
-  final List<Batsman> _batsmen = [
-    Batsman(name: 'Virat Kohli', team: 'RCB', runs: 741, matches: 14, avg: 61.75, sr: 154.69, fours: 84, sixes: 38, image: 'https://picsum.photos/100/100', rank: 1, initials: 'VK'),
-    Batsman(name: 'Rohit Sharma', team: 'MI', runs: 512, matches: 12, avg: 42.66, sr: 148.54, fours: 56, sixes: 24, image: 'https://picsum.photos/100/100', rank: 2, initials: 'RS'),
-    Batsman(name: 'Shubman Gill', team: 'GT', runs: 489, matches: 11, avg: 44.45, sr: 151.16, fours: 52, sixes: 28, image: 'https://picsum.photos/100/100', rank: 3, initials: 'SG'),
-    Batsman(name: 'Faf du Plessis', team: 'RCB', runs: 456, matches: 12, avg: 38.00, sr: 152.51, fours: 45, sixes: 22, image: 'https://picsum.photos/100/100', rank: 4, initials: 'FP'),
-    Batsman(name: 'David Warner', team: 'DC', runs: 432, matches: 11, avg: 39.27, sr: 147.95, fours: 48, sixes: 18, image: 'https://picsum.photos/100/100', rank: 5, initials: 'DW'),
-    Batsman(name: 'KL Rahul', team: 'LSG', runs: 421, matches: 12, avg: 35.08, sr: 144.52, fours: 42, sixes: 20, image: 'https://picsum.photos/100/100', rank: 6, initials: 'KR'),
-    Batsman(name: 'Suryakumar Yadav', team: 'MI', runs: 398, matches: 10, avg: 39.80, sr: 160.48, fours: 38, sixes: 24, image: 'https://picsum.photos/100/100', rank: 7, initials: 'SY'),
-    Batsman(name: 'Hardik Pandya', team: 'MI', runs: 345, matches: 11, avg: 31.36, sr: 138.80, fours: 32, sixes: 18, image: 'https://picsum.photos/100/100', rank: 8, initials: 'HP'),
+  static const _tabs = [
+    _RankTab.batsmen,
+    _RankTab.bowlers,
+    _RankTab.mvp,
+    _RankTab.teams,
   ];
-
-  Color _teamBgColor(String team) {
-    switch (team) {
-      case 'RCB': return const Color(0xFFFFE5E5);
-      case 'MI':  return const Color(0xFFDCEEFF);
-      case 'GT':  return const Color(0xFFE0F4FF);
-      case 'DC':  return const Color(0xFFEDE9FE);
-      case 'LSG': return const Color(0xFFE6FAF0);
-      default:    return const Color(0xFFF0F0F0);
-    }
-  }
-
-  Color _teamTextColor(String team) {
-    switch (team) {
-      case 'RCB': return const Color(0xFF991B1B);
-      case 'MI':  return const Color(0xFF1E3A8A);
-      case 'GT':  return const Color(0xFF0369A1);
-      case 'DC':  return const Color(0xFF6D28D9);
-      case 'LSG': return const Color(0xFF15803D);
-      default:    return const Color(0xFF374151);
-    }
-  }
-
-  Color _rankColor(int index) {
-    switch (index) {
-      case 0: return const Color(0xFFFFD700);
-      case 1: return const Color(0xFFC0C0C0);
-      case 2: return const Color(0xFFCD7F32);
-      default: return Colors.grey;
-    }
-  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(() {
-      if (mounted) setState(() => _selectedTab = _tabController.index);
+      if (!_tabController.indexIsChanging) {
+        _load(_tabs[_tabController.index]);
+      }
     });
+    _loadAll();
   }
 
   @override
@@ -103,595 +41,422 @@ class _TopBatsmanScreenState extends State<TopBatsmanScreen>
     super.dispose();
   }
 
+  Future<void> _loadAll() async {
+    await Future.wait(_tabs.map((tab) => _load(tab, force: true)));
+  }
+
+  Future<void> _load(_RankTab tab, {bool force = false}) async {
+    if (!force && (_data[tab]?.isNotEmpty ?? false)) return;
+    if (_loading.contains(tab)) return;
+    setState(() {
+      _loading.add(tab);
+      _error = null;
+    });
+    try {
+      final result = await _fetchRankings(tab);
+      if (!mounted) return;
+      setState(() => _data[tab] = result);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Unable to load rankings. Pull to refresh.');
+    } finally {
+      if (!mounted) return;
+      setState(() => _loading.remove(tab));
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRankings(_RankTab tab) async {
+    final fallbackType = switch (tab) {
+      _RankTab.batsmen => 'batsmen',
+      _RankTab.bowlers => 'bowlers',
+      _RankTab.mvp => 'mvp',
+      _RankTab.teams => 'teams',
+    };
+
+    try {
+      final result = switch (tab) {
+        _RankTab.batsmen => (await _service.getTopBatsmen(limit: 30)).entries,
+        _RankTab.bowlers => (await _service.getTopBowlers(limit: 30)).entries,
+        _RankTab.mvp => await _service.getMVPRankings(limit: 30),
+        _RankTab.teams => await _service.getTeamRankings(limit: 30),
+      };
+      if (result.isNotEmpty) return result;
+    } catch (_) {
+      // Try the generic endpoint below.
+    }
+
+    return _service.getAllRankings(type: fallbackType, limit: 30);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          SliverAppBar(
-            expandedHeight: 340,
-            pinned: true,
-            elevation: 0,
-            backgroundColor: const Color(0xFF0A1628),
-            surfaceTintColor: Colors.transparent,
-            leading: Padding(
-              padding: const EdgeInsets.all(8),
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).maybePop(),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 17),
+      backgroundColor: const Color(0xFFF5F7FF),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 18),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        title: const Text(
+          'Rankings',
+          style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w900),
+        ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: _RankHero(data: _data),
+            ),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE8EEFF)),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                labelColor: Colors.white,
+                unselectedLabelColor: const Color(0xFF64748B),
+                indicator: BoxDecoration(
+                  color: const Color(0xFF1A56DB),
+                  borderRadius: BorderRadius.circular(11),
                 ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                tabs: _tabs.map((tab) => Tab(text: tab.label, icon: Icon(tab.icon, size: 16))).toList(),
               ),
             ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.more_vert_rounded,
-                        color: Colors.white, size: 20),
-                    onPressed: () {},
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-            ],
-            title: AnimatedOpacity(
-              opacity: innerBoxIsScrolled ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: const Text(
-                'TOP BATSMEN',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: TabBarView(
+            controller: _tabController,
+            children: _tabs.map(_buildTab).toList(),
               ),
             ),
-            centerTitle: true,
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(50),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0A1628),
-                  border: Border(
-                    top: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.08), width: 1),
-                  ),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  labelColor: const Color(0xFFFFD700),
-                  unselectedLabelColor: Colors.white38,
-                  indicatorColor: const Color(0xFFFFD700),
-                  indicatorWeight: 2.5,
-                  indicatorSize: TabBarIndicatorSize.label,
-                  dividerColor: Colors.transparent,
-                  labelStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                  ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
-                  ),
-                  tabs: const [
-                    Tab(text: 'T20'),
-                    Tab(text: 'ODI'),
-                    Tab(text: 'TEST'),
-                  ],
-                ),
-              ),
-            ),
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.pin,
-              background: _buildPodiumHeader(),
-            ),
+          ],
           ),
-        ],
-        body: _selectedTab == 0 ? _buildPlayerList() : _buildComingSoon(),
       ),
     );
   }
 
-  // ─── Podium Header ────────────────────────────────────────────────────────
+  Widget _buildTab(_RankTab tab) {
+    final entries = _data[tab] ?? const <Map<String, dynamic>>[];
+    final isLoading = _loading.contains(tab);
 
-  Widget _buildPodiumHeader() {
-    final top3 = _batsmen.take(3).toList();
+    return RefreshIndicator(
+      onRefresh: () => _load(tab, force: true),
+      color: const Color(0xFF1A56DB),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        children: [
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _StateBanner(message: _error!, isError: true),
+            ),
+          if (isLoading && entries.isEmpty)
+            const SizedBox(
+              height: 320,
+              child: Center(child: CircularProgressIndicator(color: Color(0xFF1A56DB))),
+            )
+          else if (entries.isEmpty)
+            SizedBox(height: 320, child: _EmptyRankings(tab: tab))
+          else
+            ...List.generate(entries.length, (index) {
+              final entry = _RankEntry.fromMap(entries[index], tab, index);
+              return Padding(
+                padding: EdgeInsets.only(bottom: index == entries.length - 1 ? 0 : 10),
+                child: _RankingCard(entry: entry, tab: tab),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+enum _RankTab {
+  batsmen('Batsmen', Icons.sports_cricket_rounded),
+  bowlers('Bowlers', Icons.sports_baseball_rounded),
+  mvp('MVP', Icons.workspace_premium_rounded),
+  teams('Teams', Icons.groups_rounded);
+
+  final String label;
+  final IconData icon;
+  const _RankTab(this.label, this.icon);
+}
+
+class _RankEntry {
+  final int rank;
+  final String id;
+  final String name;
+  final String team;
+  final String role;
+  final int matches;
+  final int runs;
+  final int wickets;
+  final double average;
+  final double strikeRate;
+  final int points;
+  final String? tournament;
+
+  const _RankEntry({
+    required this.rank,
+    required this.id,
+    required this.name,
+    required this.team,
+    required this.role,
+    required this.matches,
+    required this.runs,
+    required this.wickets,
+    required this.average,
+    required this.strikeRate,
+    required this.points,
+    this.tournament,
+  });
+
+  factory _RankEntry.fromMap(Map<String, dynamic> json, _RankTab tab, int index) {
+    final player = _map(json['player']) ?? _map(json['playerId']) ?? json;
+    final teamMap = _map(json['team']) ?? _map(player['team']);
+    final stats = _map(json['stats']) ?? json;
+    return _RankEntry(
+      rank: _int(json['rank'] ?? json['position']) ?? index + 1,
+      id: _text(player['_id'] ?? player['id'] ?? json['_id'] ?? json['id']),
+      name: tab == _RankTab.teams
+          ? _text(teamMap?['name'] ?? json['name'] ?? json['teamName'], fallback: 'Team')
+          : _text(player['name'] ?? player['playerName'] ?? json['name'], fallback: 'Player'),
+      team: _text(teamMap?['shortName'] ?? teamMap?['name'] ?? json['teamName'] ?? json['team']),
+      role: _text(player['role'] ?? json['role'], fallback: tab.label),
+      matches: _int(stats['matches'] ?? stats['totalMatches'] ?? stats['played']) ?? 0,
+      runs: _int(stats['runs'] ?? stats['totalRuns'] ?? json['runs']) ?? 0,
+      wickets: _int(stats['wickets'] ?? stats['totalWickets'] ?? json['wickets']) ?? 0,
+      average: _double(stats['average'] ?? stats['avg']) ?? 0,
+      strikeRate: _double(stats['strikeRate'] ?? stats['sr']) ?? 0,
+      points: _int(json['points'] ?? stats['points'] ?? json['score']) ?? 0,
+      tournament: _textOrNull(_map(json['tournament'])?['name'] ?? json['tournamentName']),
+    );
+  }
+
+  String get initials {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return 'P';
+    return parts.take(2).map((p) => p[0].toUpperCase()).join();
+  }
+
+  static Map<String, dynamic>? _map(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  static String _text(dynamic value, {String fallback = ''}) {
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? fallback : text;
+  }
+
+  static String? _textOrNull(dynamic value) {
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? null : text;
+  }
+
+  static int? _int(dynamic value) => int.tryParse(value?.toString() ?? '');
+  static double? _double(dynamic value) => double.tryParse(value?.toString() ?? '');
+}
+
+class _RankHero extends StatelessWidget {
+  final Map<_RankTab, List<Map<String, dynamic>>> data;
+  const _RankHero({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final totalPlayers = (data[_RankTab.batsmen]?.length ?? 0) + (data[_RankTab.bowlers]?.length ?? 0);
+    final totalTeams = data[_RankTab.teams]?.length ?? 0;
+    final totalMvp = data[_RankTab.mvp]?.length ?? 0;
 
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0A1628),
-            Color(0xFF1A2F5E),
-            Color(0xFF0D3B8A),
-          ],
-        ),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8EEFF)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1A56DB).withOpacity(0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Stack(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Decorative circles
-          Positioned(
-            top: -40,
-            right: -40,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.04),
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A56DB).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.leaderboard_rounded, color: Color(0xFF1A56DB), size: 20),
               ),
-            ),
-          ),
-          Positioned(
-            top: 60,
-            left: -30,
-            child: Container(
-              width: 130,
-              height: 130,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFFFD700).withValues(alpha: 0.05),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 80,
-            right: 40,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.03),
-              ),
-            ),
-          ),
-
-          // Title
-          Positioned(
-            top: 56,
-            left: 0,
-            right: 0,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.emoji_events_rounded,
-                        color: const Color(0xFFFFD700).withValues(alpha: 0.8),
-                        size: 16),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'TOP BATSMEN',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2.0,
-                      ),
+                    Text(
+                      'Live Leaderboards',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Color(0xFF0F172A), fontSize: 18, fontWeight: FontWeight.w900),
                     ),
-                    const SizedBox(width: 6),
-                    Icon(Icons.emoji_events_rounded,
-                        color: const Color(0xFFFFD700).withValues(alpha: 0.8),
-                        size: 16),
+                    SizedBox(height: 2),
+                    Text(
+                      'Real players, teams and MVP rankings',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'IPL 2024 Season',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.45),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          // Podium players
-          Padding(
-            padding: const EdgeInsets.only(top: 96, bottom: 48),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildPodiumPlayer(top3[1], 1, 2),
-                _buildPodiumPlayer(top3[0], 0, 1),
-                _buildPodiumPlayer(top3[2], 2, 3),
-              ],
-            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _HeroMetric(label: 'Players', value: '$totalPlayers')),
+              const SizedBox(width: 9),
+              Expanded(child: _HeroMetric(label: 'Teams', value: '$totalTeams')),
+              const SizedBox(width: 9),
+              Expanded(child: _HeroMetric(label: 'MVP', value: '$totalMvp')),
+            ],
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildPodiumPlayer(Batsman player, int colorIndex, int position) {
-    final isFirst = position == 1;
-    final avatarSize = isFirst ? 74.0 : 58.0;
-    final blockHeight = isFirst ? 54.0 : (position == 2 ? 38.0 : 26.0);
-    final rankColor = _rankColor(colorIndex);
-    final nameParts = player.name.split(' ');
-    final lastName = nameParts.isNotEmpty ? nameParts.last : player.name;
+class _HeroMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  const _HeroMetric({required this.label, required this.value});
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        // Crown for 1st place
-        if (isFirst)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Icon(Icons.workspace_premium_rounded,
-                color: const Color(0xFFFFD700), size: 22),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8EEFF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 18, fontWeight: FontWeight.w900)),
           ),
-
-        // Avatar
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: avatarSize,
-              height: avatarSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: rankColor, width: isFirst ? 3 : 2.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: rankColor.withValues(alpha: 0.4),
-                    blurRadius: isFirst ? 12 : 8,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: Image.network(
-                  player.image,
-                  width: avatarSize,
-                  height: avatarSize,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    alignment: Alignment.center,
-                    child: Text(
-                      player.initials,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: isFirst ? 20 : 16,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // Rank badge
-            Positioned(
-              bottom: -4,
-              right: -4,
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: rankColor,
-                  border: Border.all(color: const Color(0xFF0A1628), width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                        color: rankColor.withValues(alpha: 0.5),
-                        blurRadius: 4),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '$position',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 8),
-
-        Text(
-          lastName,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: isFirst ? 13 : 11,
-            letterSpacing: 0.2,
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Color(0xFF64748B), fontSize: 10, fontWeight: FontWeight.w800),
           ),
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 2),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.sports_cricket_rounded,
-                color: Colors.white.withValues(alpha: 0.5), size: 9),
-            const SizedBox(width: 3),
-            Text(
-              '${player.runs} runs',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+}
 
-        // Podium block
-        Container(
-          width: isFirst ? 78 : 62,
-          height: blockHeight,
+class _RankingCard extends StatelessWidget {
+  final _RankEntry entry;
+  final _RankTab tab;
+  const _RankingCard({required this.entry, required this.tab});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _rankColor(entry.rank);
+    final metrics = _metricsFor(tab, entry);
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: entry.id.isEmpty || tab == _RankTab.teams
+            ? null
+            : () => Navigator.pushNamed(context, '/player-profile/${entry.id}'),
+        child: Container(
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                rankColor.withValues(alpha: 0.9),
-                rankColor.withValues(alpha: 0.6),
-              ],
-            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE8EEFF)),
             boxShadow: [
-              BoxShadow(
-                color: rankColor.withValues(alpha: 0.3),
-                blurRadius: 6,
-                offset: const Offset(0, -2),
-              ),
+              BoxShadow(color: Colors.black.withOpacity(0.035), blurRadius: 14, offset: const Offset(0, 5)),
             ],
           ),
-          alignment: Alignment.center,
-          child: Text(
-            player.team,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Player List ──────────────────────────────────────────────────────────
-
-  Widget _buildPlayerList() {
-    return Column(
-      children: [
-        // Header row
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-          child: Row(
+          child: Column(
             children: [
-              _headerCell('#', flex: 1),
-              _headerCell('Player', flex: 4, align: TextAlign.left),
-              _headerCell('M', flex: 1),
-              _headerCell('Runs', flex: 2),
-              _headerCell('Avg', flex: 2),
-              _headerCell('SR', flex: 2),
-            ],
-          ),
-        ),
-        Container(height: 1, color: const Color(0xFFEEF0F3)),
-
-        // List
-        Expanded(
-          child: ListView.separated(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 24),
-            itemCount: _batsmen.length,
-            separatorBuilder: (_, __) =>
-                Container(height: 1, color: const Color(0xFFF3F4F6)),
-            itemBuilder: (context, index) =>
-                _buildPlayerRow(_batsmen[index], index),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPlayerRow(Batsman player, int index) {
-    final isTop3 = index < 3;
-    final rankColor = _rankColor(index);
-
-    return Animate(
-      effects: [
-        FadeEffect(duration: 300.ms, delay: (index * 55).ms),
-        SlideEffect(
-            begin: const Offset(0, 0.04),
-            end: Offset.zero,
-            duration: 280.ms,
-            delay: (index * 55).ms),
-      ],
-      child: Container(
-        decoration: BoxDecoration(
-          color: isTop3
-              ? rankColor.withValues(alpha: 0.04)
-              : Colors.white,
-          border: isTop3
-              ? Border(
-                  left: BorderSide(
-                      color: rankColor.withValues(alpha: 0.5), width: 3))
-              : null,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-          child: Row(
-            children: [
-              // Rank
-              SizedBox(
-                width: 28,
-                child: isTop3
-                    ? Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: rankColor,
-                          boxShadow: [
-                            BoxShadow(
-                              color: rankColor.withValues(alpha: 0.35),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
+              Row(
+                children: [
+                  _RankBadge(rank: entry.rank, color: accent),
+                  const SizedBox(width: 12),
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: accent.withOpacity(0.12),
+                    child: Text(entry.initials, style: TextStyle(color: accent, fontWeight: FontWeight.w900)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 5,
+                          children: [
+                            _SmallChip(text: entry.team.isEmpty ? entry.role : entry.team, color: const Color(0xFF1A56DB)),
+                            if (entry.tournament != null) _SmallChip(text: entry.tournament!, color: const Color(0xFFF59E0B)),
                           ],
                         ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      )
-                    : Text(
-                        '${index + 1}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFBCC0CC),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-              ),
-
-              // Player info
-              Expanded(
-                flex: 4,
-                child: Row(
-                  children: [
-                    // Avatar
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _teamBgColor(player.team),
-                        border: Border.all(
-                          color: _teamTextColor(player.team)
-                              .withValues(alpha: 0.2),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: ClipOval(
-                        child: Image.network(
-                          player.image,
-                          width: 42,
-                          height: 42,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: _teamBgColor(player.team),
-                            alignment: Alignment.center,
-                            child: Text(
-                              player.initials,
-                              style: TextStyle(
-                                color: _teamTextColor(player.team),
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            player.name,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A1A2E),
-                              letterSpacing: -0.1,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 3),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _teamBgColor(player.team),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              player.team,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: _teamTextColor(player.team),
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // M
-              _statCell(player.matches.toString()),
-
-              // Runs (highlighted)
-              Expanded(
-                flex: 2,
-                child: Container(
-                  alignment: Alignment.center,
-                  child: Text(
-                    player.runs.toString(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A5FB4),
+                      ],
                     ),
                   ),
-                ),
+                  Icon(tab.icon, color: accent, size: 22),
+                ],
               ),
-
-              // Avg
-              _statCell(player.avg.toStringAsFixed(1)),
-
-              // SR
-              _statCell(player.sr.toStringAsFixed(1)),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  for (var i = 0; i < metrics.length; i++) ...[
+                    Expanded(child: _RankMetric(metric: metrics[i])),
+                    if (i != metrics.length - 1) const SizedBox(width: 8),
+                  ],
+                ],
+              ),
             ],
           ),
         ),
@@ -699,76 +464,132 @@ class _TopBatsmanScreenState extends State<TopBatsmanScreen>
     );
   }
 
-  // ─── Coming Soon ──────────────────────────────────────────────────────────
-
-  Widget _buildComingSoon() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.sports_cricket_rounded,
-                size: 52, color: Colors.grey[300]),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Coming Soon',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey[600],
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Data will be available soon',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[400],
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
-      ).animate().fadeIn(duration: 400.ms).scale(
-          begin: const Offset(0.95, 0.95), end: const Offset(1, 1)),
-    );
+  static Color _rankColor(int rank) {
+    if (rank == 1) return const Color(0xFFF59E0B);
+    if (rank == 2) return const Color(0xFF64748B);
+    if (rank == 3) return const Color(0xFFB45309);
+    return const Color(0xFF1A56DB);
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+  static List<_MetricData> _metricsFor(_RankTab tab, _RankEntry entry) {
+    return switch (tab) {
+      _RankTab.batsmen => [
+          _MetricData('Runs', '${entry.runs}'),
+          _MetricData('Avg', entry.average > 0 ? entry.average.toStringAsFixed(1) : '-'),
+          _MetricData('SR', entry.strikeRate > 0 ? entry.strikeRate.toStringAsFixed(0) : '-'),
+        ],
+      _RankTab.bowlers => [
+          _MetricData('Wkts', '${entry.wickets}'),
+          _MetricData('Mat', '${entry.matches}'),
+          _MetricData('Avg', entry.average > 0 ? entry.average.toStringAsFixed(1) : '-'),
+        ],
+      _RankTab.mvp => [
+          _MetricData('Pts', '${entry.points}'),
+          _MetricData('Runs', '${entry.runs}'),
+          _MetricData('Wkts', '${entry.wickets}'),
+        ],
+      _RankTab.teams => [
+          _MetricData('Pts', '${entry.points}'),
+          _MetricData('Mat', '${entry.matches}'),
+          _MetricData('Players', entry.runs > 0 ? '${entry.runs}' : '-'),
+        ],
+    };
+  }
+}
 
-  Widget _headerCell(String text,
-      {int flex = 1, TextAlign align = TextAlign.center}) {
-    return Expanded(
-      flex: flex,
-      child: Text(
-        text,
-        textAlign: align,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFFADB5BD),
-          letterSpacing: 0.5,
-        ),
+class _RankBadge extends StatelessWidget {
+  final int rank;
+  final Color color;
+  const _RankBadge({required this.rank, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+      alignment: Alignment.center,
+      child: Text('#$rank', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)),
+    );
+  }
+}
+
+class _SmallChip extends StatelessWidget {
+  final String text;
+  final Color color;
+  const _SmallChip({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 140),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(999)),
+      child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+class _MetricData {
+  final String label;
+  final String value;
+  const _MetricData(this.label, this.value);
+}
+
+class _RankMetric extends StatelessWidget {
+  final _MetricData metric;
+  const _RankMetric({required this.metric});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(color: const Color(0xFFF8FAFF), borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          Text(metric.value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 2),
+          Text(metric.label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 9, fontWeight: FontWeight.w800)),
+        ],
       ),
     );
   }
+}
 
-  Widget _statCell(String text) {
-    return Expanded(
-      flex: 2,
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 12,
-          color: Color(0xFF6B7280),
-          fontWeight: FontWeight.w500,
+class _StateBanner extends StatelessWidget {
+  final String message;
+  final bool isError;
+  const _StateBanner({required this.message, this.isError = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? const Color(0xFFEF4444) : const Color(0xFF1A56DB);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
+      child: Text(message, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+class _EmptyRankings extends StatelessWidget {
+  final _RankTab tab;
+  const _EmptyRankings({required this.tab});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(tab.icon, size: 56, color: const Color(0xFFCBD5E1)),
+            const SizedBox(height: 12),
+            Text('No ${tab.label.toLowerCase()} rankings yet', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+            const SizedBox(height: 6),
+            const Text('Rankings will appear automatically after matches are scored.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF64748B))),
+          ],
         ),
       ),
     );

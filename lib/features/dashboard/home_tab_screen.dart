@@ -193,6 +193,16 @@ class _HomeTabState extends State<HomeTab> {
                   route: '/create-match',
                 ),
                 _QuickActionButton(
+                  icon: Icons.event_available_rounded,
+                  label: 'Scheduled',
+                  route: '/scheduled-matches',
+                ),
+                _QuickActionButton(
+                  icon: Icons.fact_check_rounded,
+                  label: 'Completed',
+                  route: '/completed-matches',
+                ),
+                _QuickActionButton(
                   icon: Icons.emoji_events_outlined,
                   label: 'Join Tournament',
                   route: '/tournaments/join',

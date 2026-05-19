@@ -5,12 +5,14 @@ import '../../core/widgets/custom_button.dart';
 import '../../data/services/player_service.dart';
 import '../../data/models/player_model.dart';
 import '../../data/services/team_service.dart';
+import '../../data/services/public_players_service.dart';
 import '../../core/constants/enums.dart';
 
 class FindPlayerScreen extends StatefulWidget {
   final String? teamId;
+  final String? matchId;
 
-  const FindPlayerScreen({super.key, this.teamId});
+  const FindPlayerScreen({super.key, this.teamId, this.matchId});
 
   @override
   State<FindPlayerScreen> createState() => _FindPlayerScreenState();
@@ -19,6 +21,7 @@ class FindPlayerScreen extends StatefulWidget {
 class _FindPlayerScreenState extends State<FindPlayerScreen> {
   final PlayerService _playerService = PlayerService();
   final TeamService _teamService = TeamService();
+  final PublicPlayersService _publicPlayersService = PublicPlayersService();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
@@ -27,12 +30,14 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
   bool _isSearching = false;
   String _query = '';
   bool _isDetailLoading = false;
+  String? _addingPlayerId;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _searchFocus.addListener(() => setState(() {}));
+    _loadInitialPlayers();
   }
 
   @override
@@ -53,6 +58,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
         _isSearching = false;
         _query = '';
       });
+      _loadInitialPlayers();
     }
   }
 
@@ -65,7 +71,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
     });
 
     try {
-      final players = await _playerService.searchPlayers(query);
+      final players = await _searchAllPlayers(query);
       setState(() {
         _players = players;
         _isLoading = false;
@@ -78,16 +84,105 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
     }
   }
 
+  Future<void> _loadInitialPlayers() async {
+    if (_isLoading || _searchController.text.trim().isNotEmpty) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final publicResponse = await _publicPlayersService.getPublicPlayers(
+        limit: 50,
+      );
+      final resultsById = <String, Player>{};
+      for (final publicPlayer in publicResponse.players) {
+        final player = _playerFromPublicPlayer(publicPlayer);
+        if (player.id.isNotEmpty) resultsById[player.id] = player;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _players = resultsById.values.toList()
+          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        _isSearching = _players.isNotEmpty;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<List<Player>> _searchAllPlayers(String query) async {
+    final resultsById = <String, Player>{};
+
+    try {
+      final players = await _playerService.searchPlayers(query, limit: 30);
+      for (final player in players) {
+        if (player.id.isNotEmpty) resultsById[player.id] = player;
+      }
+    } catch (_) {
+      // Public search below is the fallback for user-backed public players.
+    }
+
+    try {
+      final publicResponse = await _publicPlayersService.getPublicPlayers(
+        search: query,
+        limit: 30,
+      );
+      for (final publicPlayer in publicResponse.players) {
+        final player = _playerFromPublicPlayer(publicPlayer);
+        if (player.id.isNotEmpty) resultsById[player.id] = player;
+      }
+    } catch (_) {
+      // Keep player-doc results if public user search is unavailable.
+    }
+
+    return resultsById.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
+
+  Player _playerFromPublicPlayer(PublicPlayer publicPlayer) {
+    return Player(
+      id: publicPlayer.playerIdForTeam,
+      name: publicPlayer.fullName,
+      email: publicPlayer.email.isEmpty ? null : publicPlayer.email,
+      role: publicPlayer.playerType,
+      battingStyle: publicPlayer.cricketProfile?.battingStyle,
+      bowlingStyle: publicPlayer.cricketProfile?.bowlingStyle,
+      playerRole: publicPlayer.playerType,
+      teamName: publicPlayer.teamName,
+      stats: null,
+      isActive: publicPlayer.isActive,
+      createdAt: publicPlayer.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
   Future<void> _addPlayerToTeam(Player player) async {
     if (widget.teamId == null) return;
+    if (_addingPlayerId != null) return;
+    setState(() => _addingPlayerId = player.id);
     try {
-      await _teamService.addPlayer(widget.teamId!, player.id);
+      await _teamService.addPlayer(
+        widget.teamId!,
+        player.id,
+        matchId: widget.matchId,
+      );
       if (mounted) {
         _showSnackBar('${player.name} added to team!', isError: false);
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
-      if (mounted) _showSnackBar('Add error: $e', isError: true);
+      final message = e.toString().replaceFirst('Exception: ', '');
+      final normalized = message.toLowerCase();
+      if (normalized.contains('already') || normalized.contains('duplicate')) {
+        if (mounted) {
+          _showSnackBar('${player.name} is already in this team', isError: false);
+          Navigator.pop(context, true);
+        }
+      } else if (mounted) {
+        _showSnackBar('Add error: $message', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _addingPlayerId = null);
     }
   }
 
@@ -312,6 +407,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
         index: index,
         teamId: widget.teamId,
         isDetailLoading: _isDetailLoading,
+        isAdding: _addingPlayerId == _players[index].id,
         onView: _showPlayerDetails,
         onAdd: _addPlayerToTeam,
       ),
@@ -520,6 +616,7 @@ class _PlayerCard extends StatelessWidget {
   final int index;
   final String? teamId;
   final bool isDetailLoading;
+  final bool isAdding;
   final Future<void> Function(Player) onView;
   final Future<void> Function(Player) onAdd;
 
@@ -528,6 +625,7 @@ class _PlayerCard extends StatelessWidget {
     required this.index,
     required this.teamId,
     required this.isDetailLoading,
+    required this.isAdding,
     required this.onView,
     required this.onAdd,
   });
@@ -563,11 +661,12 @@ class _PlayerCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 _PlayerActions(
                   player: player,
-                  teamId: teamId,
-                  isDetailLoading: isDetailLoading,
-                  onView: onView,
-                  onAdd: onAdd,
-                ),
+          teamId: teamId,
+          isDetailLoading: isDetailLoading,
+          isAdding: isAdding,
+          onView: onView,
+          onAdd: onAdd,
+        ),
               ],
             ),
           ),
@@ -685,6 +784,7 @@ class _PlayerActions extends StatelessWidget {
   final Player player;
   final String? teamId;
   final bool isDetailLoading;
+  final bool isAdding;
   final Future<void> Function(Player) onView;
   final Future<void> Function(Player) onAdd;
 
@@ -692,6 +792,7 @@ class _PlayerActions extends StatelessWidget {
     required this.player,
     required this.teamId,
     required this.isDetailLoading,
+    required this.isAdding,
     required this.onView,
     required this.onAdd,
   });
@@ -718,11 +819,20 @@ class _PlayerActions extends StatelessWidget {
         if (teamId != null) ...[
           const SizedBox(height: 6),
           _IconActionButton(
-            onTap: () => onAdd(player),
+            onTap: isAdding ? () {} : () => onAdd(player),
             bgColor: AppColors.primary.withOpacity(0.08),
             borderColor: AppColors.primary.withOpacity(0.2),
-            child: Icon(Icons.person_add_rounded,
-                size: 16, color: AppColors.primary),
+            child: isAdding
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  )
+                : Icon(Icons.person_add_rounded,
+                    size: 16, color: AppColors.primary),
           ),
         ],
       ],

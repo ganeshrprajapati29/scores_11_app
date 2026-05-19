@@ -1,164 +1,235 @@
+import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import '../models/live_stream_model.dart';
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/auth_service.dart';
-import 'package:flutter/foundation.dart';
+import '../models/live_stream_model.dart';
 
-/// Zenstream Live Streaming Service - RTMP/HLS
 class LiveStreamService {
   static final ApiClient _apiClient = ApiClient();
   static IO.Socket? _socket;
 
-  /// Zenstream RTMP constants
-  static const String zenstreamRtmpServer = r'rtmp://live-ingest-01.vd0.co:1935/livestream';
+  static const String zenstreamRtmpServer =
+      r'rtmp://live-ingest-01.vd0.co:1935/livestream';
   static const String zenstreamChatSecret = 'BuQxQfkqRLb6mbkb';
 
-  // Socket callbacks
   static Function(Map<String, dynamic>)? _onNewChatMessage;
   static Function(Map<String, dynamic>)? _onViewerJoined;
   static Function(Map<String, dynamic>)? _onViewerLeft;
   static Function(Map<String, dynamic>)? _onStreamEnded;
 
-  // API Calls
-static Future<LiveStreamModel> createStream(Map<String, dynamic> data) async {
-    final res = await _apiClient.post('/live-streams', data: data);
-    final responseData = res.data;
-    debugPrint('📡 createStream FULL response: ${responseData.runtimeType} = $responseData');
-    
-    // ✅ FIXED: Parse from 'message' field (stream object), not 'data' (success string)
-    final Map<String, dynamic>? streamData = responseData['message'];
-    if (streamData == null || streamData is! Map<String, dynamic>) {
-      debugPrint('❌ Invalid stream data in response[\'message\']: ${streamData.runtimeType}');
-      throw Exception('Invalid API response: expected stream object in message field');
+  static Future<LiveStreamModel> createStream(Map<String, dynamic> data) async {
+    final res = await _apiClient.post(
+      '/live-streams',
+      data: {
+        ...data,
+        'provider': data['provider'] ?? 'zenstream',
+        if ((data['provider'] ?? 'zenstream') != 'youtube')
+          'rtmpServer': zenstreamRtmpServer,
+      },
+    );
+    final raw = res.data;
+    debugPrint('createStream response: ${raw.runtimeType} = $raw');
+
+    if (raw is String) {
+      return _fallbackStreamFromInput(data, _extractId(raw));
     }
-    
-    if (responseData is String) {
-      debugPrint('⚠️ Backend returned string response: $responseData');
-      // Parse ID from string (common formats: ID, "created:ID", "ok,ID")
-      String streamId = responseData.trim();
-      if (streamId.contains(':')) {
-        streamId = streamId.split(':').last.trim();
-      } else if (streamId.contains(',')) {
-        streamId = streamId.split(',').last.trim();
-      }
-      
-      // Create minimal model from input data + extracted ID
-      return LiveStreamModel(
-        id: streamId,
-        userId: data['userId'] ?? '',
-        title: data['title'] ?? '',
-        description: data['description'],
-        streamType: data['streamType'] ?? 'mobile',
-        streamQuality: data['streamQuality'] ?? '720p',
-        streamKey: streamId,  // Use ID as streamKey temporarily
-        status: 'pending',
-        viewerCount: 0,
-        likes: 0,
-        category: 'cricket',
-        tags: data['tags'] ?? <String>[],
-        isPrivate: data['isPrivate'] ?? false,
-        duration: 0,
-        lookingFor: List<String>.from(data['lookingFor'] ?? []),
-        requirements: data['requirements'],
-        isFeatured: false,
-        isPremium: false,
-        createdAt: DateTime.now(),
-      );
-    } else {
-      // ✅ FIXED: Use response['message'] (actual stream data)
-      return LiveStreamModel.fromJson(streamData!);
+
+    final streamData = _extractStreamMap(raw);
+    if (streamData == null) {
+      throw Exception('Invalid live stream response from server');
     }
+
+    final stream = LiveStreamModel.fromJson({...data, ...streamData});
+    if (stream.id.isEmpty) {
+      return _fallbackStreamFromInput(data, _extractId(streamData.toString()));
+    }
+    return stream;
   }
 
-  static Future<List<LiveStreamModel>> getLiveStreams({String status = 'live', int page = 1}) async {
-    final res = await _apiClient.get('/live-streams', queryParameters: {'page': page, 'status': status});
-    final data = res.data['data'] ?? res.data;
-    final List list = data['results'] ?? [];
-    final validated = list.where((item) {
-      if (item is! Map) return false;
-      final id = item['_id'] ?? item['id'];
-      return id != null && id.toString().isNotEmpty;
-    }).toList();
-    return validated.map((json) => LiveStreamModel.fromJson(json as Map<String, dynamic>)).toList();
+  static Future<List<LiveStreamModel>> getLiveStreams({
+    String status = 'live',
+    int page = 1,
+  }) async {
+    final res = await _apiClient.get(
+      '/live-streams',
+      queryParameters: {'page': page, 'status': status},
+    );
+    final payload = _extractPayload(res.data);
+    final dynamic rawList = payload is List
+        ? payload
+        : payload is Map
+            ? payload['results'] ??
+                payload['items'] ??
+                payload['streams'] ??
+                payload['data'] ??
+                const []
+            : const [];
+    final List list = rawList is List ? rawList : const [];
+
+    return list
+        .whereType<Map>()
+        .map((json) => LiveStreamModel.fromJson(Map<String, dynamic>.from(json)))
+        .where((stream) => stream.id.isNotEmpty)
+        .toList();
   }
 
   static Future<LiveStreamModel> getStream(String streamId) async {
     final res = await _apiClient.get('/live-streams/$streamId');
-    debugPrint('📡 getStream response: ${res.data.runtimeType}');
-    final Map<String, dynamic>? streamData = res.data['message'] ?? res.data;
-    if (streamData == null || streamData is! Map<String, dynamic>) {
-      debugPrint('❌ Invalid getStream data: ${streamData.runtimeType}');
+    final streamData = _extractStreamMap(res.data);
+    if (streamData == null) {
       throw Exception('Invalid stream data format');
     }
     return LiveStreamModel.fromJson(streamData);
   }
 
   static Future<void> startStream(String streamId) async {
-    debugPrint('🎥 Starting Zenstream: $streamId');
+    if (streamId.trim().isEmpty) {
+      throw Exception('Missing stream id');
+    }
     await _apiClient.post('/live-streams/$streamId/start');
-    debugPrint('✅ Stream $streamId started (RTMP ready)');
   }
 
   static Future<void> endStream(String streamId) async {
-    debugPrint('🔴 Ending stream: $streamId');
+    if (streamId.trim().isEmpty) return;
     await _apiClient.post('/live-streams/$streamId/end');
-    debugPrint('✅ Stream $streamId ended');
   }
 
   static Future<void> joinStream(String streamId) async {
-    debugPrint('👋 Joining stream: $streamId');
+    if (streamId.trim().isEmpty) return;
     await _apiClient.post('/live-streams/$streamId/join');
   }
 
   static Future<void> leaveStream(String streamId) async {
+    if (streamId.trim().isEmpty) return;
     await _apiClient.post('/live-streams/$streamId/leave');
   }
 
-  static Future<Map<String, dynamic>> sendChatMessage(String streamId, String message) async {
-    final res = await _apiClient.post('/live-streams/$streamId/chat', data: {'message': message});
-    return res.data['data'] ?? res.data;
+  static Future<Map<String, dynamic>> sendChatMessage(
+    String streamId,
+    String message,
+  ) async {
+    final res = await _apiClient.post(
+      '/live-streams/$streamId/chat',
+      data: {'message': message},
+    );
+    final payload = _extractPayload(res.data);
+    if (payload is Map<String, dynamic>) return payload;
+    if (payload is Map) return Map<String, dynamic>.from(payload);
+    return {};
   }
 
   static Future<LiveStreamModel> likeStream(String streamId) async {
     final res = await _apiClient.post('/live-streams/$streamId/like');
-    debugPrint('👍 likeStream response: ${res.data.runtimeType}');
-    final Map<String, dynamic>? streamData = res.data['message'] ?? res.data;
-    if (streamData == null || streamData is! Map<String, dynamic>) {
-      debugPrint('❌ Invalid likeStream data: ${streamData.runtimeType}');
+    final streamData = _extractStreamMap(res.data);
+    if (streamData == null) {
       throw Exception('Invalid stream data format');
     }
     return LiveStreamModel.fromJson(streamData);
   }
 
-  // Socket
+  static dynamic _extractPayload(dynamic raw) {
+    if (raw is Map) {
+      final data = raw['data'];
+      final message = raw['message'];
+      if (data is Map || data is List) return data;
+      if (message is Map || message is List) return message;
+      if (data != null) return data;
+      return raw['stream'] ?? raw;
+    }
+    return raw;
+  }
+
+  static Map<String, dynamic>? _extractStreamMap(dynamic raw) {
+    final payload = _extractPayload(raw);
+    if (payload is Map<String, dynamic>) return payload;
+    if (payload is Map) return Map<String, dynamic>.from(payload);
+    return null;
+  }
+
+  static String _extractId(String value) {
+    var streamId = value.trim();
+    if (streamId.contains(':')) {
+      streamId = streamId.split(':').last.trim();
+    } else if (streamId.contains(',')) {
+      streamId = streamId.split(',').last.trim();
+    }
+    return streamId;
+  }
+
+  static LiveStreamModel _fallbackStreamFromInput(
+    Map<String, dynamic> data,
+    String streamId,
+  ) {
+    return LiveStreamModel(
+      id: streamId,
+      userId: data['userId']?.toString() ?? '',
+      title: data['title']?.toString() ?? 'Live Stream',
+      description: data['description']?.toString(),
+      streamType: data['streamType']?.toString() ?? 'mobile',
+      streamQuality: data['streamQuality']?.toString() ?? '720p',
+      streamKey: data['streamKey']?.toString() ?? streamId,
+      rtmpUrl: data['rtmpUrl']?.toString() ?? zenstreamRtmpServer,
+      provider: data['provider']?.toString() ?? 'zenstream',
+      youtubeUrl: data['youtubeUrl']?.toString(),
+      youtubeVideoId: data['youtubeVideoId']?.toString(),
+      status: 'pending',
+      viewerCount: 0,
+      likes: 0,
+      category: data['category']?.toString() ?? 'cricket',
+      tags: List<String>.from(data['tags'] ?? const []),
+      isPrivate: data['isPrivate'] == true,
+      duration: 0,
+      lookingFor: List<String>.from(data['lookingFor'] ?? const []),
+      requirements: data['requirements']?.toString(),
+      isFeatured: false,
+      isPremium: false,
+      createdAt: DateTime.now(),
+    );
+  }
+
   static Future<void> initSocket() async {
     final token = await AuthService.getToken();
-    _socket = IO.io(ApiConfig.socketUrl, IO.OptionBuilder()
-        .setTransports(['websocket'])
-        .setExtraHeaders(token != null ? {'Authorization': token} : {})
-        .enableAutoConnect()
-        .build());
-    
+    _socket = IO.io(
+      ApiConfig.socketUrl,
+      IO.OptionBuilder()
+          .setTransports(['websocket'])
+          .setExtraHeaders(token != null ? {'Authorization': token} : {})
+          .enableAutoConnect()
+          .build(),
+    );
+
     _socket!.connect();
-    _socket!.onConnect((_) => debugPrint('✅ Socket connected'));
-    _socket!.on('newChatMessage', (data) => _onNewChatMessage?.call(Map<String, dynamic>.from(data)));
-    _socket!.on('viewerJoined', (data) => _onViewerJoined?.call(Map<String, dynamic>.from(data)));
-    _socket!.on('viewerLeft', (data) => _onViewerLeft?.call(Map<String, dynamic>.from(data)));
-    _socket!.on('streamEnded', (data) => _onStreamEnded?.call(Map<String, dynamic>.from(data)));
+    _socket!.onConnect((_) => debugPrint('Live stream socket connected'));
+    _socket!.on('newChatMessage', (data) => _safeCallback(_onNewChatMessage, data));
+    _socket!.on('viewerJoined', (data) => _safeCallback(_onViewerJoined, data));
+    _socket!.on('viewerLeft', (data) => _safeCallback(_onViewerLeft, data));
+    _socket!.on('streamEnded', (data) => _safeCallback(_onStreamEnded, data));
+  }
+
+  static void _safeCallback(
+    Function(Map<String, dynamic>)? callback,
+    dynamic data,
+  ) {
+    if (callback == null || data is! Map) return;
+    callback(Map<String, dynamic>.from(data));
   }
 
   static void joinStreamRoom(String streamId) => _socket?.emit('joinStream', streamId);
   static void leaveStreamRoom(String streamId) => _socket?.emit('leaveStream', streamId);
 
-  static void registerChatCallback(Function(Map<String, dynamic>) callback) => _onNewChatMessage = callback;
-  static void registerViewerJoinedCallback(Function(Map<String, dynamic>) callback) => _onViewerJoined = callback;
-  static void registerViewerLeftCallback(Function(Map<String, dynamic>) callback) => _onViewerLeft = callback;
-  static void registerStreamEndedCallback(Function(Map<String, dynamic>) callback) => _onStreamEnded = callback;
+  static void registerChatCallback(Function(Map<String, dynamic>) callback) =>
+      _onNewChatMessage = callback;
+  static void registerViewerJoinedCallback(Function(Map<String, dynamic>) callback) =>
+      _onViewerJoined = callback;
+  static void registerViewerLeftCallback(Function(Map<String, dynamic>) callback) =>
+      _onViewerLeft = callback;
+  static void registerStreamEndedCallback(Function(Map<String, dynamic>) callback) =>
+      _onStreamEnded = callback;
 
   static void dispose() {
     _socket?.disconnect();
     _socket?.dispose();
+    _socket = null;
   }
 }
-

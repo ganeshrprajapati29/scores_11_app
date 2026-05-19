@@ -17,6 +17,8 @@ import '../../core/constants/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../providers/auth_provider.dart';
+import '../players/find_player_screen.dart';
+import 'wagon_wheel_screen.dart';
 
 // ─────────────────────────────────────────────
 //  Design Tokens — White Theme
@@ -112,16 +114,49 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<LiveScoreControlProvider>()
-        .initialize(widget.matchId, widget.match);
-    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleInitializeMatch(LiveScoreControlProvider provider) async {
+    try {
+      await provider.initializeMatch();
+      if (!mounted) return;
+      if (provider.error == null && provider.currentStatus == 'live') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Match initialized successfully. Set striker, non-striker and bowler now.'),
+            backgroundColor: _D.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+          ),
+        );
+        _tabController.animateTo(2);
+      } else if (provider.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.error!),
+            backgroundColor: _D.live,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.error ?? 'Match initialize failed. Please try again.'),
+          backgroundColor: _D.live,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+        ),
+      );
+    }
   }
 
   @override
@@ -234,7 +269,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
   Widget _buildFAB(LiveScoreControlProvider provider) {
     // Add Player Button
     return FloatingActionButton.extended(
-      onPressed: () => _showAddPlayerOptions(context),
+      onPressed: () => _showAddPlayerOptions(context, provider),
       backgroundColor: _D.primary,
       elevation: 0,
       icon: const Icon(Icons.person_add_rounded, color: Colors.white),
@@ -243,7 +278,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
   }
 
 // ── Player Options Bottom Sheet ────────────────────────
-  void _showAddPlayerOptions(BuildContext context) {
+  void _showAddPlayerOptions(BuildContext context, LiveScoreControlProvider provider) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -271,6 +306,49 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 24),
+
+            if (provider.match != null) ...[
+              _buildOptionTile(
+                icon: Icons.group_add_rounded,
+                title: 'Add to ${provider.match!.team1}',
+                subtitle: 'Find a player and include in this squad',
+                color: _D.primary,
+                onTap: () async {
+                  Navigator.pop(context);
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FindPlayerScreen(
+                        teamId: provider.match!.team1Id,
+                        matchId: provider.matchId,
+                      ),
+                    ),
+                  );
+                  if (mounted) provider.refreshTeamPlayers();
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildOptionTile(
+                icon: Icons.group_add_outlined,
+                title: 'Add to ${provider.match!.team2}',
+                subtitle: 'Find a player and include in this squad',
+                color: _D.purple,
+                onTap: () async {
+                  Navigator.pop(context);
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FindPlayerScreen(
+                        teamId: provider.match!.team2Id,
+                        matchId: provider.matchId,
+                      ),
+                    ),
+                  );
+                  if (mounted) provider.refreshTeamPlayers();
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             
             // Create New Player (Scores11 Style)
             _buildOptionTile(
@@ -517,6 +595,33 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                       ),
                     ],
                   ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: provider.canSubmitToss ? provider.submitToss : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _D.green,
+                        disabledBackgroundColor: _D.border,
+                        disabledForegroundColor: _D.textMuted,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+                      ),
+                      icon: provider.isTossSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.check_circle_outline_rounded),
+                      label: Text(
+                        provider.isTossSaving ? 'Saving Toss...' : 'Save Toss Result',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
                 ],
               ] else ...[
                 // Toss done state
@@ -573,7 +678,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
       builder: (context, provider, _) {
         return RefreshIndicator(
           color: _D.primary,
-          onRefresh: () => provider.refreshLiveData(),
+          onRefresh: () => provider.refreshMatchData(),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(20),
@@ -588,7 +693,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Playing XI', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _D.textPrimary)),
-                          Text('Select 11 players per team', style: TextStyle(color: _D.textSecondary, fontSize: 13)),
+                          Text('Add players to each team, then set captain and vice-captain before going live.', style: TextStyle(color: _D.textSecondary, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -606,6 +711,8 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                   provider.team1Players,
                   provider.selectedTeam1Players,
                   (player) => provider.toggleTeam1Player(player),
+                  provider: provider,
+                  teamNumber: 1,
                   color: _D.primary,
                 ),
                 const SizedBox(height: 28),
@@ -616,18 +723,21 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                   provider.team2Players,
                   provider.selectedTeam2Players,
                   (player) => provider.toggleTeam2Player(player),
+                  provider: provider,
+                  teamNumber: 2,
                   color: _D.purple,
                 ),
 
                 const SizedBox(height: 28),
 
                 // Initialize button
-                if (provider.selectedTeam1Players.length == 11 &&
-                    provider.selectedTeam2Players.length == 11)
+                  if (provider.canInitialize)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: provider.canInitialize ? provider.initializeMatch : null,
+                      onPressed: provider.canInitialize && !provider.isInitializing
+                          ? () => _handleInitializeMatch(provider)
+                          : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _D.purple,
                         elevation: 0,
@@ -635,10 +745,16 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
                         shadowColor: Colors.transparent,
                       ),
-                      icon: const Icon(Icons.sports_cricket, color: Colors.white),
-                      label: const Text(
-                        'Initialize Match',
-                        style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w700),
+                      icon: provider.isInitializing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.sports_cricket, color: Colors.white),
+                      label: Text(
+                        provider.isInitializing ? 'Initializing...' : 'Initialize Live Scoring',
+                        style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w700),
                       ),
                     ),
                   ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.2),
@@ -655,9 +771,16 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
     List<Player> availablePlayers,
     List<Player> selectedPlayers,
     Function(Player) onToggle, {
+    required LiveScoreControlProvider provider,
+    required int teamNumber,
     Color color = _D.primary,
   }) {
     final selectedCount = selectedPlayers.length;
+    final captainId = teamNumber == 1 ? provider.team1CaptainId : provider.team2CaptainId;
+    final viceCaptainId = teamNumber == 1 ? provider.team1ViceCaptainId : provider.team2ViceCaptainId;
+    final teamId = teamNumber == 1
+        ? provider.match?.team1Id
+        : provider.match?.team2Id;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -685,11 +808,11 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(teamName, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
-                    Text('$selectedCount / 11 selected', style: TextStyle(fontSize: 12, color: color.withOpacity(0.7))),
+                    Text('$selectedCount selected', style: TextStyle(fontSize: 12, color: color.withOpacity(0.7))),
                   ],
                 ),
               ),
-              if (selectedCount == 11)
+              if (selectedCount > 0)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
@@ -701,16 +824,96 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                     children: [
                       Icon(Icons.check_circle, size: 13, color: _D.green),
                       SizedBox(width: 4),
-                      Text('Done', style: TextStyle(color: _D.green, fontSize: 11, fontWeight: FontWeight.w700)),
+                      Text('Ready', style: TextStyle(color: _D.green, fontSize: 11, fontWeight: FontWeight.w700)),
                     ],
                   ),
                 ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Add player',
+                onPressed: teamId == null || teamId.isEmpty
+                    ? null
+                    : () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FindPlayerScreen(
+                              teamId: teamId,
+                              matchId: provider.matchId,
+                            ),
+                          ),
+                        );
+                        if (context.mounted) {
+                          await provider.refreshTeamPlayers();
+                        }
+                      },
+                icon: Icon(Icons.person_add_alt_1_rounded, color: color),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 14),
 
-        GridView.builder(
+        if (selectedPlayers.isNotEmpty) ...[
+          Row(
+            children: [
+              Text(
+                'Leadership',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Divider(color: color.withOpacity(0.18))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: selectedPlayers.map((player) {
+              return _CaptainChoiceChip(
+                player: player,
+                isCaptain: captainId == player.id,
+                isViceCaptain: viceCaptainId == player.id,
+                color: color,
+                onCaptain: () => provider.setTeamCaptain(teamNumber, player),
+                onViceCaptain: () => provider.setTeamViceCaptain(teamNumber, player),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+        ],
+
+        if (availablePlayers.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: _D.surface,
+              borderRadius: BorderRadius.circular(_D.rMD),
+              border: Border.all(color: _D.border),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.groups_outlined, color: color, size: 28),
+                const SizedBox(height: 8),
+                Text(
+                  'No players added yet',
+                  style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Use add player to build this team list.',
+                  style: TextStyle(color: _D.textSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+          )
+        else
+          GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -789,7 +992,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
               ),
             );
           },
-        ),
+          ),
       ],
     );
   }
@@ -804,6 +1007,9 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           child: Column(
             children: [
+              _MatchControlSummary(provider: provider),
+              const SizedBox(height: 20),
+
               // Current Players Card
               _CurrentPlayersCard(
                 provider: provider,
@@ -815,6 +1021,29 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
 
               // Score Buttons
               _ScoreButtonsGrid(provider: provider),
+              const SizedBox(height: 20),
+
+              _InlineWagonWheelCard(provider: provider),
+              const SizedBox(height: 20),
+
+              _MatchActionBar(
+                provider: provider,
+                onWagonWheel: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChangeNotifierProvider<LiveScoreControlProvider>.value(
+                      value: provider,
+                      child: WagonWheelScreen(
+                        matchId: widget.matchId,
+                        match: provider.match,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              _MiniScorecardPreview(provider: provider),
               const SizedBox(height: 20),
 
               // Extras row
@@ -841,21 +1070,26 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
   }
 
   // ── Player Selector BottomSheet ────────────
-  void _showPlayerSelector(LiveScoreControlProvider provider, String type) {
-    final title = type == 'striker' ? 'Select Striker'
-        : type == 'nonStriker' ? 'Select Non-Striker'
-        : 'Select Bowler';
-    
-    // Get the correct players list based on selection type
-    final players = type == 'bowler'
-        ? provider.selectedTeam2Players // For bowling team (fielding team)
-        : provider.selectedTeam1Players; // For batting team
+  Future<void> _showPlayerSelector(LiveScoreControlProvider provider, String type) async {
+    final title = type == 'striker'
+        ? 'Select Striker'
+        : type == 'nonStriker'
+            ? 'Select Non-Striker'
+            : 'Select Bowler';
 
+    if ((type == 'bowler' && provider.availableBowlers.isEmpty) ||
+        (type == 'striker' && provider.availableStrikers.isEmpty) ||
+        (type == 'nonStriker' && provider.availableNonStrikers.isEmpty)) {
+      await provider.refreshTeamPlayers();
+    }
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
+      builder: (context) => ChangeNotifierProvider<LiveScoreControlProvider>.value(
+        value: provider,
+        child: Container(
         height: MediaQuery.of(context).size.height * 0.65,
         decoration: const BoxDecoration(
           color: _D.surface,
@@ -889,77 +1123,155 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
             Divider(color: _D.border, height: 1),
             Expanded(
               child: Consumer<LiveScoreControlProvider>(
-                builder: (context, prov, _) => ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  itemCount: players.length,
-                  itemBuilder: (context, index) {
-                    final player = players[index];
-                    final isSelected = (type == 'striker' && prov.currentStriker?.id == player.id)
-                        || (type == 'nonStriker' && prov.currentNonStriker?.id == player.id)
-                        || (type == 'bowler' && prov.currentBowler?.id == player.id);
+                builder: (context, prov, _) {
+                  final players = type == 'bowler'
+                      ? prov.availableBowlers
+                      : type == 'striker'
+                          ? prov.availableStrikers
+                          : prov.availableNonStrikers;
 
-                    return GestureDetector(
-                      onTap: () {
-                        if (type == 'striker') prov.setStriker(player);
-                        else if (type == 'nonStriker') prov.setNonStriker(player);
-                        else if (type == 'bowler') prov.setBowler(player);
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected ? _D.primarySoft : _D.surface,
-                          borderRadius: BorderRadius.circular(_D.rMD),
-                          border: Border.all(
-                            color: isSelected ? _D.primary.withOpacity(0.3) : _D.border,
-                          ),
-                        ),
-                        child: Row(
+                  if (players.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              width: 42, height: 42,
-                              decoration: BoxDecoration(
-                                color: isSelected ? _D.primaryMid : _D.surfaceAlt,
-                                borderRadius: BorderRadius.circular(_D.rSM),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${player.jerseyNumber ?? '?'}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15,
-                                    color: isSelected ? _D.primary : _D.textSecondary,
-                                  ),
-                                ),
-                              ),
+                            Icon(Icons.person_add_alt_1_rounded, size: 44, color: _D.textMuted),
+                            const SizedBox(height: 10),
+                            Text(
+                              type == 'bowler'
+                                  ? 'No bowlers available'
+                                  : 'No batsmen available',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _D.textPrimary),
                             ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(player.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _D.textPrimary)),
-                                  Text(player.role ?? '', style: const TextStyle(color: _D.textSecondary, fontSize: 12)),
-                                ],
-                              ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Add a player to the team or refresh the lineup.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12, color: _D.textSecondary),
                             ),
-                            if (isSelected)
-                              Container(
-                                width: 28, height: 28,
-                                decoration: BoxDecoration(color: _D.primaryMid, borderRadius: BorderRadius.circular(14)),
-                                child: const Icon(Icons.check, color: _D.primary, size: 16),
-                              ),
+                            const SizedBox(height: 14),
+                            TextButton.icon(
+                              onPressed: () => prov.refreshTeamPlayers(),
+                              icon: const Icon(Icons.refresh_rounded, size: 16),
+                              label: const Text('Refresh players'),
+                            ),
                           ],
                         ),
                       ),
                     );
-                  },
-                ),
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    itemCount: players.length,
+                    itemBuilder: (context, index) {
+                      final player = players[index];
+                      final isSelected =
+                          (type == 'striker' && prov.currentStriker?.id == player.id) ||
+                              (type == 'nonStriker' &&
+                                  prov.currentNonStriker?.id == player.id) ||
+                              (type == 'bowler' &&
+                                  prov.currentBowler?.id == player.id);
+
+                      return GestureDetector(
+                        onTap: () async {
+                          if (type == 'striker') {
+                            await prov.setStriker(player);
+                          } else if (type == 'nonStriker') {
+                            await prov.setNonStriker(player);
+                          } else if (type == 'bowler') {
+                            await prov.setBowler(player);
+                          }
+                          if (context.mounted) Navigator.pop(context);
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? _D.primarySoft : _D.surface,
+                            borderRadius: BorderRadius.circular(_D.rMD),
+                            border: Border.all(
+                              color: isSelected
+                                  ? _D.primary.withOpacity(0.3)
+                                  : _D.border,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? _D.primaryMid
+                                      : _D.surfaceAlt,
+                                  borderRadius: BorderRadius.circular(_D.rSM),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    player.jerseyNumber?.toString() ??
+                                        (player.name.isNotEmpty
+                                            ? player.name[0].toUpperCase()
+                                            : '?'),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                      color: isSelected
+                                          ? _D.primary
+                                          : _D.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      player.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: _D.textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      player.role ?? '',
+                                      style: const TextStyle(
+                                        color: _D.textSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: _D.primaryMid,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(Icons.check,
+                                      color: _D.primary, size: 16),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -968,6 +1280,94 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
 // ─────────────────────────────────────────────
 //  Live Banner Widget
 // ─────────────────────────────────────────────
+class _CaptainChoiceChip extends StatelessWidget {
+  final Player player;
+  final bool isCaptain;
+  final bool isViceCaptain;
+  final Color color;
+  final VoidCallback onCaptain;
+  final VoidCallback onViceCaptain;
+
+  const _CaptainChoiceChip({
+    required this.player,
+    required this.isCaptain,
+    required this.isViceCaptain,
+    required this.color,
+    required this.onCaptain,
+    required this.onViceCaptain,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 220),
+      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(_D.rMD),
+        border: Border.all(color: color.withOpacity(0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              player.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _D.textPrimary),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _RoleButton(label: 'C', selected: isCaptain, color: _D.gold, onTap: onCaptain),
+          const SizedBox(width: 5),
+          _RoleButton(label: 'VC', selected: isViceCaptain, color: _D.teal, onTap: onViceCaptain),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoleButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _RoleButton({
+    required this.label,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(13),
+      child: Container(
+        width: label == 'VC' ? 34 : 28,
+        height: 26,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? color : _D.surface,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: selected ? color : _D.border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : _D.textSecondary,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _LiveBanner extends StatelessWidget {
   final LiveScoreControlProvider provider;
   const _LiveBanner({required this.provider});
@@ -998,8 +1398,11 @@ class _LiveBanner extends StatelessWidget {
       decoration: const BoxDecoration(
         gradient: _D.heroGrad,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
           // Live dot
           Container(
             width: 8, height: 8,
@@ -1016,7 +1419,7 @@ class _LiveBanner extends StatelessWidget {
                 style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
               ),
               Text(
-                '${provider.currentOver}.${provider.currentBall} overs',
+                '${provider.currentScore.overs} overs${provider.isSecondInnings && provider.target != null ? ' - target ${provider.target}' : ''}',
                 style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
               ),
             ],
@@ -1038,14 +1441,31 @@ class _LiveBanner extends StatelessWidget {
               ),
             ),
 
-          IconButton(
-            onPressed: provider.canRefresh ? () => provider.refreshLiveData() : null,
-            icon: Icon(
-              Icons.refresh_rounded,
-              color: Colors.white.withOpacity(provider.canRefresh ? 1.0 : 0.4),
-              size: 20,
+            IconButton(
+              onPressed: provider.canRefresh ? () => provider.refreshLiveData() : null,
+              icon: Icon(
+                Icons.refresh_rounded,
+                color: Colors.white.withOpacity(provider.canRefresh ? 1.0 : 0.4),
+                size: 20,
+              ),
             ),
+          ],
           ),
+          if (provider.resultMessage != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              provider.resultMessage!,
+              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800),
+            ),
+          ] else if (provider.appreciations.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              provider.appreciations.first,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ],
         ],
       ),
     );
@@ -1227,7 +1647,7 @@ class _CountDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final done = count == 11;
+    final done = count > 0;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -1235,7 +1655,7 @@ class _CountDot extends StatelessWidget {
         borderRadius: BorderRadius.circular(_D.rXS),
       ),
       child: Text(
-        '$count/11',
+        '$count',
         style: TextStyle(
           color: done ? _D.green : color,
           fontWeight: FontWeight.w700,
@@ -1282,6 +1702,7 @@ class _CurrentPlayersCard extends StatelessWidget {
                 child: _PlayerChip(
                   name: provider.currentStriker?.name ?? 'Set Striker',
                   jersey: provider.currentStriker?.jerseyNumber,
+                  isSet: provider.currentStriker != null,
                   label: 'Striker',
                   icon: Icons.person_rounded,
                   color: _D.green,
@@ -1293,6 +1714,7 @@ class _CurrentPlayersCard extends StatelessWidget {
                 child: _PlayerChip(
                   name: provider.currentNonStriker?.name ?? 'Non-Striker',
                   jersey: provider.currentNonStriker?.jerseyNumber,
+                  isSet: provider.currentNonStriker != null,
                   label: 'Non-Striker',
                   icon: Icons.person_outline_rounded,
                   color: _D.orange,
@@ -1305,6 +1727,7 @@ class _CurrentPlayersCard extends StatelessWidget {
           _PlayerChip(
             name: provider.currentBowler?.name ?? 'Set Bowler',
             jersey: provider.currentBowler?.jerseyNumber,
+            isSet: provider.currentBowler != null,
             label: 'Bowler',
             icon: Icons.sports_baseball,
             color: _D.live,
@@ -1320,20 +1743,25 @@ class _CurrentPlayersCard extends StatelessWidget {
 class _PlayerChip extends StatelessWidget {
   final String name;
   final int? jersey;
+  final bool isSet;
   final String label;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
   final bool isFullWidth;
   const _PlayerChip({
-    required this.name, required this.jersey, required this.label,
-    required this.icon, required this.color, required this.onTap,
+    required this.name,
+    required this.jersey,
+    required this.isSet,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
     this.isFullWidth = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isSet = jersey != null;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1406,10 +1834,9 @@ class _ScoreButtonsGrid extends StatelessWidget {
       _BtnData('6',   _D.live,       () => provider.addRuns(6),           isRun: true,   isSix: true),
       _BtnData('Wd',  _D.purple,     () => provider.addExtra('wide')),
       _BtnData('Nb',  _D.teal,       () => provider.addExtra('noBall')),
-      _BtnData('LBW', _D.live,       () => provider.addWicket('lbw'),     isWicket: true),
-      _BtnData('BW',  const Color(0xFFDC2626), () => provider.addWicket('bowled'),  isWicket: true),
-      _BtnData('CT',  const Color(0xFFB91C1C), () => provider.addWicket('caught'),  isWicket: true),
-      _BtnData('RO',  const Color(0xFF9B1C1C), () => provider.addWicket('runOut'),  isWicket: true),
+      _BtnData('B', _D.gold, () => _showExtraRunsDialog(context, 'bye', 'Bye')),
+      _BtnData('LB', _D.orange, () => _showExtraRunsDialog(context, 'legBye', 'Leg Bye')),
+      _BtnData('W', _D.live, () => _showWicketDialog(context), isWicket: true),
     ];
 
     return Container(
@@ -1424,6 +1851,25 @@ class _ScoreButtonsGrid extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _SectionHeader(title: 'Score Entry', icon: Icons.sports_cricket, color: _D.primary),
+          if (provider.isFreeHit) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: _D.tealSoft,
+                borderRadius: BorderRadius.circular(_D.rSM),
+                border: Border.all(color: _D.teal.withOpacity(0.25)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.flash_on_rounded, size: 14, color: _D.teal),
+                  SizedBox(width: 6),
+                  Text('Free Hit', style: TextStyle(color: _D.teal, fontWeight: FontWeight.w900, fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           GridView.count(
             shrinkWrap: true,
@@ -1436,6 +1882,166 @@ class _ScoreButtonsGrid extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showExtraRunsDialog(BuildContext context, String type, String title) async {
+    final runs = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(_D.rXL)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionHeader(title: title, icon: Icons.run_circle_rounded, color: _D.gold),
+              const SizedBox(height: 14),
+              GridView.count(
+                shrinkWrap: true,
+                crossAxisCount: 4,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.5,
+                children: [0, 1, 2, 3, 4].map((run) {
+                  return OutlinedButton(
+                    onPressed: () => Navigator.pop(context, run),
+                    child: Text(run == 0 ? 'Dot' : '$run'),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (runs != null) {
+      await provider.addExtra(type, runs: runs);
+    }
+  }
+
+  Future<void> _showWicketDialog(BuildContext context) async {
+    const wicketTypes = [
+      ('bowled', 'Bowled'),
+      ('caught', 'Caught'),
+      ('lbw', 'LBW'),
+      ('stumped', 'Stumped'),
+      ('run_out', 'Run out'),
+      ('hit_wicket', 'Hit wicket'),
+      ('handled_ball', 'Handled ball'),
+      ('timed_out', 'Timed out'),
+      ('obstructing_field', 'Obstructing field'),
+      ('hit_ball_twice', 'Hit ball twice'),
+    ];
+    final List<Player> dismissible = [
+      if (provider.currentStriker != null) provider.currentStriker!,
+      if (provider.currentNonStriker != null) provider.currentNonStriker!,
+    ];
+    var wicketType = provider.isFreeHit ? 'run_out' : 'bowled';
+    var completedRuns = 0;
+    Player? dismissed = provider.currentStriker;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(_D.rXL)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final typeOptions = provider.isFreeHit
+                ? wicketTypes.where((type) => const {
+                      'run_out',
+                      'handled_ball',
+                      'obstructing_field',
+                      'hit_ball_twice',
+                    }.contains(type.$1)).toList()
+                : wicketTypes;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(18, 18, 18, 24 + MediaQuery.of(context).viewInsets.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _SectionHeader(title: 'Wicket', icon: Icons.close_rounded, color: _D.live),
+                  if (provider.isFreeHit) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Free hit active: only run out/fielding dismissals allowed.',
+                      style: TextStyle(color: _D.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    value: wicketType,
+                    decoration: const InputDecoration(labelText: 'Wicket method'),
+                    items: typeOptions
+                        .map((type) => DropdownMenuItem<String>(value: type.$1, child: Text(type.$2)))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) setSheetState(() => wicketType = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<Player>(
+                    value: dismissed,
+                    decoration: const InputDecoration(labelText: 'Who is out?'),
+                    items: dismissible
+                        .map((player) => DropdownMenuItem<Player>(value: player, child: Text(player.name)))
+                        .toList(),
+                    onChanged: (value) => setSheetState(() => dismissed = value),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Completed runs before wicket', style: TextStyle(fontWeight: FontWeight.w800, color: _D.textPrimary)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [0, 1, 2, 3].map((run) {
+                      final selected = completedRuns == run;
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: selected ? _D.liveSoft : Colors.white,
+                              foregroundColor: selected ? _D.live : _D.textSecondary,
+                            ),
+                            onPressed: () => setSheetState(() => completedRuns = run),
+                            child: Text('$run'),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: dismissed == null
+                          ? null
+                          : () async {
+                              Navigator.pop(context);
+                              await provider.addWicketDetailed(
+                                wicketType: wicketType,
+                                dismissedPlayer: dismissed,
+                                completedRuns: completedRuns,
+                              );
+                            },
+                      style: ElevatedButton.styleFrom(backgroundColor: _D.live, foregroundColor: Colors.white),
+                      child: const Text('Add Wicket'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -1497,6 +2103,182 @@ class _ScoreBtn extends StatelessWidget {
 // ─────────────────────────────────────────────
 //  Extras Card
 // ─────────────────────────────────────────────
+class _InlineWagonWheelCard extends StatefulWidget {
+  final LiveScoreControlProvider provider;
+  const _InlineWagonWheelCard({required this.provider});
+
+  @override
+  State<_InlineWagonWheelCard> createState() => _InlineWagonWheelCardState();
+}
+
+class _InlineWagonWheelCardState extends State<_InlineWagonWheelCard> {
+  int _zone = 0;
+  int _runs = 1;
+
+  static const _zones = [
+    'Point',
+    'Cover',
+    'Mid Off',
+    'Mid On',
+    'Square Leg',
+    'Fine Leg',
+    'Third Man',
+    'Gully',
+  ];
+  static const _runsOptions = [0, 1, 2, 3, 4, 6];
+
+  @override
+  Widget build(BuildContext context) {
+    final canScore = widget.provider.currentStriker != null &&
+        widget.provider.currentBowler != null;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _D.surface,
+        borderRadius: BorderRadius.circular(_D.rXL),
+        border: Border.all(color: _D.border),
+        boxShadow: _D.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: _SectionHeader(
+                  title: 'Wagon Wheel',
+                  icon: Icons.radar_rounded,
+                  color: _D.green,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChangeNotifierProvider<LiveScoreControlProvider>.value(
+                      value: widget.provider,
+                      child: WagonWheelScreen(
+                        matchId: widget.provider.matchId ?? '',
+                        match: widget.provider.match,
+                      ),
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.open_in_full_rounded, size: 15),
+                label: const Text('Full'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _zones.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 1.9,
+            ),
+            itemBuilder: (context, index) {
+              final selected = _zone == index;
+              return InkWell(
+                onTap: () => setState(() => _zone = index),
+                borderRadius: BorderRadius.circular(_D.rSM),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected ? _D.greenSoft : _D.surfaceAlt,
+                    borderRadius: BorderRadius.circular(_D.rSM),
+                    border: Border.all(
+                      color: selected ? _D.green.withOpacity(0.5) : _D.border,
+                    ),
+                  ),
+                  child: Text(
+                    _zones[index],
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: selected ? _D.green : _D.textSecondary,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: _runsOptions.map((run) {
+              final selected = _runs == run;
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: InkWell(
+                    onTap: () => setState(() => _runs = run),
+                    borderRadius: BorderRadius.circular(_D.rSM),
+                    child: Container(
+                      height: 42,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: selected ? _D.primarySoft : _D.surfaceAlt,
+                        borderRadius: BorderRadius.circular(_D.rSM),
+                        border: Border.all(
+                          color: selected
+                              ? _D.primary.withOpacity(0.4)
+                              : _D.border,
+                        ),
+                      ),
+                      child: Text(
+                        run == 0 ? 'Dot' : '$run',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: selected ? _D.primary : _D.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: canScore
+                  ? () => widget.provider.addWagonShot(
+                        runs: _runs,
+                        zone: _zone,
+                        label: _zones[_zone],
+                      )
+                  : null,
+              icon: const Icon(Icons.sports_cricket_rounded, size: 18),
+              label: Text(
+                canScore
+                    ? 'Add $_runs to ${_zones[_zone]}'
+                    : 'Set striker and bowler first',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _D.green,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: _D.border,
+                disabledForegroundColor: _D.textMuted,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(_D.rMD),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+}
+
 class _ExtrasCard extends StatelessWidget {
   final LiveScoreControlProvider provider;
   const _ExtrasCard({required this.provider});
@@ -1682,6 +2464,328 @@ class _SectionHeader extends StatelessWidget {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _D.textPrimary),
         ),
       ],
+    );
+  }
+}
+
+class _MatchControlSummary extends StatelessWidget {
+  final LiveScoreControlProvider provider;
+  const _MatchControlSummary({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final tossText = provider.tossDone
+        ? '${provider.tossWinnerName} chose ${provider.tossDecision == 'bat' ? 'bat' : 'bowl'}'
+        : 'Toss pending';
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _D.surface,
+        borderRadius: BorderRadius.circular(_D.rXL),
+        border: Border.all(color: _D.border),
+        boxShadow: _D.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionHeader(title: 'Match Control', icon: Icons.sync_alt_rounded, color: _D.primary),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _InfoPill(label: 'Innings', value: '${provider.inningsNumber}', color: _D.primary)),
+              const SizedBox(width: 8),
+              Expanded(child: _InfoPill(label: 'Batting', value: provider.battingTeamName, color: _D.green)),
+              const SizedBox(width: 8),
+              Expanded(child: _InfoPill(label: 'Bowling', value: provider.bowlingTeamName, color: _D.orange)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _InfoPill(label: 'Toss', value: tossText, color: _D.gold, fullWidth: true),
+          if (provider.isSecondInnings && provider.target != null) ...[
+            const SizedBox(height: 10),
+            _InfoPill(
+              label: 'Chase',
+              value: '${provider.target} target - ${provider.requiredRuns ?? 0} needed from ${provider.requiredBalls ?? 0} balls',
+              color: _D.live,
+              fullWidth: true,
+            ),
+          ],
+          if (provider.resultMessage != null) ...[
+            const SizedBox(height: 10),
+            _InfoPill(
+              label: 'Result',
+              value: provider.resultMessage!,
+              color: _D.green,
+              fullWidth: true,
+            ),
+          ],
+          if (provider.playerOfMatchName != null) ...[
+            const SizedBox(height: 10),
+            _InfoPill(
+              label: 'Player of the Match',
+              value: provider.playerOfMatchName!,
+              color: _D.gold,
+              fullWidth: true,
+            ),
+          ],
+          if (provider.appreciations.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...provider.appreciations.take(3).map(
+                  (text) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: _InfoPill(label: 'Appreciation', value: text, color: _D.purple, fullWidth: true),
+                  ),
+                ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final bool fullWidth;
+  const _InfoPill({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.fullWidth = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: fullWidth ? double.infinity : null,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(_D.rMD),
+        border: Border.all(color: color.withOpacity(0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: _D.textPrimary, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchActionBar extends StatelessWidget {
+  final LiveScoreControlProvider provider;
+  final VoidCallback onWagonWheel;
+  const _MatchActionBar({required this.provider, required this.onWagonWheel});
+
+  @override
+  Widget build(BuildContext context) {
+    final canEnd = provider.currentStatus == 'live';
+    final isFinalInnings = provider.inningsNumber >= 2;
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onWagonWheel,
+            icon: const Icon(Icons.radar_rounded),
+            label: const Text('Wagon Wheel'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _D.primary,
+              side: const BorderSide(color: _D.primary),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: canEnd
+                ? () => _confirmEnd(context, isFinalInnings)
+                : provider.startMatch,
+            icon: Icon(canEnd
+                ? (isFinalInnings ? Icons.emoji_events_rounded : Icons.flag_circle_rounded)
+                : Icons.play_arrow_rounded),
+            label: Text(canEnd
+                ? (isFinalInnings ? 'Finish Match' : 'End 1st Innings')
+                : 'Go Live'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: canEnd ? _D.live : _D.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmEnd(BuildContext context, bool isFinalInnings) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isFinalInnings ? 'Finish Match?' : 'End 1st Innings?'),
+        content: Text(isFinalInnings
+            ? 'Second innings complete karke result public scorecard par publish karna hai?'
+            : 'First innings complete karke second innings start karna hai?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(isFinalInnings ? 'Finish' : 'End Innings'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await provider.endInnings();
+    }
+  }
+}
+
+class _MiniScorecardPreview extends StatelessWidget {
+  final LiveScoreControlProvider provider;
+  const _MiniScorecardPreview({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final strikerStat = provider.currentStriker == null
+        ? null
+        : provider.battingStatFor(provider.currentStriker);
+    final nonStrikerStat = provider.currentNonStriker == null
+        ? null
+        : provider.battingStatFor(provider.currentNonStriker);
+    final bowlerStat = provider.currentBowler == null
+        ? null
+        : provider.bowlingStatFor(provider.currentBowler);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _D.surface,
+        borderRadius: BorderRadius.circular(_D.rXL),
+        border: Border.all(color: _D.border),
+        boxShadow: _D.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionHeader(title: 'Scorecard Preview', icon: Icons.scoreboard_rounded, color: _D.teal),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _ScorePreviewTile(
+                  team: provider.battingTeamName,
+                  value: '${provider.currentScore.runs}/${provider.currentScore.wickets}',
+                  sub: '${provider.currentScore.overs} ov - RR ${provider.currentScore.runRate.toStringAsFixed(2)}',
+                  color: _D.green,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ScorePreviewTile(
+                  team: provider.bowlingTeamName,
+                  value: provider.currentBowler?.name ?? 'Bowling',
+                  sub: provider.currentBowler == null
+                      ? 'Set bowler'
+                      : '${bowlerStat!.overs} ov - ${bowlerStat.runs}/${bowlerStat.wickets} - Eco ${bowlerStat.economy.toStringAsFixed(1)}',
+                  color: _D.orange,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _TinyPlayerStat(
+                  label: 'Striker',
+                  value: provider.currentStriker == null
+                      ? 'Not set'
+                      : '${provider.currentStriker!.name} ${strikerStat!.runs}(${strikerStat.balls})',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TinyPlayerStat(
+                  label: 'Non-striker',
+                  value: provider.currentNonStriker == null
+                      ? 'Not set'
+                      : '${provider.currentNonStriker!.name} ${nonStrikerStat!.runs}(${nonStrikerStat.balls})',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScorePreviewTile extends StatelessWidget {
+  final String team;
+  final String value;
+  final String sub;
+  final Color color;
+  const _ScorePreviewTile({required this.team, required this.value, required this.sub, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(_D.rMD),
+        border: Border.all(color: color.withOpacity(0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(team, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: _D.textSecondary)),
+          const SizedBox(height: 5),
+          Text(value, style: TextStyle(fontSize: 20, color: color, fontWeight: FontWeight.w900)),
+          Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: _D.textMuted)),
+        ],
+      ),
+    );
+  }
+}
+
+class _TinyPlayerStat extends StatelessWidget {
+  final String label;
+  final String value;
+  const _TinyPlayerStat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: _D.surfaceAlt,
+        borderRadius: BorderRadius.circular(_D.rSM),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 10, color: _D.textMuted)),
+          Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: _D.textPrimary, fontWeight: FontWeight.w700)),
+        ],
+      ),
     );
   }
 }

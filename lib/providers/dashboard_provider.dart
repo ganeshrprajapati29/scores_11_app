@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../data/models/dashboard_model.dart';
 import '../data/services/dashboard_service.dart';
+import '../data/services/match_service.dart';
+import '../data/models/match_model.dart';
 import '../core/services/api_client.dart';
 import '../core/config/api_config.dart';
 import 'dart:developer';
-import '../../data/services/blog_service.dart';
-import '../../data/services/community_service.dart';
-import '../../data/models/blog_model.dart';
+import '../data/services/blog_service.dart';
+import '../data/services/community_service.dart';
+import '../data/models/blog_model.dart';
 import '../data/models/tournament_model.dart';  // Add this line at top
 
 class DashboardProvider extends ChangeNotifier {
@@ -25,7 +27,9 @@ class DashboardProvider extends ChangeNotifier {
   String? get error => _error;
 
   // Convenience getters for different sections
-  List<LiveMatch> get liveMatches => _dashboardData?.liveMatches ?? [];
+  List<LiveMatch> get liveMatches => (_dashboardData?.liveMatches ?? [])
+      .where((match) => match.isActuallyLive)
+      .toList();
   List<UpcomingMatch> get upcomingMatches => _dashboardData?.upcomingMatches ?? [];
   List<TrendingPlayer> get trendingPlayers => _dashboardData?.trendingPlayers ?? [];
   List<Tournament> get latestTournaments => _dashboardData?.latestTournaments ?? [];
@@ -46,10 +50,18 @@ class DashboardProvider extends ChangeNotifier {
   bool get hasRecentPosts => recentPosts.isNotEmpty;
 
   final DashboardService _dashboardService = DashboardService();
+  final MatchService _matchService = MatchService();
   final BlogService _blogService = BlogService();
   final CommunityService _communityService = CommunityService();
   List<BlogModel> _recentBlogs = [];
   List<Map<String, dynamic>> _recentPosts = [];
+  List<Match> _carouselLiveMatches = [];
+  List<Match> _recentCompletedMatches = [];
+
+  List<Match> get carouselLiveMatches => _carouselLiveMatches;
+  List<Match> get recentCompletedMatches => _recentCompletedMatches;
+  bool get hasDashboardCarouselMatches =>
+      _carouselLiveMatches.isNotEmpty || _recentCompletedMatches.isNotEmpty;
 
   /// Load dashboard data (main method)
   Future<void> loadDashboard() async {
@@ -82,6 +94,7 @@ class DashboardProvider extends ChangeNotifier {
       _dashboardData = await _dashboardService.getDashboardOverview();
       
       // Load recent blogs & community posts for dashboard
+      await _loadDashboardCarouselMatches();
       _recentBlogs = await _blogService.getBlogs(page: 1, limit: 5);
       _recentPosts = await _communityService.getPostsList(page: 1, limit: 5);
       debugPrint('📚 Recent content: ${_recentBlogs.length} blogs, ${_recentPosts.length} posts');
@@ -116,6 +129,72 @@ class DashboardProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _loadDashboardCarouselMatches() async {
+    try {
+      final results = await Future.wait<List<Match>>([
+        _matchService.getLiveMatches(
+          forceRefresh: true,
+          limit: 25,
+          sort: 'updatedAt',
+          order: 'desc',
+        ),
+        _matchService.getCompletedMatches(
+          limit: 100,
+          sort: 'updatedAt',
+          order: 'desc',
+        ),
+      ]);
+
+      final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
+      _carouselLiveMatches = _sortLatestMatches(_uniqueMatches(
+        results[0].where(_isCarouselLiveMatch).toList(),
+      ));
+      _recentCompletedMatches = _sortLatestMatches(_uniqueMatches(
+        results[1].where((match) {
+          final lastActivity = match.updatedAt.isAfter(match.scheduledDate)
+              ? match.updatedAt
+              : match.scheduledDate;
+          return match.isCompleted && lastActivity.isAfter(twoDaysAgo);
+        }).toList(),
+      ));
+
+      debugPrint(
+        '🏏 Dashboard carousel: ${_carouselLiveMatches.length} live, '
+        '${_recentCompletedMatches.length} completed in last 2 days',
+      );
+    } catch (e) {
+      debugPrint('⚠️ Dashboard carousel matches not loaded: $e');
+      _carouselLiveMatches = [];
+      _recentCompletedMatches = [];
+    }
+  }
+
+  List<Match> _uniqueMatches(List<Match> matches) {
+    final seen = <String>{};
+    final unique = <Match>[];
+    for (final match in matches) {
+      if (match.id.isEmpty || !seen.add(match.id)) continue;
+      unique.add(match);
+    }
+    return unique;
+  }
+
+  List<Match> _sortLatestMatches(List<Match> matches) {
+    return matches
+      ..sort((a, b) => _latestMatchTime(b).compareTo(_latestMatchTime(a)));
+  }
+
+  DateTime _latestMatchTime(Match match) {
+    return match.updatedAt.isAfter(match.scheduledDate)
+        ? match.updatedAt
+        : match.scheduledDate;
+  }
+
+  bool _isCarouselLiveMatch(Match match) {
+    const liveStatuses = {'live', 'started', 'in_progress', 'ongoing'};
+    return liveStatuses.contains(match.normalizedStatus);
   }
 
 
@@ -235,7 +314,7 @@ class DashboardProvider extends ChangeNotifier {
   bool get hasData => _dashboardData != null;
 
   /// Check if there are live matches
-  bool get hasLiveMatches => (_dashboardData?.liveMatches.isNotEmpty ?? false);
+  bool get hasLiveMatches => liveMatches.isNotEmpty;
 
   /// Check if there are upcoming matches
   bool get hasUpcomingMatches => (_dashboardData?.upcomingMatches.isNotEmpty ?? false);

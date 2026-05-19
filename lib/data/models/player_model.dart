@@ -69,20 +69,38 @@ factory Player.fromJson(Map<String, dynamic> json) {
       teamLabel = json['teamName'] as String?;
     }
     
+    final cricketProfile = json['cricketProfile'] is Map<String, dynamic>
+        ? json['cricketProfile'] as Map<String, dynamic>
+        : json['cricketProfile'] is Map
+            ? Map<String, dynamic>.from(json['cricketProfile'] as Map)
+            : <String, dynamic>{};
+    final avatar = json['avatar'] is Map<String, dynamic>
+        ? json['avatar'] as Map<String, dynamic>
+        : json['avatar'] is Map
+            ? Map<String, dynamic>.from(json['avatar'] as Map)
+            : <String, dynamic>{};
+    final profileImageValue = json['profileImage'];
+    final profileImageUrl = profileImageValue is Map
+        ? profileImageValue['url']?.toString()
+        : profileImageValue?.toString();
+    final playerId = cricketProfile['playerId']?.toString();
+
     return Player(
-      id: (json['_id'] ?? json['id'] ?? '') as String,
-      name: json['playerName'] ?? json['user']?['name'] ?? json['name'] ?? '',
-      email: json['email'] as String?,
-      phone: json['phone'] as String?,
-      photo: json['photo'] as String?,
-      profileImage: json['profileImage'] as String?,
+      id: playerId?.isNotEmpty == true ? playerId! : (json['_id'] ?? json['id'] ?? '').toString(),
+      name: (json['playerName'] ?? json['user']?['name'] ?? json['fullName'] ?? json['name'] ?? '').toString(),
+      email: json['email']?.toString(),
+      phone: json['phone']?.toString(),
+      photo: json['photo']?.toString() ?? avatar['url']?.toString(),
+      profileImage: profileImageUrl ?? avatar['url']?.toString(),
       dateOfBirth: json['dateOfBirth'] as String?,
       gender: json['gender'] as String?,
-      nationality: json['nationality'] as String?,
-      role: json['role'] as String?,
-      battingStyle: json['battingStyle'] as String?,
-      bowlingStyle: json['bowlingStyle'] as String?,
-      playerRole: json['playerRole'] as String?,
+      nationality: json['nationality'] as String? ?? json['country'] as String?,
+      role: json['role'] == 'player'
+          ? cricketProfile['playerType']?.toString()
+          : json['role']?.toString(),
+      battingStyle: json['battingStyle']?.toString() ?? cricketProfile['battingStyle']?.toString(),
+      bowlingStyle: json['bowlingStyle']?.toString() ?? cricketProfile['bowlingStyle']?.toString(),
+      playerRole: json['playerRole']?.toString() ?? cricketProfile['playerType']?.toString(),
       jerseyNumber: (json['jerseyNumber'] as num?)?.toInt() ?? 0,
       team: teamId,
       teamName: teamLabel,
