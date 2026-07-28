@@ -14,6 +14,8 @@ class BallModel {
   final bool isNoBall;
   final bool isBye;
   final bool isLegBye;
+  final int? wagonZone;
+  final String? wagonLabel;
   final String? commentary;
   final DateTime timestamp;
 
@@ -33,6 +35,8 @@ class BallModel {
     this.isNoBall = false,
     this.isBye = false,
     this.isLegBye = false,
+    this.wagonZone,
+    this.wagonLabel,
     this.commentary,
     required this.timestamp,
   });
@@ -54,6 +58,8 @@ class BallModel {
       isNoBall: json['isNoBall'] ?? false,
       isBye: json['isBye'] ?? false,
       isLegBye: json['isLegBye'] ?? false,
+      wagonZone: json['wagonZone'] is num ? (json['wagonZone'] as num).toInt() : int.tryParse(json['wagonZone']?.toString() ?? ''),
+      wagonLabel: json['wagonLabel']?.toString(),
       commentary: json['commentary'],
       timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp']) : DateTime.now(),
     );
@@ -75,6 +81,8 @@ class BallModel {
       'isNoBall': isNoBall,
       'isBye': isBye,
       'isLegBye': isLegBye,
+      'wagonZone': wagonZone,
+      'wagonLabel': wagonLabel,
       'commentary': commentary,
     };
   }

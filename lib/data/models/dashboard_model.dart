@@ -213,6 +213,12 @@ class LiveMatch {
   final String? tossDecision;
   final int? target;
   final int? requiredRuns;
+  final int? requiredBalls;
+  final List<LiveBall> recentBalls;
+  final String? latestCommentary;
+  final int? currentRuns;
+  final int? currentWickets;
+  final String? currentOvers;
 
   LiveMatch({
     required this.id,
@@ -239,6 +245,12 @@ class LiveMatch {
     this.tossDecision,
     this.target,
     this.requiredRuns,
+    this.requiredBalls,
+    this.recentBalls = const [],
+    this.latestCommentary,
+    this.currentRuns,
+    this.currentWickets,
+    this.currentOvers,
   });
 
   factory LiveMatch.fromJson(dynamic json) {
@@ -248,15 +260,29 @@ class LiveMatch {
       safeJson = Map<String, dynamic>.from(json);
     }
     
+    final currentScore = safeJson['currentInningsScore'] is Map
+        ? Map<String, dynamic>.from(safeJson['currentInningsScore'] as Map)
+        : <String, dynamic>{};
+    final resultMap = safeJson['result'] is Map
+        ? Map<String, dynamic>.from(safeJson['result'] as Map)
+        : <String, dynamic>{};
+
     return LiveMatch(
       id: safeJson['_id']?.toString() ?? safeJson['id']?.toString() ?? '',
       team1: Team.fromJson(safeJson['team1']),
       team2: Team.fromJson(safeJson['team2']),
       status: safeJson['status']?.toString() ?? '',
       format: safeJson['format']?.toString() ?? '',
-      scheduledDate: DateTime.tryParse(safeJson['scheduledDate']?.toString() ?? '') ?? DateTime.now(),
+      scheduledDate:
+          (DateTime.tryParse(safeJson['scheduledDate']?.toString() ?? '') ??
+                  DateTime.now())
+              .toLocal(),
       tournament: Tournament.fromJson(safeJson['tournament'] ?? {}),
-      innings: safeJson['innings'] is Map ? Map<String, dynamic>.from(safeJson['innings']) : null,
+      innings: safeJson['innings'] is Map
+          ? Map<String, dynamic>.from(safeJson['innings'])
+          : safeJson['innings'] is List
+              ? {'items': safeJson['innings']}
+              : null,
       scoreString: safeJson['scoreString']?.toString() ?? _scoreText(safeJson),
       team1Score: int.tryParse(safeJson['team1Score']?.toString() ?? safeJson['team1Runs']?.toString() ?? safeJson['score']?['team1']?['runs']?.toString() ?? ''),
       team2Score: int.tryParse(safeJson['team2Score']?.toString() ?? safeJson['team2Runs']?.toString() ?? safeJson['score']?['team2']?['runs']?.toString() ?? ''),
@@ -271,9 +297,31 @@ class LiveMatch {
       result: _readResultText(safeJson),
       tossWinner: _readTossValue(safeJson, 'winner'),
       tossDecision: _readTossValue(safeJson, 'decision'),
-      target: int.tryParse(safeJson['target']?.toString() ?? safeJson['result']?['target']?.toString() ?? ''),
-      requiredRuns: int.tryParse(safeJson['requiredRuns']?.toString() ?? safeJson['result']?['requiredRuns']?.toString() ?? ''),
+      target: int.tryParse(safeJson['target']?.toString() ?? resultMap['target']?.toString() ?? ''),
+      requiredRuns: int.tryParse(safeJson['requiredRuns']?.toString() ?? resultMap['requiredRuns']?.toString() ?? ''),
+      requiredBalls: int.tryParse(safeJson['requiredBalls']?.toString() ?? resultMap['requiredBalls']?.toString() ?? ''),
+      recentBalls: _readRecentBalls(safeJson['recentBalls']),
+      latestCommentary: _readLatestCommentary(safeJson['latestCommentary']),
+      currentRuns: int.tryParse(currentScore['runs']?.toString() ?? ''),
+      currentWickets: int.tryParse(currentScore['wickets']?.toString() ?? ''),
+      currentOvers: currentScore['overs']?.toString(),
     );
+  }
+
+  static List<LiveBall> _readRecentBalls(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map((item) => LiveBall.fromJson(Map<String, dynamic>.from(item)))
+        .where((ball) => ball.label.isNotEmpty)
+        .toList();
+  }
+
+  static String? _readLatestCommentary(dynamic value) {
+    if (value is Map) {
+      return value['text']?.toString();
+    }
+    return value?.toString();
   }
 
   static String? _readResultText(Map<String, dynamic> json) {
@@ -347,6 +395,42 @@ class LiveMatch {
     return '$score ($overs ov)';
   }
 
+  String get currentScoreDisplay {
+    final runs = currentRuns ?? (currentInnings == 2 ? team2Score : team1Score);
+    final wickets = currentWickets ?? (currentInnings == 2 ? team2Wickets : team1Wickets);
+    final overs = currentOvers ?? (currentInnings == 2 ? team2Overs : team1Overs);
+    if (runs == null) return '0/0 (0.0 ov)';
+    return '$runs/${wickets ?? 0} (${(overs == null || overs.isEmpty) ? '0.0' : overs} ov)';
+  }
+
+  String get currentBattingTeamName {
+    final currentTeamId = _currentInningsMap?['battingTeam']?.toString();
+    if (currentTeamId != null && currentTeamId.isNotEmpty) {
+      if (currentTeamId == team2.id) {
+        return team2.shortName.isNotEmpty ? team2.shortName : team2.name;
+      }
+      if (currentTeamId == team1.id) {
+        return team1.shortName.isNotEmpty ? team1.shortName : team1.name;
+      }
+    }
+    if (currentInnings == 1) {
+      return team1.shortName.isNotEmpty ? team1.shortName : team1.name;
+    }
+    return team2.shortName.isNotEmpty ? team2.shortName : team2.name;
+  }
+
+  Map<String, dynamic>? get _currentInningsMap {
+    final items = innings?['items'];
+    if (items is! List) return null;
+    for (final item in items) {
+      if (item is Map &&
+          item['inningsNumber']?.toString() == currentInnings.toString()) {
+        return Map<String, dynamic>.from(item);
+      }
+    }
+    return null;
+  }
+
   bool get isActuallyLive {
     final normalized = status.toLowerCase().trim();
     if (normalized == 'completed' || normalized == 'finished' || normalized == 'cancelled') {
@@ -361,7 +445,8 @@ class LiveMatch {
   String get liveSummary {
     if (result != null && result!.trim().isNotEmpty) return result!;
     if (target != null && currentInnings == 2) {
-      final needed = requiredRuns == null ? '' : ' - $requiredRuns needed';
+      final balls = requiredBalls == null ? '' : ' from $requiredBalls balls';
+      final needed = requiredRuns == null ? '' : ' - $requiredRuns needed$balls';
       return 'Target $target$needed';
     }
     if (tossWinner != null && tossWinner!.trim().isNotEmpty) {
@@ -401,6 +486,12 @@ class LiveMatch {
       'tossDecision': tossDecision,
       'target': target,
       'requiredRuns': requiredRuns,
+      'requiredBalls': requiredBalls,
+      'recentBalls': recentBalls.map((ball) => ball.toJson()).toList(),
+      'latestCommentary': latestCommentary,
+      'currentRuns': currentRuns,
+      'currentWickets': currentWickets,
+      'currentOvers': currentOvers,
     };
   }
 
@@ -449,6 +540,56 @@ class LiveMatch {
   }
 }
 
+class LiveBall {
+  final String label;
+  final int runs;
+  final bool isWicket;
+  final String? text;
+  final String? over;
+
+  const LiveBall({
+    required this.label,
+    this.runs = 0,
+    this.isWicket = false,
+    this.text,
+    this.over,
+  });
+
+  factory LiveBall.fromJson(Map<String, dynamic> json) {
+    final isWicket = json['isWicket'] == true || json['wicket'] == true;
+    final rawLabel = json['label']?.toString();
+    return LiveBall(
+      label: rawLabel?.isNotEmpty == true
+          ? rawLabel!
+          : isWicket
+              ? 'W'
+              : (json['runs'] ?? json['batsmanRuns'] ?? json['totalRuns'] ?? 0)
+                  .toString(),
+      runs: int.tryParse(
+            (json['runs'] ?? json['batsmanRuns'] ?? json['totalRuns'] ?? 0)
+                .toString(),
+          ) ??
+          0,
+      isWicket: isWicket,
+      text: json['text']?.toString(),
+      over: [
+        json['over']?.toString(),
+        json['ball']?.toString(),
+      ].where((part) => part != null && part!.isNotEmpty).join('.'),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'label': label,
+      'runs': runs,
+      'isWicket': isWicket,
+      'text': text,
+      'over': over,
+    };
+  }
+}
+
 // ==================== Upcoming Match Model ====================
 class UpcomingMatch {
   final String id;
@@ -479,7 +620,10 @@ class UpcomingMatch {
       team1: Team.fromJson(safeJson['team1']),
       team2: Team.fromJson(safeJson['team2']),
       format: safeJson['format']?.toString() ?? '',
-      scheduledDate: DateTime.tryParse(safeJson['scheduledDate']?.toString() ?? '') ?? DateTime.now(),
+      scheduledDate:
+          (DateTime.tryParse(safeJson['scheduledDate']?.toString() ?? '') ??
+                  DateTime.now())
+              .toLocal(),
       tournament: Tournament.fromJson(safeJson['tournament'] ?? {}),
     );
   }

@@ -43,6 +43,26 @@ class UserService {
     }
   }
 
+  Future<Map<String, dynamic>> getFullProfile() async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.users}/me/full-profile');
+      return {
+        'success': true,
+        'data': response.data['data'],
+      };
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': _handleDioError(e),
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
     try {
       final response = await _apiClient.put('${ApiConfig.users}/me', data: data);

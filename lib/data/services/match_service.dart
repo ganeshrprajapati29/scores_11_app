@@ -27,6 +27,7 @@ class PaginatedMatches {
 class MatchService {
   final ApiClient _apiClient = ApiClient();
   final CacheService _cacheService = CacheService();
+  static bool get _preferFastMatchCache => false;
 
   /// Get matches with pagination support and caching
   Future<PaginatedMatches> getMatches({
@@ -36,8 +37,12 @@ class MatchService {
     String? tournament,
     bool forceRefresh = false,
   }) async {
-    // For first page with no filters, try cache first
-    if (page == 1 && status == null && tournament == null && !forceRefresh) {
+    // Live/completed score state changes quickly; only use match-list cache when explicitly requested.
+    if (_preferFastMatchCache &&
+        page == 1 &&
+        status == null &&
+        tournament == null &&
+        !forceRefresh) {
       final cachedData = _cacheService.getCachedMatches(ttlMinutes: 5);
       if (cachedData != null) {
         final matches = cachedData.map((json) => Match.fromJson(json)).toList();
@@ -65,15 +70,15 @@ class MatchService {
       if (response.statusCode == 200) {
         final List data = response.data['data'] ?? [];
         final pagination = response.data['pagination'] ?? {};
-        
+
         final matches = data.map((json) => Match.fromJson(json)).toList();
-        
-// Cache first page results
+
+        // Cache first page results
         if (page == 1 && status == null && tournament == null) {
           final matchesJson = matches.map((m) => m.toJson()).toList();
           _cacheService.cacheMatches(matchesJson);
         }
-        
+
         return PaginatedMatches(
           matches: matches,
           page: pagination['page'] ?? page,
@@ -89,7 +94,9 @@ class MatchService {
       if (page == 1 && status == null && tournament == null) {
         final cachedData = _cacheService.getCachedMatches(ttlMinutes: 60);
         if (cachedData != null) {
-          final matches = cachedData.map((json) => Match.fromJson(json)).toList();
+          final matches = cachedData
+              .map((json) => Match.fromJson(json))
+              .toList();
           return PaginatedMatches(
             matches: matches,
             page: 1,
@@ -157,8 +164,8 @@ class MatchService {
 
   /// Get match by ID with caching
   Future<Match> getMatchById(String id, {bool forceRefresh = false}) async {
-    // Try cache first
-    if (!forceRefresh) {
+    // Match score/status is live data, so prefer API and keep cache only as offline fallback.
+    if (_preferFastMatchCache && !forceRefresh) {
       final cachedData = _cacheService.getCachedMatchDetail(id, ttlMinutes: 5);
       if (cachedData != null) {
         return Match.fromJson(cachedData);
@@ -169,10 +176,10 @@ class MatchService {
       final response = await _apiClient.get('${ApiConfig.matches}/$id');
       if (response.statusCode == 200) {
         final match = Match.fromJson(response.data['data']);
-        
+
         // Cache the result
         _cacheService.cacheMatchDetail(id, match.toJson());
-        
+
         return match;
       }
       throw Exception(response.data['message'] ?? 'Failed to get match');
@@ -202,7 +209,9 @@ class MatchService {
   /// Get live match score data
   Future<Map<String, dynamic>> getLiveScore(String matchId) async {
     try {
-      final response = await _apiClient.get('${ApiConfig.baseUrl}/scoring/match/$matchId/live');
+      final response = await _apiClient.get(
+        '${ApiConfig.baseUrl}/scoring/match/$matchId/live',
+      );
       if (response.statusCode == 200) {
         return response.data['data'] ?? {};
       }
@@ -212,10 +221,13 @@ class MatchService {
     }
   }
 
-/// Get full scorecard - FIXED with proper 404 handling
-  Future<Map<String, dynamic>> getFullScorecard(String matchId, {Match? match}) async {
+  /// Get full scorecard - FIXED with proper 404 handling
+  Future<Map<String, dynamic>> getFullScorecard(
+    String matchId, {
+    Match? match,
+  }) async {
     debugPrint('🔍 Loading scorecard for matchId: $matchId');
-    
+
     // Skip if match is scheduled
     if (match?.status == 'SCHEDULED' || match?.status == 'scheduled') {
       debugPrint('⏳ Match scheduled, returning basic scorecard');
@@ -232,7 +244,7 @@ class MatchService {
     for (final endpoint in endpoints) {
       try {
         debugPrint('📡 Trying endpoint: $endpoint');
-// FIXED: Accept ALL responses (100-599) - Don't throw on 404!
+        // FIXED: Accept ALL responses (100-599) - Don't throw on 404!
         // This is the key fix - 404 should NOT cause DioException
         final response = await _apiClient.get(
           '${ApiConfig.scoring}$endpoint'.replaceFirst('/scoring', ''),
@@ -242,9 +254,9 @@ class MatchService {
             receiveTimeout: const Duration(seconds: 10),
           ),
         );
-        
+
         debugPrint('📊 Response status: ${response.statusCode}');
-        
+
         if (response.statusCode == 200) {
           dynamic data = response.data['data'] ?? response.data;
           if (data is List && data.isNotEmpty) {
@@ -264,7 +276,7 @@ class MatchService {
       }
     }
 
-// Fallback 1: Try live score endpoint
+    // Fallback 1: Try live score endpoint
     try {
       debugPrint('🔄 Trying live score fallback...');
       final liveResponse = await _apiClient.get(
@@ -310,7 +322,7 @@ class MatchService {
     };
   }
 
-/// Get live matches - uses dedicated endpoint with sorting (newest first)
+  /// Get live matches - uses dedicated endpoint with sorting (newest first)
   Future<List<Match>> getLiveMatches({
     bool forceRefresh = false,
     int limit = 25,
@@ -337,11 +349,11 @@ class MatchService {
       if (response.statusCode == 200) {
         final List data = response.data['data'] ?? [];
         final matches = data.map((json) => Match.fromJson(json)).toList();
-        
+
         // Cache live matches with shorter TTL
         final matchesJson = matches.map((m) => m.toJson()).toList();
         _cacheService.cacheLiveMatches(matchesJson);
-        
+
         return matches;
       }
       throw Exception(response.data['message'] ?? 'Failed to get live matches');
@@ -354,13 +366,18 @@ class MatchService {
     }
   }
 
-/// Get upcoming matches - uses dedicated endpoint with sorting (soonest first)
-  Future<List<Match>> getUpcomingMatches({int limit = 10, String sort = 'scheduledDate', String order = 'asc', bool forceRefresh = false}) async {
+  /// Get upcoming matches - uses dedicated endpoint with sorting (soonest first)
+  Future<List<Match>> getUpcomingMatches({
+    int limit = 10,
+    String sort = 'scheduledDate',
+    String order = 'asc',
+    bool forceRefresh = false,
+  }) async {
     // For force refresh, clear cache first
     if (forceRefresh) {
       _cacheService.clearMatchesCache();
     }
-    
+
     try {
       final response = await _apiClient.get(
         '${ApiConfig.matches}/upcoming',
@@ -375,14 +392,20 @@ class MatchService {
         final List data = response.data['data'] ?? [];
         return data.map((json) => Match.fromJson(json)).toList();
       }
-      throw Exception(response.data['message'] ?? 'Failed to get upcoming matches');
+      throw Exception(
+        response.data['message'] ?? 'Failed to get upcoming matches',
+      );
     } catch (e) {
       rethrow;
     }
   }
 
   /// Get completed matches - uses dedicated endpoint with sorting (newest first)
-  Future<List<Match>> getCompletedMatches({int limit = 10, String sort = 'scheduledDate', String order = 'desc'}) async {
+  Future<List<Match>> getCompletedMatches({
+    int limit = 10,
+    String sort = 'scheduledDate',
+    String order = 'desc',
+  }) async {
     try {
       final response = await _apiClient.get(
         '${ApiConfig.matches}/completed',
@@ -396,7 +419,9 @@ class MatchService {
         final List data = response.data['data'] ?? [];
         return data.map((json) => Match.fromJson(json)).toList();
       }
-      throw Exception(response.data['message'] ?? 'Failed to get completed matches');
+      throw Exception(
+        response.data['message'] ?? 'Failed to get completed matches',
+      );
     } catch (e) {
       rethrow;
     }
@@ -422,12 +447,16 @@ class MatchService {
   /// Get matches by tournament
   Future<List<Match>> getTournamentMatches(String tournamentId) async {
     try {
-      final response = await _apiClient.get('${ApiConfig.matches}/tournament/$tournamentId');
+      final response = await _apiClient.get(
+        '${ApiConfig.matches}/tournament/$tournamentId',
+      );
       if (response.statusCode == 200) {
         final List data = response.data['data'] ?? [];
         return data.map((json) => Match.fromJson(json)).toList();
       }
-      throw Exception(response.data['message'] ?? 'Failed to get tournament matches');
+      throw Exception(
+        response.data['message'] ?? 'Failed to get tournament matches',
+      );
     } catch (e) {
       rethrow;
     }
@@ -436,7 +465,9 @@ class MatchService {
   /// Get matches by team
   Future<List<Match>> getTeamMatches(String teamId) async {
     try {
-      final response = await _apiClient.get('${ApiConfig.matches}/team/$teamId');
+      final response = await _apiClient.get(
+        '${ApiConfig.matches}/team/$teamId',
+      );
       if (response.statusCode == 200) {
         final List data = response.data['data'] ?? [];
         return data.map((json) => Match.fromJson(json)).toList();
@@ -450,11 +481,15 @@ class MatchService {
   /// Get match timeline
   Future<Map<String, dynamic>> getMatchTimeline(String matchId) async {
     try {
-      final response = await _apiClient.get('${ApiConfig.matches}/$matchId/timeline');
+      final response = await _apiClient.get(
+        '${ApiConfig.matches}/$matchId/timeline',
+      );
       if (response.statusCode == 200) {
         return response.data['data'] ?? {};
       }
-      throw Exception(response.data['message'] ?? 'Failed to get match timeline');
+      throw Exception(
+        response.data['message'] ?? 'Failed to get match timeline',
+      );
     } catch (e) {
       rethrow;
     }
@@ -464,18 +499,26 @@ class MatchService {
     required String team1,
     required String team2,
     required Map<String, dynamic> venue,
-    required DateTime scheduledDate,
+    // Optional: when omitted, the backend schedules the match for now.
+    DateTime? scheduledDate,
     String format = 't20',
+    int overs = 20,
+    String ballType = 'leather',
+    String matchCategory = 'standard',
   }) async {
-    final startTimeStr = '${scheduledDate.hour.toString().padLeft(2, '0')}:${scheduledDate.minute.toString().padLeft(2, '0')}';
-
     final data = {
       'team1': team1,
       'team2': team2,
       'venue': venue,
-      'scheduledDate': scheduledDate.toIso8601String(),
-      'startTime': startTimeStr,
+      if (scheduledDate != null) ...{
+        'scheduledDate': scheduledDate.toIso8601String(),
+        'startTime':
+            '${scheduledDate.hour.toString().padLeft(2, '0')}:${scheduledDate.minute.toString().padLeft(2, '0')}',
+      },
       'format': format,
+      'overs': overs,
+      'ballType': ballType,
+      'matchCategory': matchCategory,
     };
 
     return await _createMatchPayload(data);
@@ -570,7 +613,9 @@ class MatchService {
       final response = await _apiClient.patch(
         '${ApiConfig.matches}/$id/toss',
         data: {'winner': winner, 'decision': decision.toLowerCase()},
-        options: Options(validateStatus: (status) => status != null && status >= 100),
+        options: Options(
+          validateStatus: (status) => status != null && status >= 100,
+        ),
       );
       if (response.statusCode == 200) {
         _cacheService.clearMatchesCache();
@@ -580,14 +625,25 @@ class MatchService {
       final message = data is Map ? data['message']?.toString() : null;
       throw Exception(message ?? 'Failed to update toss');
     } on DioException catch (e) {
-      throw Exception(_apiClient.parseDioError(
-        e,
-        defaultMessage: 'Toss update failed. Please try again.',
-      ));
+      throw Exception(
+        _apiClient.parseDioError(
+          e,
+          defaultMessage: 'Toss update failed. Please try again.',
+        ),
+      );
     } catch (e) {
       final message = e.toString().replaceFirst('Exception: ', '');
       throw Exception(message);
     }
+  }
+
+  Future<Match> undoToss(String id) async {
+    final response = await _apiClient.delete('${ApiConfig.matches}/$id/toss');
+    if (response.statusCode == 200) {
+      _cacheService.clearMatchCache(id);
+      return Match.fromJson(response.data['data']);
+    }
+    throw Exception(response.data['message'] ?? 'Failed to undo toss');
   }
 
   /// Update match result
@@ -627,26 +683,31 @@ class MatchService {
   // ========== SCORING METHODS ==========
 
   /// Initialize match for scoring (set batting order)
-  Future<void> initializeMatch(String matchId, List<Map<String, dynamic>> battingOrder) async {
+  Future<void> initializeMatch(
+    String matchId,
+    List<Map<String, dynamic>> battingOrder,
+  ) async {
     try {
       final response = await _apiClient.post(
         '/scoring/match/$matchId/initialize',
         data: {'battingOrder': battingOrder},
-        options: Options(validateStatus: (status) => status != null && status >= 100),
+        options: Options(
+          validateStatus: (status) => status != null && status >= 100,
+        ),
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
         final data = response.data;
-        final message = data is Map
-            ? data['message']?.toString()
-            : null;
+        final message = data is Map ? data['message']?.toString() : null;
         throw Exception(message ?? 'Failed to initialize match');
       }
       _cacheService.clearMatchCache(matchId);
     } on DioException catch (e) {
-      throw Exception(_apiClient.parseDioError(
-        e,
-        defaultMessage: 'Match initialize failed. Please try again.',
-      ));
+      throw Exception(
+        _apiClient.parseDioError(
+          e,
+          defaultMessage: 'Match initialize failed. Please try again.',
+        ),
+      );
     } catch (e) {
       final message = e.toString().replaceFirst('Exception: ', '');
       throw Exception(message);
@@ -654,9 +715,15 @@ class MatchService {
   }
 
   /// Add a ball to the match (score update)
-  Future<Map<String, dynamic>> addBall(String matchId, Map<String, dynamic> ballData) async {
+  Future<Map<String, dynamic>> addBall(
+    String matchId,
+    Map<String, dynamic> ballData,
+  ) async {
     try {
-      final response = await _apiClient.post('/scoring/match/$matchId/ball', data: ballData);
+      final response = await _apiClient.post(
+        '/scoring/match/$matchId/ball',
+        data: ballData,
+      );
       if (response.statusCode == 200 || response.statusCode == 201) {
         _cacheService.clearMatchCache(matchId);
         return response.data['data'] ?? {};
@@ -667,11 +734,94 @@ class MatchService {
     }
   }
 
+  Future<Map<String, dynamic>> getScoringRulesCatalogue() async {
+    try {
+      final response = await _apiClient.get('/scoring/rules');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data['data'] ?? {});
+      }
+      throw Exception(
+        response.data['message'] ?? 'Failed to get scoring rules',
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> applyRainDls(
+    String matchId,
+    Map<String, dynamic> rainData,
+  ) async {
+    try {
+      final response = await _apiClient.post(
+        '/scoring/match/$matchId/rain-dls',
+        data: rainData,
+      );
+      if (response.statusCode == 200) {
+        _cacheService.clearMatchCache(matchId);
+        return Map<String, dynamic>.from(response.data['data'] ?? {});
+      }
+      throw Exception(response.data['message'] ?? 'Failed to apply rain/DLS');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Undo the latest scored ball for a live match.
+  Future<Map<String, dynamic>> undoLastBall(String matchId) async {
+    try {
+      final response = await _apiClient.post(
+        '/scoring/match/$matchId/undo-last-ball',
+      );
+      if (response.statusCode == 200) {
+        _cacheService.clearMatchCache(matchId);
+        return response.data['data'] ?? {};
+      }
+      throw Exception(response.data['message'] ?? 'Failed to undo last ball');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> retireBatter(
+    String matchId,
+    Map<String, dynamic> retirement,
+  ) async {
+    final response = await _apiClient.post(
+      '/scoring/match/$matchId/batter/retire',
+      data: retirement,
+    );
+    if (response.statusCode == 200) {
+      _cacheService.clearMatchCache(matchId);
+      return Map<String, dynamic>.from(response.data['data'] ?? {});
+    }
+    throw Exception(response.data['message'] ?? 'Failed to retire batter');
+  }
+
+  Future<Map<String, dynamic>> updateInningsContinuation(
+    String matchId,
+    Map<String, dynamic> continuation,
+  ) async {
+    final response = await _apiClient.patch(
+      '/scoring/match/$matchId/innings/continuation',
+      data: continuation,
+    );
+    if (response.statusCode == 200) {
+      _cacheService.clearMatchCache(matchId);
+      return Map<String, dynamic>.from(response.data['data'] ?? {});
+    }
+    throw Exception(
+      response.data['message'] ?? 'Failed to update innings continuation',
+    );
+  }
+
   /// Start a new innings
   Future<void> startInnings(String matchId, int inningsNumber) async {
     try {
-      final response = await _apiClient.post('/scoring/match/$matchId/innings/start',
-        data: {'inningsNumber': inningsNumber});
+      final response = await _apiClient.post(
+        '/scoring/match/$matchId/innings/start',
+        data: {'inningsNumber': inningsNumber},
+      );
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(response.data['message'] ?? 'Failed to start innings');
       }
@@ -684,7 +834,9 @@ class MatchService {
   /// End current innings
   Future<void> endInnings(String matchId) async {
     try {
-      final response = await _apiClient.post('/scoring/match/$matchId/innings/end');
+      final response = await _apiClient.post(
+        '/scoring/match/$matchId/innings/end',
+      );
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(response.data['message'] ?? 'Failed to end innings');
       }
@@ -710,9 +862,13 @@ class MatchService {
   /// Set the striker (on-strike batsman)
   Future<void> setStriker(String matchId, String batsmanId) async {
     try {
-      final response = await _apiClient.patch('/scoring/match/$matchId/striker',
+      final response = await _apiClient.patch(
+        '/scoring/match/$matchId/striker',
         data: {'batsmanId': batsmanId},
-        options: Options(validateStatus: (status) => status != null && status >= 100));
+        options: Options(
+          validateStatus: (status) => status != null && status >= 100,
+        ),
+      );
       if (response.statusCode != 200) {
         final data = response.data;
         final message = data is Map ? data['message']?.toString() : null;
@@ -720,10 +876,39 @@ class MatchService {
       }
       _cacheService.clearMatchCache(matchId);
     } on DioException catch (e) {
-      throw Exception(_apiClient.parseDioError(
-        e,
-        defaultMessage: 'Failed to set striker. Please try again.',
-      ));
+      throw Exception(
+        _apiClient.parseDioError(
+          e,
+          defaultMessage: 'Failed to set striker. Please try again.',
+        ),
+      );
+    } catch (e) {
+      throw Exception(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  /// Atomically swap the current striker and non-striker.
+  Future<void> swapStrike(String matchId) async {
+    try {
+      final response = await _apiClient.patch(
+        '/scoring/match/$matchId/swap-strike',
+        options: Options(
+          validateStatus: (status) => status != null && status >= 100,
+        ),
+      );
+      if (response.statusCode != 200) {
+        final data = response.data;
+        final message = data is Map ? data['message']?.toString() : null;
+        throw Exception(message ?? 'Failed to swap strike');
+      }
+      _cacheService.clearMatchCache(matchId);
+    } on DioException catch (e) {
+      throw Exception(
+        _apiClient.parseDioError(
+          e,
+          defaultMessage: 'Failed to swap strike. Please try again.',
+        ),
+      );
     } catch (e) {
       throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
@@ -732,9 +917,13 @@ class MatchService {
   /// Set the non-striker
   Future<void> setNonStriker(String matchId, String batsmanId) async {
     try {
-      final response = await _apiClient.patch('/scoring/match/$matchId/non-striker',
+      final response = await _apiClient.patch(
+        '/scoring/match/$matchId/non-striker',
         data: {'batsmanId': batsmanId},
-        options: Options(validateStatus: (status) => status != null && status >= 100));
+        options: Options(
+          validateStatus: (status) => status != null && status >= 100,
+        ),
+      );
       if (response.statusCode != 200) {
         final data = response.data;
         final message = data is Map ? data['message']?.toString() : null;
@@ -742,10 +931,12 @@ class MatchService {
       }
       _cacheService.clearMatchCache(matchId);
     } on DioException catch (e) {
-      throw Exception(_apiClient.parseDioError(
-        e,
-        defaultMessage: 'Failed to set non-striker. Please try again.',
-      ));
+      throw Exception(
+        _apiClient.parseDioError(
+          e,
+          defaultMessage: 'Failed to set non-striker. Please try again.',
+        ),
+      );
     } catch (e) {
       throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
@@ -754,9 +945,13 @@ class MatchService {
   /// Set the current bowler
   Future<void> setBowler(String matchId, String bowlerId) async {
     try {
-      final response = await _apiClient.patch('/scoring/match/$matchId/bowler',
+      final response = await _apiClient.patch(
+        '/scoring/match/$matchId/bowler',
         data: {'bowlerId': bowlerId},
-        options: Options(validateStatus: (status) => status != null && status >= 100));
+        options: Options(
+          validateStatus: (status) => status != null && status >= 100,
+        ),
+      );
       if (response.statusCode != 200) {
         final data = response.data;
         final message = data is Map ? data['message']?.toString() : null;
@@ -764,10 +959,12 @@ class MatchService {
       }
       _cacheService.clearMatchCache(matchId);
     } on DioException catch (e) {
-      throw Exception(_apiClient.parseDioError(
-        e,
-        defaultMessage: 'Failed to set bowler. Please try again.',
-      ));
+      throw Exception(
+        _apiClient.parseDioError(
+          e,
+          defaultMessage: 'Failed to set bowler. Please try again.',
+        ),
+      );
     } catch (e) {
       throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
@@ -776,7 +973,9 @@ class MatchService {
   /// Get partnership details
   Future<Map<String, dynamic>> getPartnership(String matchId) async {
     try {
-      final response = await _apiClient.get('/scoring/match/$matchId/partnership');
+      final response = await _apiClient.get(
+        '/scoring/match/$matchId/partnership',
+      );
       if (response.statusCode == 200) {
         return response.data['data'] ?? {};
       }
@@ -789,20 +988,29 @@ class MatchService {
   /// Get fall of wickets
   Future<List<dynamic>> getFallOfWickets(String matchId) async {
     try {
-      final response = await _apiClient.get('/scoring/match/$matchId/fall-of-wickets');
+      final response = await _apiClient.get(
+        '/scoring/match/$matchId/fall-of-wickets',
+      );
       if (response.statusCode == 200) {
         return response.data['data'] ?? [];
       }
-      throw Exception(response.data['message'] ?? 'Failed to get fall of wickets');
+      throw Exception(
+        response.data['message'] ?? 'Failed to get fall of wickets',
+      );
     } catch (e) {
       rethrow;
     }
   }
 
   /// Get over summary for a specific over
-  Future<Map<String, dynamic>> getOverSummary(String matchId, int overNumber) async {
+  Future<Map<String, dynamic>> getOverSummary(
+    String matchId,
+    int overNumber,
+  ) async {
     try {
-      final response = await _apiClient.get('/scoring/match/$matchId/over-summary/$overNumber');
+      final response = await _apiClient.get(
+        '/scoring/match/$matchId/over-summary/$overNumber',
+      );
       if (response.statusCode == 200) {
         return response.data['data'] ?? {};
       }
@@ -812,24 +1020,35 @@ class MatchService {
     }
   }
 
-  /// Get all overs summary data
+  /// Over-by-over breakdown (runs/wickets per over) for the whole innings,
+  /// used by the live-scoring "Over Summary" panel.
   Future<List<Map<String, dynamic>>> getOverSummaryData(String matchId) async {
     try {
-      final response = await _apiClient.get('/scoring/match/$matchId/over-summary-data');
+      final response = await _apiClient.get(
+        '/scoring/match/$matchId/over-summary',
+      );
       if (response.statusCode == 200) {
-        final List data = response.data['data'] ?? [];
-        return data.cast<Map<String, dynamic>>();
+        final data = response.data['data'];
+        if (data is List) {
+          return data.whereType<Map>().map(Map<String, dynamic>.from).toList();
+        }
       }
-      throw Exception(response.data['message'] ?? 'Failed to get over summary data');
+      return const [];
     } catch (e) {
-      rethrow;
+      return const [];
     }
   }
 
   /// Update match result manually (scoring)
-  Future<Map<String, dynamic>> updateMatchResult(String matchId, Map<String, dynamic> resultData) async {
+  Future<Map<String, dynamic>> updateMatchResult(
+    String matchId,
+    Map<String, dynamic> resultData,
+  ) async {
     try {
-      final response = await _apiClient.post('/scoring/match/$matchId/result', data: resultData);
+      final response = await _apiClient.post(
+        '/scoring/match/$matchId/result',
+        data: resultData,
+      );
       if (response.statusCode == 200) {
         _cacheService.clearMatchCache(matchId);
         return response.data['data'] ?? {};
@@ -847,7 +1066,9 @@ class MatchService {
       if (response.statusCode == 200) {
         return response.data['data'] ?? {};
       }
-      throw Exception(response.data['message'] ?? 'Failed to get match scoring');
+      throw Exception(
+        response.data['message'] ?? 'Failed to get match scoring',
+      );
     } catch (e) {
       rethrow;
     }
@@ -860,7 +1081,9 @@ class MatchService {
       if (response.statusCode == 200) {
         return response.data['data'] ?? {};
       }
-      throw Exception(response.data['message'] ?? 'Failed to get match timeline');
+      throw Exception(
+        response.data['message'] ?? 'Failed to get match timeline',
+      );
     } catch (e) {
       rethrow;
     }

@@ -14,6 +14,16 @@ class PlayerSearchScreen extends StatefulWidget {
   State<PlayerSearchScreen> createState() => _PlayerSearchScreenState();
 }
 
+bool _isSafeAvatarUrl(String? value) {
+  final url = value?.trim();
+  if (url == null || url.isEmpty || url == 'default-avatar-url') return false;
+  final uri = Uri.tryParse(url);
+  return uri != null &&
+      uri.hasScheme &&
+      (uri.scheme == 'http' || uri.scheme == 'https') &&
+      uri.host.isNotEmpty;
+}
+
 class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -386,6 +396,7 @@ class _PublicPlayerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = _titleCase(player.playerType);
     final avatarUrl = player.avatar?.url;
+    final safeAvatarUrl = _isSafeAvatarUrl(avatarUrl) ? avatarUrl : null;
     final cityParts = [
       if (player.city?.isNotEmpty == true) player.city!,
       if (player.state?.isNotEmpty == true) player.state!,
@@ -430,10 +441,10 @@ class _PublicPlayerCard extends StatelessWidget {
                   child: CircleAvatar(
                     radius: 30,
                     backgroundColor: Colors.white,
-                    backgroundImage: avatarUrl != null && avatarUrl != 'default-avatar-url'
-                        ? NetworkImage(avatarUrl)
+                    backgroundImage: safeAvatarUrl != null
+                        ? NetworkImage(safeAvatarUrl)
                         : null,
-                    child: avatarUrl == null || avatarUrl == 'default-avatar-url'
+                    child: safeAvatarUrl == null
                         ? Text(
                             player.fullName.isNotEmpty ? player.fullName[0].toUpperCase() : 'P',
                             style: TextStyle(
@@ -625,6 +636,7 @@ class _PublicPlayerProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatarUrl = player.avatar?.url;
+    final safeAvatarUrl = _isSafeAvatarUrl(avatarUrl) ? avatarUrl : null;
     final type = _PublicPlayerCard._titleCase(player.playerType);
     final location = [
       if (player.city?.isNotEmpty == true) player.city!,
@@ -657,10 +669,10 @@ class _PublicPlayerProfileScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 38,
                   backgroundColor: AppColors.primary.withOpacity(0.1),
-                  backgroundImage: avatarUrl != null && avatarUrl != 'default-avatar-url'
-                      ? NetworkImage(avatarUrl)
+                  backgroundImage: safeAvatarUrl != null
+                      ? NetworkImage(safeAvatarUrl)
                       : null,
-                  child: avatarUrl == null || avatarUrl == 'default-avatar-url'
+                  child: safeAvatarUrl == null
                       ? Text(
                           player.fullName.isNotEmpty ? player.fullName[0].toUpperCase() : 'P',
                           style: TextStyle(

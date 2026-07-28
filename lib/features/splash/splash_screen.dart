@@ -99,181 +99,179 @@ class _SplashScreenState extends State<SplashScreen>
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF050B18),
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-
-          /// TOP GLOW
           Positioned(
-            top: -120,
-            right: -80,
-            child: _GlowCircle(
-              size: size.width * 0.7,
-              color: Colors.blueAccent,
-            ),
+            top: -90,
+            right: -70,
+            child: _SoftCircle(size: size.width * 0.62, color: AppColors.primary),
           ),
-
-          /// BOTTOM GLOW
           Positioned(
             bottom: -120,
             left: -100,
-            child: _GlowCircle(
-              size: size.width * 0.8,
-              color: AppColors.primary,
-            ),
+            child: _SoftCircle(size: size.width * 0.72, color: AppColors.secondary),
           ),
-
-          /// ROTATING LIGHT
-          Center(
-            child: RotationTransition(
-              turns: _rotateController,
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: SweepGradient(
-                    colors: [
-                      Colors.transparent,
-                      AppColors.primary.withOpacity(0.3),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
+          Positioned(
+            top: size.height * 0.14,
+            left: 20,
+            right: 20,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: CustomPaint(
+                painter: _PitchLinesPainter(),
+                child: const SizedBox(height: 190),
               ),
             ),
           ),
-
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
-
-                  const Spacer(),
-
-                  /// LOGO ANIMATION
+                  const Spacer(flex: 2),
                   FadeTransition(
                     opacity: _fadeAnimation,
                     child: ScaleTransition(
                       scale: _scaleAnimation,
                       child: Container(
-                        height: 120,
-                        width: 120,
+                        height: 126,
+                        width: 126,
+                        padding: const EdgeInsets.all(13),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(30),
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.primary,
-                              Colors.blueAccent,
-                            ],
-                          ),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(32),
+                          border: Border.all(color: const Color(0xFFE8EEFF), width: 1.2),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primary.withOpacity(0.45),
-                              blurRadius: 35,
-                              spreadRadius: 4,
+                              color: AppColors.primary.withOpacity(0.18),
+                              blurRadius: 34,
+                              offset: const Offset(0, 16),
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.sports_cricket_rounded,
-                          color: Colors.white,
-                          size: 60,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  /// APP NAME
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: const Text(
-                      "Scores11",
-                      style: TextStyle(
-                        fontSize: 38,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Text(
-                      "Live Cricket Scores & Match Updates",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 45),
-
-                  /// LOADING
-                  SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
-                      ),
-                      backgroundColor: Colors.white.withOpacity(0.1),
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  /// FOOTER CARD
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(40),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.08),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-
-                        Container(
-                          width: 9,
-                          height: 9,
-                          decoration: const BoxDecoration(
-                            color: Colors.greenAccent,
-                            shape: BoxShape.circle,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.primary, AppColors.primaryDark],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Center(
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              width: 72,
+                              height: 72,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.sports_cricket_rounded,
+                                color: Colors.white,
+                                size: 58,
+                              ),
+                            ),
                           ),
                         ),
-
-                        const SizedBox(width: 10),
-
-                        Text(
-                          "Loading your cricket experience...",
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 26),
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Scores11',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.75),
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 40,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: AppColors.primarySoft,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.12)),
+                          ),
+                          child: const Text(
+                            'Live cricket, teams and scoring',
+                            style: TextStyle(
+                              color: AppColors.primaryDark,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 34),
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFF),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFE8EEFF)),
+                      ),
+                      child: const Row(
+                        children: [
+                          _SplashStat(icon: Icons.circle, label: 'Live', value: 'Scores'),
+                          _SplashDivider(),
+                          _SplashStat(icon: Icons.groups_rounded, label: 'Clubs', value: 'Teams'),
+                          _SplashDivider(),
+                          _SplashStat(icon: Icons.emoji_events_rounded, label: 'Pro', value: 'Cricket'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Spacer(flex: 3),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: const Color(0xFFE8EEFF)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                            backgroundColor: AppColors.primary.withOpacity(0.10),
+                          ),
+                        ),
+                        const SizedBox(width: 11),
+                        const Text(
+                          'Preparing your cricket feed...',
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 26),
                 ],
               ),
             ),
@@ -284,11 +282,65 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-class _GlowCircle extends StatelessWidget {
+class _SplashStat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _SplashStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.primary, size: 18),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SplashDivider extends StatelessWidget {
+  const _SplashDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 38,
+      color: const Color(0xFFE8EEFF),
+    );
+  }
+}
+
+class _SoftCircle extends StatelessWidget {
   final double size;
   final Color color;
 
-  const _GlowCircle({
+  const _SoftCircle({
     required this.size,
     required this.color,
   });
@@ -302,12 +354,55 @@ class _GlowCircle extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: RadialGradient(
           colors: [
-            color.withOpacity(0.25),
-            color.withOpacity(0.05),
+            color.withOpacity(0.13),
+            color.withOpacity(0.04),
             Colors.transparent,
           ],
         ),
       ),
     );
   }
+}
+
+class _PitchLinesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fieldPaint = Paint()
+      ..color = AppColors.primary.withOpacity(0.045)
+      ..style = PaintingStyle.fill;
+    final borderPaint = Paint()
+      ..color = AppColors.primary.withOpacity(0.14)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    final linePaint = Paint()
+      ..color = AppColors.primary.withOpacity(0.10)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 8, size.width, size.height - 16),
+      const Radius.circular(34),
+    );
+    canvas.drawRRect(rect, fieldPaint);
+    canvas.drawRRect(rect, borderPaint);
+
+    final center = Offset(size.width / 2, size.height / 2);
+    canvas.drawCircle(center, 58, linePaint);
+    canvas.drawLine(Offset(size.width / 2, 26), Offset(size.width / 2, size.height - 26), linePaint);
+
+    final pitch = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: center, width: 54, height: 118),
+      const Radius.circular(18),
+    );
+    canvas.drawRRect(
+      pitch,
+      Paint()
+        ..color = const Color(0xFF43A047).withOpacity(0.07)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawRRect(pitch, linePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

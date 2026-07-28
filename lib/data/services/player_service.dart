@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../../core/services/cache_service.dart';
 import '../../data/models/player_model.dart';
+import '../../data/models/match_model.dart';
 
 class PaginatedPlayers {
   final List<Player> players;
@@ -280,6 +282,80 @@ class PlayerService {
     }
   }
 
+  Future<Map<String, dynamic>> getFullPlayerProfile(String id) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.baseUrl}/players/public/$id/full-profile',
+      );
+      if (response.statusCode == 200) {
+        final data = response.data['data'] ?? response.data;
+        if (data is Map) return Map<String, dynamic>.from(data);
+      }
+      throw Exception(response.data['message'] ?? 'Player profile not found');
+    } on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  /// Get public player matches.
+  Future<List<Match>> getPlayerMatches(String id, {int page = 1, int limit = 10}) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.baseUrl}/players/public/$id/matches',
+        queryParameters: {'page': page, 'limit': limit, 'type': 'feed'},
+      );
+
+      if (response.statusCode == 200) {
+        final raw = _extractPlayerList(response.data);
+        return raw
+            .whereType<Map>()
+            .map((json) => Match.fromJson(Map<String, dynamic>.from(json)))
+            .where((match) => match.id.isNotEmpty)
+            .toList();
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load player matches');
+    } on DioException catch (e) {
+      debugPrint('Player matches API error: ${_apiClient.parseDioError(e)}');
+      return const [];
+    } catch (e) {
+      debugPrint('Player matches parse error: $e');
+      return const [];
+    }
+  }
+
+  Future<bool> optOutFromMatch(String playerId, String matchId) async {
+    try {
+      final response = await _apiClient.patch(
+        '${ApiConfig.baseUrl}/players/public/$playerId/matches/$matchId/opt-out',
+      );
+      return response.statusCode == 200;
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(e));
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  /// Get live stats for a player and tolerate different API wrappers.
+  Future<PlayerStats?> getPlayerStats(String id) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.baseUrl}/players/$id/stats');
+      if (response.statusCode == 200) {
+        final raw = response.data is Map ? response.data['data'] ?? response.data : null;
+        if (raw is Map) {
+          final stats = raw['stats'] is Map ? raw['stats'] : raw;
+          return PlayerStats.fromJson(Map<String, dynamic>.from(stats as Map));
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Get trending players
   Future<List<Player>> getTrendingPlayers({int limit = 10}) async {
     try {
@@ -305,6 +381,7 @@ class PlayerService {
     String? bowlingStyle,
     String? team,
     int? jerseyNumber,
+    String? email,
     String? phone,
     String? dateOfBirth,
     String? nationality,
@@ -348,6 +425,7 @@ class PlayerService {
         'bowlingStyle': bowlingStyleMap[bowlingStyle?.toLowerCase()] ?? bowlingStyle ?? 'none',
         if (team != null && team.isNotEmpty) 'team': team,
         if (jerseyNumber != null) 'jerseyNumber': jerseyNumber,
+        if (email != null && email.isNotEmpty) 'email': email,
         if (phone != null && phone.isNotEmpty) 'phone': phone,
         if (dateOfBirth != null && dateOfBirth.isNotEmpty) 'dateOfBirth': dateOfBirth,
         if (nationality != null && nationality.isNotEmpty) 'nationality': nationality,

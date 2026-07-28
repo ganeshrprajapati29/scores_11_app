@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/services/user_service.dart';
-import '../../../core/widgets/custom_appbar.dart';
-import '../../../data/services/chat_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/services/user_service.dart';
+import '../../core/widgets/custom_appbar.dart';
+import '../../data/services/chat_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -22,7 +22,6 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final ChatService _chatService = ChatService();
-  final UserService _userService = UserService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>> _messages = [];
@@ -61,7 +60,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     setState(() => _isLoading = true);
     try {
-      _messages = await _chatService.getMessages(_chatId);
+      _messages = (await _chatService.getMessages(_chatId)).reversed.toList();
       _scrollToBottom();
     } catch (e) {
       if (mounted) {
@@ -98,7 +97,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _chatId = chatInfo['chatId']?.toString() ?? '';
       }
       if (_chatId.isEmpty) {
-        _messages.add({
+        _messages.insert(0, {
           'text': text,
           'senderId': _currentUserId,
           'timestamp': DateTime.now().toIso8601String(),
@@ -123,11 +122,39 @@ class _ChatScreenState extends State<ChatScreen> {
   String? get _receiverId =>
       (widget.otherUser['_id'] ?? widget.otherUser['id'] ?? widget.otherUser['userId'])?.toString();
 
+  String get _otherName {
+    for (final key in const ['name', 'fullName', 'playerName', 'username']) {
+      final value = widget.otherUser[key]?.toString().trim();
+      if (value != null && value.isNotEmpty && value.toLowerCase() != 'unknown') return value;
+    }
+    return 'Player';
+  }
+
+  String? get _otherAvatarUrl {
+    String? clean(String? value) {
+      final url = value?.trim();
+      if (url == null || url.isEmpty || url == 'default-avatar-url') return null;
+      final uri = Uri.tryParse(url);
+      if (uri == null || !(uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty)) {
+        return null;
+      }
+      return url;
+    }
+
+    final avatar = widget.otherUser['avatar'];
+    if (avatar is String) return clean(avatar);
+    if (avatar is Map) return clean(avatar['url']?.toString());
+    final profileImage = widget.otherUser['profileImage'];
+    if (profileImage is String) return clean(profileImage);
+    if (profileImage is Map) return clean(profileImage['url']?.toString());
+    return clean(widget.otherUser['photo']?.toString());
+  }
+
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          _scrollController.position.minScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -142,10 +169,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   bool _isMessageFromMe(Map<String, dynamic> message) {
-    final senderId = message['sender']['_id']?.toString() ?? 
-                    message['sender']['id']?.toString() ?? 
-                    message['senderId'];
-    return senderId == _currentUserId;
+    final sender = message['sender'];
+    final senderId = sender is Map
+        ? (sender['_id'] ?? sender['id'])?.toString()
+        : (message['senderId'] ?? message['sender'])?.toString();
+    return senderId != null && senderId == _currentUserId;
   }
 
   String _formatTime(DateTime time) {
@@ -158,90 +186,130 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final otherName = widget.otherUser['name'] ?? widget.otherUser['fullName'] ?? 'Chat';
+    final otherName = _otherName;
+    final avatarUrl = _otherAvatarUrl;
 
     return Scaffold(
       appBar: CustomAppBar(
         title: otherName,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.phone),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.videocam),
-            onPressed: () {},
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.primary.withOpacity(0.12),
+              backgroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl),
+              child: avatarUrl == null
+                  ? Text(
+                      otherName.isNotEmpty ? otherName[0].toUpperCase() : 'P',
+                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800),
+                    )
+                  : null,
+            ),
           ),
         ],
       ),
+      backgroundColor: const Color(0xFFF5F7FA),
       body: Column(
         children: [
           Expanded(
-            child: _isLoading && _messages.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _messages.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Start the conversation!',
+            child: Stack(
+              children: [
+                Center(
+                  child: Opacity(
+                    opacity: 0.045,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.sports_cricket_rounded, size: 92, color: AppColors.primary),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Scores11',
                           style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 16,
+                            color: AppColors.primary,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
                           ),
                         ),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        reverse: true,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final msg = _messages[index];
-                          final isMe = _isMessageFromMe(msg);
-                          final time = msg['timestamp'] != null 
-                              ? DateTime.parse(msg['timestamp']).toLocal()
-                              : DateTime.now().toLocal();
-
-                          return Align(
-                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: isMe ? AppColors.primary : Colors.grey[200],
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(20),
-                                  topRight: const Radius.circular(20),
-                                  bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(4),
-                                  bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(20),
-                                ),
-                              ),
-                              child: Column(
-crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    msg['text'] ?? '',
-                                    style: TextStyle(
-                                      color: isMe ? Colors.white : Colors.black87,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _formatTime(time),
-                                    style: TextStyle(
-                                      color: isMe ? Colors.white70 : Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
+                      ],
+                    ),
+                  ),
+                ),
+                _isLoading && _messages.isEmpty
+                    ? const Center(child: CircularProgressIndicator())
+                    : _messages.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Start the conversation!',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 16,
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            reverse: true,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _messages.length,
+                            itemBuilder: (context, index) {
+                              final msg = _messages[index];
+                              final isMe = _isMessageFromMe(msg);
+                              final parsedTime = DateTime.tryParse(msg['timestamp']?.toString() ?? '');
+                              final time = (parsedTime ?? DateTime.now()).toLocal();
+
+                              return Align(
+                                alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
+                                  decoration: BoxDecoration(
+                                    color: isMe ? AppColors.primary : Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.04),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(20),
+                                      topRight: const Radius.circular(20),
+                                      bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(4),
+                                      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(20),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        msg['text'] ?? '',
+                                        style: TextStyle(
+                                          color: isMe ? Colors.white : Colors.black87,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _formatTime(time),
+                                        style: TextStyle(
+                                          color: isMe ? Colors.white70 : Colors.grey[600],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+              ],
+            ),
           ),
           Container(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
             decoration: const BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -262,15 +330,15 @@ crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius: BorderRadius.circular(18),
                           borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius: BorderRadius.circular(18),
                           borderSide: BorderSide(color: Colors.grey[300]!),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius: BorderRadius.circular(18),
                           borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
                         ),
                         filled: true,

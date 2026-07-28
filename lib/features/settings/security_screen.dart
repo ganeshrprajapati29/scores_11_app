@@ -7,7 +7,6 @@ import '../../../core/widgets/custom_appbar.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../data/services/settings_service.dart';
-import '../../../core/constants/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 
 class SecurityScreen extends StatefulWidget {
@@ -66,18 +65,6 @@ builder: (context) => CustomLoader(),
               children: [
                 _buildSection('Account Security'),
                 _buildSwitchTile('Two-Factor Authentication', Icons.security, _twoFactorEnabled, _toggleTwoFactor),
-                const SizedBox(height: 24),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                    child: Icon(Icons.lock, color: AppColors.error),
-                  ),
-                  title: Text('Change Password', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('Update your account password'),
-                  trailing: Icon(Icons.chevron_right),
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.changePassword),
-                ),
                 const SizedBox(height: 24),
                 _buildSection('Reset'),
                 CustomButton(

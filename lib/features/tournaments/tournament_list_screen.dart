@@ -379,7 +379,10 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   Widget _buildFAB() {
     return FloatingActionButton.extended(
       heroTag: 'tournament_list_create',
-      onPressed: () => Navigator.pushNamed(context, '/create-tournament'),
+      onPressed: () async {
+        final created = await Navigator.pushNamed(context, '/create-tournament');
+        if (created == true) _loadTournaments();
+      },
       icon: const Icon(Icons.add_rounded, size: 20),
       label: const Text(
         'Create Tournament',

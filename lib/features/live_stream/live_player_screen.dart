@@ -6,7 +6,10 @@ import 'package:video_player/video_player.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../data/models/live_stream_model.dart';
+import '../../data/models/match_model.dart' as match_model;
+import '../../data/models/scorecard_model.dart' as scorecard_model;
 import '../../data/services/live_stream_service.dart';
+import '../../data/services/match_service.dart';
 
 class LivePlayerScreen extends StatefulWidget {
   final String streamId;
@@ -24,14 +27,17 @@ class LivePlayerScreen extends StatefulWidget {
 
 class _LivePlayerScreenState extends State<LivePlayerScreen> {
   LiveStreamModel? _stream;
+  scorecard_model.FullScorecard? _scorecard;
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
   YoutubePlayerController? _youtubeController;
+  final MatchService _matchService = MatchService();
   Timer? _pollTimer;
 
   bool _isLoading = true;
   bool _isPlayerLoading = false;
   String? _error;
+  String? _scorecardError;
   String? _currentUrl;
 
   @override
@@ -66,6 +72,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
 
       await _tryInitPlayer(stream);
       _tryInitYoutubePlayer(stream);
+      await _loadLinkedScorecard(stream.matchId);
       _startStreamPolling();
     } catch (e) {
       if (!mounted) return;
@@ -93,10 +100,30 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
 
         await _tryInitPlayer(updated);
         _tryInitYoutubePlayer(updated);
+        await _loadLinkedScorecard(updated.matchId);
       } catch (e) {
         debugPrint('Live stream polling error: $e');
       }
     });
+  }
+
+  Future<void> _loadLinkedScorecard(String? matchId) async {
+    if (matchId == null || matchId.trim().isEmpty) return;
+    try {
+      final match = await _matchService.getMatchById(matchId, forceRefresh: true);
+      final raw = await _matchService.getFullScorecard(matchId, match: match);
+      final data = Map<String, dynamic>.from(raw);
+      data['match'] ??= match.toJson();
+      final scorecard = scorecard_model.FullScorecard.fromJson(data);
+      if (!mounted) return;
+      setState(() {
+        _scorecard = scorecard;
+        _scorecardError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _scorecardError = e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   Future<void> _tryInitPlayer(LiveStreamModel stream) async {
@@ -218,10 +245,19 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            Positioned.fill(child: _buildPlayerBody(stream)),
-            _buildTopBar(stream),
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildPlayerBody(stream),
+                  _buildTopBar(stream),
+                ],
+              ),
+            ),
+            Expanded(child: _buildScorecardPanel(stream)),
           ],
         ),
       ),
@@ -269,6 +305,236 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
           ? 'Opening YouTube live player. Please check that the YouTube live URL is public or unlisted.'
           : 'The stream is live. Video playback will start as soon as HLS is ready.',
       showLoader: true,
+    );
+  }
+
+  Widget _buildScorecardPanel(LiveStreamModel stream) {
+    final matchId = stream.matchId;
+    if (matchId == null || matchId.isEmpty) {
+      return _darkPanel(
+        child: _scoreMessage(
+          icon: Icons.scoreboard_outlined,
+          title: 'No match linked',
+          message: 'Select a match while creating the live stream to show the live scorecard here.',
+        ),
+      );
+    }
+
+    if (_scorecardError != null && _scorecard == null) {
+      return _darkPanel(
+        child: _scoreMessage(
+          icon: Icons.error_outline_rounded,
+          title: 'Scorecard unavailable',
+          message: _scorecardError!,
+          action: TextButton.icon(
+            onPressed: () => _loadLinkedScorecard(matchId),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
+          ),
+        ),
+      );
+    }
+
+    final scorecard = _scorecard;
+    if (scorecard == null) {
+      return _darkPanel(
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4),
+        ),
+      );
+    }
+
+    final innings = scorecard.innings.isNotEmpty ? scorecard.innings.last : null;
+    final batting = scorecard.batting.isNotEmpty ? scorecard.batting.last.take(4).toList() : <scorecard_model.BatsmanStats>[];
+    final bowling = scorecard.bowling.isNotEmpty ? scorecard.bowling.last.take(3).toList() : <scorecard_model.BowlerStats>[];
+
+    return _darkPanel(
+      child: RefreshIndicator(
+        onRefresh: () => _loadLinkedScorecard(matchId),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.scoreboard_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Live Scorecard',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pushNamed(context, '/scorecard', arguments: matchId),
+                  child: const Text('Full'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _scoreHeader(scorecard, innings),
+            const SizedBox(height: 14),
+            _tableTitle('Batting'),
+            if (batting.isEmpty)
+              _emptyScoreLine('Batting card will update after first ball.')
+            else
+              ...batting.map(_batterRow),
+            const SizedBox(height: 14),
+            _tableTitle('Bowling'),
+            if (bowling.isEmpty)
+              _emptyScoreLine('Bowling figures will update live.')
+            else
+              ...bowling.map(_bowlerRow),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _darkPanel({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF0F172A),
+      child: child,
+    );
+  }
+
+  Widget _scoreHeader(
+    scorecard_model.FullScorecard scorecard,
+    match_model.Innings? innings,
+  ) {
+    final match = scorecard.match;
+    final score = innings == null
+        ? '${scorecard.runs ?? 0}/${scorecard.wickets ?? 0}'
+        : '${innings.totalRuns}/${innings.totalWickets} (${innings.oversDisplay})';
+    final runRate = innings?.runRate ?? scorecard.runRate ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${match.team1} vs ${match.team2}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  score,
+                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900),
+                ),
+              ),
+              _scorePill('RR ${runRate.toStringAsFixed(2)}'),
+              const SizedBox(width: 8),
+              _scorePill(match.status.toUpperCase()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scorePill(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w800)),
+    );
+  }
+
+  Widget _tableTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
+    );
+  }
+
+  Widget _batterRow(scorecard_model.BatsmanStats batter) {
+    return _scoreRow(
+      name: batter.playerName,
+      value: '${batter.runs} (${batter.balls})',
+      meta: '4s ${batter.fours}  6s ${batter.sixes}  SR ${batter.strikeRate.toStringAsFixed(1)}',
+    );
+  }
+
+  Widget _bowlerRow(scorecard_model.BowlerStats bowler) {
+    return _scoreRow(
+      name: bowler.playerName,
+      value: '${bowler.wickets}/${bowler.runs}',
+      meta: 'Overs ${bowler.oversDisplay}  Eco ${bowler.economy.toStringAsFixed(1)}',
+    );
+  }
+
+  Widget _scoreRow({required String name, required String value, required String meta}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 3),
+                Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+              ],
+            ),
+          ),
+          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyScoreLine(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(text, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+    );
+  }
+
+  Widget _scoreMessage({
+    required IconData icon,
+    required String title,
+    required String message,
+    Widget? action,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white54, size: 38),
+            const SizedBox(height: 12),
+            Text(title, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4)),
+            if (action != null) ...[
+              const SizedBox(height: 10),
+              action,
+            ],
+          ],
+        ),
+      ),
     );
   }
 

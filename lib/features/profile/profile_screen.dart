@@ -14,6 +14,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/profile_avatar.dart';
 import '../../data/services/user_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/utils/logout_helper.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ProfileScreen extends StatefulWidget {
@@ -64,43 +65,88 @@ class _ProfileScreenState extends State<ProfileScreen>
     _loadProfileData();
   }
 
+  dynamic _decodeApiData(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return jsonDecode(value);
+    }
+    return value;
+  }
+
+  int _countFrom(dynamic value, String key) {
+    final data = _decodeApiData(value);
+    if (data is List) return data.length;
+    if (data is Map) {
+      final nested = data[key] ?? data['data'] ?? data['items'];
+      if (nested is List) return nested.length;
+      if (nested is num) return nested.toInt();
+      final total = data['total'] ?? data['count'];
+      if (total is num) return total.toInt();
+    }
+    return 0;
+  }
+
+  List<Map<String, dynamic>> _equipmentFrom(dynamic value) {
+    final data = _decodeApiData(value);
+    final raw = data is List
+        ? data
+        : data is Map
+            ? data['equipment'] ?? data['data'] ?? data['items']
+            : null;
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
   // ── Data loading ──────────────────────────────────────────────────────────────
   Future<void> _loadProfileData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
+      await context.read<AuthProvider>().checkAuth();
+
+      final fullProfileResult = await _userService.getFullProfile();
+      if (fullProfileResult['success'] == true && mounted) {
+        final data = _decodeApiData(fullProfileResult['data']);
+        if (data is Map) {
+          final social = data['social'];
+          final stats = data['stats'];
+          final user = data['user'];
+          setState(() {
+            _profileViews = _countFrom(social is Map ? social : stats, 'profileViews');
+            _followers = _countFrom(social is Map ? social : data, 'followers');
+            _following = _countFrom(social is Map ? social : data, 'following');
+            _equipment = _equipmentFrom(data['equipment']);
+            if (user is Map) {
+              _selectedPlayingStyle =
+                  user['playingStyle']?.toString() ??
+                  user['cricketProfile']?['playingStyle']?.toString() ??
+                  _selectedPlayingStyle;
+            }
+          });
+        }
+      }
+
       final viewsResult = await _userService.getProfileViews();
       if (viewsResult['success'] == true && mounted) {
-        dynamic dataRaw = viewsResult['data'];
-        dynamic data = dataRaw is String ? jsonDecode(dataRaw) : dataRaw;
-        data = data is Map<String, dynamic> ? data : {};
-        setState(() => _profileViews = (data['views'] as int?) ?? 0);
+        setState(() => _profileViews = _countFrom(viewsResult['data'], 'views'));
       }
 
       final followersResult = await _userService.getFollowers();
       if (followersResult['success'] == true && mounted) {
-        dynamic dataRaw = followersResult['data'];
-        dynamic data = dataRaw is String ? jsonDecode(dataRaw) : dataRaw;
-        data = data is Map<String, dynamic> ? data : {};
-        setState(() => _followers = (data['followers'] as List?)?.length ?? 0);
+        setState(() => _followers = _countFrom(followersResult['data'], 'followers'));
       }
 
       final followingResult = await _userService.getFollowing();
       if (followingResult['success'] == true && mounted) {
-        dynamic dataRaw = followingResult['data'];
-        dynamic data = dataRaw is String ? jsonDecode(dataRaw) : dataRaw;
-        data = data is Map<String, dynamic> ? data : {};
-        setState(() => _following = (data['following'] as List?)?.length ?? 0);
+        setState(() => _following = _countFrom(followingResult['data'], 'following'));
       }
 
       final equipmentResult = await _userService.getEquipment();
       if (equipmentResult['success'] == true && mounted) {
-        dynamic dataRaw = equipmentResult['data'];
-        dynamic data = dataRaw is String ? jsonDecode(dataRaw) : dataRaw;
-        data = data is Map<String, dynamic> ? data : {};
-        setState(() => _equipment =
-            List<Map<String, dynamic>>.from(data['equipment'] ?? []));
+        setState(() => _equipment = _equipmentFrom(equipmentResult['data']));
       }
     } catch (e) {
       debugPrint('Error loading profile data: $e');
@@ -261,8 +307,23 @@ class _ProfileScreenState extends State<ProfileScreen>
   // ── QR Code ───────────────────────────────────────────────────────────────────
   void _showQRCode() {
     final authProvider = context.read<AuthProvider>();
-    final userId = authProvider.user?.id ?? '';
-    final userName = authProvider.user?.name ?? 'User';
+    final user = authProvider.user;
+    final userId = user?.id ?? '';
+    final userName = user?.name ?? 'User';
+    final playerId = (user?.cricketProfile?['playerId'] ??
+            user?.cricketProfile?['_id'] ??
+            userId)
+        .toString();
+    final qrData = Uri(
+      scheme: 'scores11',
+      host: 'profile',
+      path: userId,
+      queryParameters: {
+        'playerId': playerId,
+        'name': userName,
+        'app': 'scores11',
+      },
+    ).toString();
 
     showModalBottomSheet(
       context: context,
@@ -286,7 +347,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
             const SizedBox(height: 20),
             const Text(
-              'My QR Code',
+              'Scores11 QR',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -295,7 +356,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ),
             Text(
-              'Scan to view profile',
+              'Scan to view profile or add player',
               style: TextStyle(
                 fontSize: 13,
                 color: Colors.grey.shade500,
@@ -305,7 +366,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             RepaintBoundary(
               key: _qrKey,
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -318,11 +379,64 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                   ],
                 ),
-                child: QrImageView(
-                  data: 'scores11://user/$userId',
-                  version: QrVersions.auto,
-                  size: 180,
-                  backgroundColor: Colors.white,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.sports_cricket,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Scores11',
+                          style: TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    QrImageView(
+                      data: qrData,
+                      version: QrVersions.auto,
+                      size: 190,
+                      backgroundColor: Colors.white,
+                      embeddedImage: const AssetImage('assets/images/logo.png'),
+                      embeddedImageStyle: const QrEmbeddedImageStyle(
+                        size: Size(34, 34),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'scores11://profile/$userId',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -377,7 +491,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       final buffer = byteData.buffer.asUint8List();
       await Share.shareXFiles(
         [XFile.fromData(buffer, mimeType: 'image/png')],
-        text: 'Check out my Scores11 profile!',
+        text: 'Scan my Scores11 QR to view my cricket profile and connect.',
       );
     } catch (e) {
       debugPrint('Error sharing QR: $e');
@@ -434,6 +548,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                       setState(() => _selectedPlayingStyle = style);
                       setModal(() {});
                       await _userService.updatePlayingStyle(style);
+                      // Completing the cricket profile may have just
+                      // promoted this account to the 'player' role server
+                      // side; refresh so nav updates without a re-login.
+                      if (mounted) {
+                        await context.read<AuthProvider>().checkAuth();
+                      }
                       if (mounted) Navigator.pop(ctx);
                     },
                     child: AnimatedContainer(
@@ -1315,12 +1435,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                   );
                 }
               },
-            ),
-            _buildMenuItem(
-              icon: Icons.lock_outline_rounded,
-              title: 'Change Password',
-              onTap: () =>
-                  Navigator.pushNamed(context, '/change-password'),
               isLast: true,
             ),
           ]),
@@ -1383,9 +1497,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                 content: 'Are you sure you want to logout?',
                 confirmLabel: 'Logout',
                 confirmColor: AppColors.error,
-                onConfirm: () {
-                  context.read<AuthProvider>().logout();
-                  Navigator.pushReplacementNamed(context, '/login');
+                onConfirm: () async {
+                  await performLogout(context);
+                  if (!context.mounted) return;
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/login',
+                    (route) => false,
+                  );
                 },
               ),
             ),
@@ -1397,14 +1516,19 @@ class _ProfileScreenState extends State<ProfileScreen>
               onTap: () => _confirmAction(
                 title: 'Delete Account',
                 content:
-                    'Are you sure you want to delete your account? This cannot be undone.',
+                    'Are you sure you want to delete your account? Your profile will be deactivated immediately and all your data will be permanently removed within 30 days. This cannot be undone.',
                 confirmLabel: 'Delete',
                 confirmColor: const Color(0xFFDC2626),
                 onConfirm: () async {
                   final r = await _userService.deleteAccount();
                   if (mounted && r['success'] == true) {
-                    context.read<AuthProvider>().logout();
-                    Navigator.pushReplacementNamed(context, '/login');
+                    await performLogout(context);
+                    if (!context.mounted) return;
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                      (route) => false,
+                    );
                   }
                 },
               ),

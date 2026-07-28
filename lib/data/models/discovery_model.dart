@@ -40,25 +40,44 @@ class DiscoveryItem {
   });
 
   factory DiscoveryItem.fromJson(Map<String, dynamic> json) {
+    double? asDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      return double.tryParse(value.toString());
+    }
+
+    int asInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value.toString()) ?? 0;
+    }
+
+    Map<String, dynamic>? asMap(dynamic value) {
+      if (value is Map<String, dynamic>) return value;
+      if (value is Map) return Map<String, dynamic>.from(value);
+      return null;
+    }
+
     return DiscoveryItem(
       id: json['_id'] ?? json['id'] ?? '',
       type: json['type'] ?? '',
       name: json['name'] ?? '',
       location: json['location'] ?? '',
-      latitude: json['latitude']?.toDouble(),
-      longitude: json['longitude']?.toDouble(),
+      latitude: asDouble(json['latitude']),
+      longitude: asDouble(json['longitude']),
       image: json['image'],
-      rating: (json['rating'] ?? 0).toDouble(),
+      rating: asDouble(json['rating']) ?? 0,
       isPro: json['isPro'] ?? false,
       isVerified: json['isVerified'] ?? false,
-      details: json['details'] ?? {},
-      contact: json['contact'],
-      socialLinks: json['socialLinks'],
+      details: asMap(json['details']) ?? {},
+      contact: asMap(json['contact']),
+      socialLinks: asMap(json['socialLinks']),
       availability: json['availability'],
-      hourlyRate: json['hourlyRate']?.toDouble(),
-      views: json['views'] ?? 0,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      distance: json['distance']?.toDouble(),
+      hourlyRate: asDouble(json['hourlyRate']),
+      views: asInt(json['views']),
+      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
+      distance: asDouble(json['distance']),
     );
   }
 
@@ -98,6 +117,10 @@ class DiscoveryItem {
         return 'Opponent Team';
       case 'tournamentTeam':
         return 'Tournament Team';
+      case 'tournament':
+        return 'Tournament';
+      case 'scorer':
+        return 'Scorer';
       default:
         return 'Unknown';
     }

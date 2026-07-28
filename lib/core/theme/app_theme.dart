@@ -5,9 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Light Mode Colors
-  static const Color lightBackground = Color(0xFFF8FAFF);
+  static const Color lightBackground = Color(0xFFF7F8FA);
   static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightCard = Color(0xFFF0F4FF);
+  static const Color lightCard = Color(0xFFFFFFFF);
   
   // Dark Mode Colors
   static const Color darkBackground = Color(0xFF0A0A0F);
@@ -15,11 +15,11 @@ class AppTheme {
   static const Color darkCard = Color(0xFF2A2A3E);
   
   // Accent Colors
-  static const Color neonCyan = Color(0xFF00E5FF);
-  static const Color electricPurple = Color(0xFFB388FF);
-  static const Color deepNavy = Color(0xFF0D47A1);
-  static const Color neonGreen = Color(0xFF00E676);
-  static const Color neonPink = Color(0xFFFF4081);
+  static const Color neonCyan = Color(0xFF185FA5);
+  static const Color electricPurple = Color(0xFF185FA5);
+  static const Color deepNavy = Color(0xFF185FA5);
+  static const Color neonGreen = Color(0xFF16A34A);
+  static const Color neonPink = Color(0xFFE11D48);
   
   static ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
@@ -33,32 +33,32 @@ class AppTheme {
       background: lightBackground,
     ),
     textTheme: GoogleFonts.dmSansTextTheme().copyWith(
-      displayLarge: GoogleFonts.orbitron(fontSize: 32, fontWeight: FontWeight.bold),
-      displayMedium: GoogleFonts.orbitron(fontSize: 24, fontWeight: FontWeight.bold),
-      titleLarge: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.w600),
+      displayLarge: GoogleFonts.dmSans(fontSize: 26, fontWeight: FontWeight.w800),
+      displayMedium: GoogleFonts.dmSans(fontSize: 22, fontWeight: FontWeight.w800),
+      titleLarge: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700),
       bodyLarge: GoogleFonts.dmSans(fontSize: 14),
-      bodyMedium: GoogleFonts.dmSans(fontSize: 12),
+      bodyMedium: GoogleFonts.dmSans(fontSize: 13),
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white,
       elevation: 0,
-      centerTitle: false,
+      centerTitle: true,
     ),
     cardTheme: CardThemeData(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       clipBehavior: Clip.antiAlias,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: lightCard,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
       ),
     ),
   );

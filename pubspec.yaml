@@ -1,6 +1,6 @@
-name: Scores11
+name: scores11
 
-description: "Cric11 - Play Cricket. Win Glory."
+description: "Scores11 - Play Cricket. Win Glory."
 
 publish_to: 'none'
 
@@ -56,11 +56,14 @@ dependencies:
   connectivity_plus: ^6.0.3
   logger: ^2.2.0
   image_picker: ^1.1.2
+  mobile_scanner: ^6.0.10
+  url_launcher: ^6.3.1
 
   # =========================
   # FIREBASE
   # =========================
   firebase_core: ^2.31.1
+  firebase_auth: ^4.19.6
   firebase_messaging: ^14.9.4
 
   # =========================

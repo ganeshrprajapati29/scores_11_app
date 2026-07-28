@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/models/tournament_model.dart';
+import '../../data/models/team_model.dart';
+import '../../data/services/team_service.dart';
 import '../../data/services/tournament_service.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class TournamentDetailScreen extends StatefulWidget {
 class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     with SingleTickerProviderStateMixin {
   final TournamentService _tournamentService = TournamentService();
+  final TeamService _teamService = TeamService();
   late final TabController _tabController;
 
   Tournament? _tournament;
@@ -24,6 +27,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   Map<String, dynamic> _stats = {};
   bool _isLoading = true;
   bool _isRegistering = false;
+  bool _isGeneratingFixtures = false;
   String? _error;
 
   @override
@@ -92,14 +96,148 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   Future<void> _participate() async {
     setState(() => _isRegistering = true);
     try {
+      final teams = await _teamService.getMyTeams();
+      if (!mounted) return;
+      if (teams.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Create a team first to join this tournament.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      final selectedTeam = await _showTeamPicker(teams);
+      if (selectedTeam == null) return;
+
+      final tournament = await _tournamentService.registerTeam(
+        widget.tournamentId,
+        selectedTeam.id,
+      );
+      if (!mounted) return;
+      setState(() => _tournament = tournament);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Team registration will open from your teams screen.'),
+        SnackBar(
+          content: Text('${selectedTeam.name} registered successfully.'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      await _loadTournament();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_cleanError(e)),
+          backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } finally {
       if (mounted) setState(() => _isRegistering = false);
+    }
+  }
+
+  Future<Team?> _showTeamPicker(List<Team> teams) {
+    return showModalBottomSheet<Team>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Select Team',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: teams.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final team = teams[index];
+                      final alreadyJoined = _tournament?.teams.contains(team.id) == true ||
+                          _tournament?.teams.contains(team.name) == true;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundColor: AppColors.primary.withOpacity(0.1),
+                          child: Text(
+                            team.name.isNotEmpty ? team.name[0].toUpperCase() : 'T',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          team.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text('${team.players.length} players'),
+                        trailing: alreadyJoined
+                            ? const Text(
+                                'Joined',
+                                style: TextStyle(color: Colors.green, fontWeight: FontWeight.w700),
+                              )
+                            : const Icon(Icons.chevron_right_rounded),
+                        enabled: !alreadyJoined,
+                        onTap: alreadyJoined ? null : () => Navigator.pop(context, team),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _generateFixtures(String type) async {
+    if (_isGeneratingFixtures) return;
+    setState(() => _isGeneratingFixtures = true);
+    try {
+      if (type == 'knockout') {
+        await _tournamentService.generateKnockoutMatches(widget.tournamentId);
+      } else {
+        await _tournamentService.generateLeagueMatches(widget.tournamentId);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(type == 'knockout'
+              ? 'Knockout fixtures generated.'
+              : 'League fixtures generated.'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      await _loadTournament();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_cleanError(e)),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isGeneratingFixtures = false);
     }
   }
 
@@ -171,7 +309,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
         children: [
           _OverviewTab(tournament: tournament, stats: _stats),
           _TeamsTab(tournament: tournament),
-          _MatchesTab(matches: _matches),
+          _MatchesTab(
+            matches: _matches,
+            isGenerating: _isGeneratingFixtures,
+            onGenerateLeague: () => _generateFixtures('league'),
+            onGenerateKnockout: () => _generateFixtures('knockout'),
+          ),
           _PointsTab(points: _pointsTable),
           _PrizeTab(tournament: tournament),
         ],
@@ -416,13 +559,76 @@ class _TeamsTab extends StatelessWidget {
 
 class _MatchesTab extends StatelessWidget {
   final List<Map<String, dynamic>> matches;
+  final bool isGenerating;
+  final VoidCallback onGenerateLeague;
+  final VoidCallback onGenerateKnockout;
 
-  const _MatchesTab({required this.matches});
+  const _MatchesTab({
+    required this.matches,
+    required this.isGenerating,
+    required this.onGenerateLeague,
+    required this.onGenerateKnockout,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (matches.isEmpty) {
-      return const _EmptyPanel(message: 'Fixtures are not generated yet');
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _SectionCard(
+            title: 'Generate Fixtures',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Create tournament schedule from registered teams.',
+                  style: TextStyle(color: Color(0xFF64748B), height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: isGenerating ? null : onGenerateLeague,
+                        icon: isGenerating
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.calendar_month_rounded, size: 18),
+                        label: const Text('League'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: isGenerating ? null : onGenerateKnockout,
+                        icon: const Icon(Icons.account_tree_rounded, size: 18),
+                        label: const Text('Knockout'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const _EmptyPanel(message: 'Fixtures are not generated yet'),
+        ],
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.all(16),

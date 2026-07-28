@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/custom_appbar.dart';
-import '../../../core/widgets/custom_button.dart';
-import '../../../data/services/player_service.dart';
-import '../../../data/models/player_model.dart';
-import '../../../data/services/team_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/widgets/custom_appbar.dart';
+import '../../core/widgets/custom_button.dart';
+import '../../data/services/player_service.dart';
+import '../../data/models/player_model.dart';
+import '../../data/models/team_model.dart';
+import '../../data/services/team_service.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _kRadius = 14.0;
@@ -33,8 +34,7 @@ InputDecoration _fieldDeco({
       filled: true,
       fillColor: const Color(0xFFF8F9FA),
       alignLabelWithHint: maxLines > 1,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(_kRadius),
         borderSide: const BorderSide(color: _kBorder),
@@ -53,8 +53,7 @@ InputDecoration _fieldDeco({
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(_kRadius),
-        borderSide:
-            const BorderSide(color: Color(0xFFE53E3E), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFFE53E3E), width: 1.5),
       ),
     );
 
@@ -62,8 +61,9 @@ InputDecoration _fieldDeco({
 
 class CreatePlayerScreen extends StatefulWidget {
   final String? editPlayerId;
+  final String? initialTeamId;
 
-  const CreatePlayerScreen({super.key, this.editPlayerId});
+  const CreatePlayerScreen({super.key, this.editPlayerId, this.initialTeamId});
 
   @override
   State<CreatePlayerScreen> createState() => _CreatePlayerScreenState();
@@ -86,7 +86,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
 
   final PlayerService _playerService = PlayerService();
   final TeamService _teamService = TeamService();
-  List<String> _teams = [];
+  List<Team> _teams = [];
   bool _isLoading = false;
   Player? _editingPlayer;
 
@@ -127,6 +127,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
   @override
   void initState() {
     super.initState();
+    _teamId = widget.initialTeamId;
     _fadeController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 500));
     _slideController = AnimationController(
@@ -136,8 +137,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.06),
       end: Offset.zero,
-    ).animate(
-        CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
 
     _fadeController.forward();
     _slideController.forward();
@@ -162,15 +162,14 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
 
   Future<void> _loadTeams() async {
     try {
-      final paginated = await _teamService.getTeams(limit: 50);
-      setState(() => _teams = paginated.teams.map((t) => t.id).toList());
+      final teams = await _teamService.getMyTeams();
+      setState(() => _teams = teams);
     } catch (_) {}
   }
 
   Future<void> _loadPlayerForEdit() async {
     try {
-      final player =
-          await _playerService.getPlayerById(widget.editPlayerId!);
+      final player = await _playerService.getPlayerById(widget.editPlayerId!);
       setState(() {
         _editingPlayer = player;
         _nameController.text = player.name;
@@ -196,7 +195,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
     setState(() => _isLoading = true);
 
     try {
-      await _playerService.createPlayer(
+      final player = await _playerService.createPlayer(
         name: _nameController.text.trim(),
         role: _role,
         battingStyle: _battingStyle,
@@ -214,6 +213,19 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
             : _nationalityController.text.trim(),
       );
 
+      if (_teamId != null && widget.editPlayerId == null) {
+        await _teamService.addPlayerWithDetails(
+          _teamId!,
+          playerId: player.id,
+          name: player.name,
+          phone: player.phone,
+          role: player.role,
+          battingStyle: player.battingStyle,
+          bowlingStyle: player.bowlingStyle,
+          jerseyNumber: player.jerseyNumber,
+        );
+      }
+
       if (mounted) {
         _snack(
           widget.editPlayerId != null
@@ -225,8 +237,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
       }
     } on DioException catch (e) {
       if (mounted) {
-        _snack(e.response?.data['message'] ?? 'Action failed',
-            isError: true);
+        _snack(e.response?.data['message'] ?? 'Action failed', isError: true);
       }
     } catch (e) {
       if (mounted) _snack('Error: $e', isError: true);
@@ -248,15 +259,13 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
               size: 18,
             ),
             const SizedBox(width: 10),
-            Expanded(
-                child: Text(msg, style: const TextStyle(fontSize: 13))),
+            Expanded(child: Text(msg, style: const TextStyle(fontSize: 13))),
           ],
         ),
         backgroundColor:
             isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
       ),
@@ -266,8 +275,8 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
   List<DropdownMenuItem<String>> _getTeamItems() {
     return [
       const DropdownMenuItem(value: null, child: Text('No team')),
-      ..._teams.map((id) =>
-          DropdownMenuItem(value: id, child: Text('Team $id'))),
+      ..._teams.map(
+          (team) => DropdownMenuItem(value: team.id, child: Text(team.name))),
     ];
   }
 
@@ -344,8 +353,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
       actions: [
         Container(
           margin: const EdgeInsets.only(right: 16),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
@@ -491,8 +499,8 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
                   child: AbsorbPointer(
                     child: TextFormField(
                       controller: _dobController,
-                      style: const TextStyle(
-                          fontSize: 13, color: _kTextPrimary),
+                      style:
+                          const TextStyle(fontSize: 13, color: _kTextPrimary),
                       decoration: _fieldDeco(
                         label: 'Date of Birth',
                         icon: Icons.cake_rounded,
@@ -536,8 +544,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
             onTap: () => setState(() => _role = e.key),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: selected
                     ? AppColors.primary.withOpacity(0.08)
@@ -560,12 +567,9 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
                   Text(
                     e.value,
                     style: TextStyle(
-                      color:
-                          selected ? AppColors.primary : _kTextSecondary,
+                      color: selected ? AppColors.primary : _kTextSecondary,
                       fontSize: 13,
-                      fontWeight: selected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
                 ],
@@ -590,8 +594,8 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
             icon: Icons.sports_cricket_rounded,
             value: _battingStyle,
             items: battingStyleOptions.entries
-                .map((e) =>
-                    DropdownMenuItem(value: e.key, child: Text(e.value)))
+                .map(
+                    (e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
                 .toList(),
             onChanged: (v) => setState(() => _battingStyle = v),
           ),
@@ -601,8 +605,8 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
             icon: Icons.sports_baseball_rounded,
             value: _bowlingStyle,
             items: bowlingStyleOptions.entries
-                .map((e) =>
-                    DropdownMenuItem(value: e.key, child: Text(e.value)))
+                .map(
+                    (e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
                 .toList(),
             onChanged: (v) => setState(() => _bowlingStyle = v),
           ),
@@ -668,10 +672,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                      isEdit
-                          ? Icons.save_rounded
-                          : Icons.person_add_rounded,
+                  Icon(isEdit ? Icons.save_rounded : Icons.person_add_rounded,
                       size: 20),
                   const SizedBox(width: 10),
                   Text(
@@ -708,8 +709,7 @@ class _SectionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(_kCardRadius),
         border: Border.all(color: _kBorder),
         boxShadow: const [
-          BoxShadow(
-              color: _kShadow, blurRadius: 10, offset: Offset(0, 2)),
+          BoxShadow(color: _kShadow, blurRadius: 10, offset: Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -733,7 +733,7 @@ class _SectionCard extends StatelessWidget {
               ],
             ),
           ),
-const SizedBox(height: 12),
+          const SizedBox(height: 12),
           const Divider(height: 1, color: _kBorder),
           Padding(
             padding: const EdgeInsets.all(16),

@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 class Player extends Equatable {
   final String id;
+  final String? userId;
   final String name;
   final String? email;
   final String? phone;
@@ -25,6 +26,7 @@ class Player extends Equatable {
 
   const Player({
     required this.id,
+    this.userId,
     required this.name,
     this.email,
     this.phone,
@@ -84,12 +86,23 @@ factory Player.fromJson(Map<String, dynamic> json) {
         ? profileImageValue['url']?.toString()
         : profileImageValue?.toString();
     final playerId = cricketProfile['playerId']?.toString();
+    final userValue = json['user'];
+    final String? userId;
+    if (userValue is String && userValue.isNotEmpty) {
+      userId = userValue;
+    } else if (userValue is Map) {
+      final id = userValue['_id'] ?? userValue['id'];
+      userId = id?.toString();
+    } else {
+      userId = null;
+    }
 
     return Player(
       id: playerId?.isNotEmpty == true ? playerId! : (json['_id'] ?? json['id'] ?? '').toString(),
+      userId: userId,
       name: (json['playerName'] ?? json['user']?['name'] ?? json['fullName'] ?? json['name'] ?? '').toString(),
-      email: json['email']?.toString(),
-      phone: json['phone']?.toString(),
+      email: json['email']?.toString() ?? json['user']?['email']?.toString(),
+      phone: json['phone']?.toString() ?? json['user']?['phone']?.toString(),
       photo: json['photo']?.toString() ?? avatar['url']?.toString(),
       profileImage: profileImageUrl ?? avatar['url']?.toString(),
       dateOfBirth: json['dateOfBirth'] as String?,
@@ -105,10 +118,12 @@ factory Player.fromJson(Map<String, dynamic> json) {
       team: teamId,
       teamName: teamLabel,
       country: json['country'] as String?,
-      stats: json['stats'] != null ? PlayerStats.fromJson(json['stats'] as Map<String, dynamic>) : null,
+      stats: json['stats'] is Map
+          ? PlayerStats.fromJson(Map<String, dynamic>.from(json['stats'] as Map))
+          : null,
       isActive: json['isActive'] ?? true,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -175,6 +190,9 @@ class PlayerStats extends Equatable {
   final double economy;
   final int bestBowlingRuns;
   final int bestBowlingWickets;
+  final int bowlingInnings;
+  final double bowlingOvers;
+  final int runsConceded;
 
   const PlayerStats({
     this.matches = 0,
@@ -191,6 +209,9 @@ class PlayerStats extends Equatable {
     this.economy = 0.0,
     this.bestBowlingRuns = 0,
     this.bestBowlingWickets = 0,
+    this.bowlingInnings = 0,
+    this.bowlingOvers = 0.0,
+    this.runsConceded = 0,
   });
 
   factory PlayerStats.fromJson(Map<String, dynamic> json) {
@@ -199,16 +220,19 @@ class PlayerStats extends Equatable {
       innings: (json['innings'] as num?)?.toInt() ?? 0,
       runs: (json['runs'] as num?)?.toInt() ?? 0,
       highestScore: (json['highestScore'] as num?)?.toInt() ?? 0,
-      average: (json['average'] ?? 0).toDouble(),
-      strikeRate: (json['strikeRate'] ?? 0).toDouble(),
+      average: (json['average'] as num?)?.toDouble() ?? 0.0,
+      strikeRate: (json['strikeRate'] as num?)?.toDouble() ?? 0.0,
       hundreds: (json['hundreds'] as num?)?.toInt() ?? 0,
       fifties: (json['fifties'] as num?)?.toInt() ?? 0,
       fours: (json['fours'] as num?)?.toInt() ?? 0,
       sixes: (json['sixes'] as num?)?.toInt() ?? 0,
       wickets: (json['wickets'] as num?)?.toInt() ?? 0,
-      economy: (json['economy'] ?? 0).toDouble(),
+      economy: (json['economy'] as num?)?.toDouble() ?? 0.0,
       bestBowlingRuns: (json['bestBowlingRuns'] as num?)?.toInt() ?? 0,
       bestBowlingWickets: (json['bestBowlingWickets'] as num?)?.toInt() ?? 0,
+      bowlingInnings: (json['bowlingInnings'] as num?)?.toInt() ?? 0,
+      bowlingOvers: (json['bowlingOvers'] as num?)?.toDouble() ?? 0.0,
+      runsConceded: (json['runsConceded'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -228,6 +252,9 @@ class PlayerStats extends Equatable {
       'economy': economy,
       'bestBowlingRuns': bestBowlingRuns,
       'bestBowlingWickets': bestBowlingWickets,
+      'bowlingInnings': bowlingInnings,
+      'bowlingOvers': bowlingOvers,
+      'runsConceded': runsConceded,
     };
   }
 
@@ -247,5 +274,8 @@ class PlayerStats extends Equatable {
         economy,
         bestBowlingRuns,
         bestBowlingWickets,
+        bowlingInnings,
+        bowlingOvers,
+        runsConceded,
       ];
 }

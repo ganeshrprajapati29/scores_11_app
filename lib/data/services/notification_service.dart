@@ -48,12 +48,12 @@ class NotificationService {
 
   /// Mark notification as read
   Future<void> markAsRead(String id) async {
-    await _apiClient.put('${ApiConfig.notifications}/$id/read');
+    await _apiClient.patch('${ApiConfig.notifications}/$id/read');
   }
 
   /// Mark all notifications as read
   Future<void> markAllAsRead() async {
-    await _apiClient.put('${ApiConfig.notifications}/read-all');
+    await _apiClient.patch('${ApiConfig.notifications}/read-all');
   }
 
   /// Delete a notification

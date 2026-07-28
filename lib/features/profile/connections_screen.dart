@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/user_service.dart';
-import '../../../data/services/chat_service.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/custom_appbar.dart';
+import '../../core/services/user_service.dart';
+import '../../data/services/chat_service.dart';
+import '../../data/services/public_players_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/widgets/custom_appbar.dart';
 import '../chat/chat_screen.dart';
 
 class ConnectionsScreen extends StatefulWidget {
@@ -16,17 +17,21 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
     with SingleTickerProviderStateMixin {
   final UserService _userService = UserService();
   final ChatService _chatService = ChatService();
+  final PublicPlayersService _publicPlayersService = PublicPlayersService();
 
   List<dynamic> _followers = [];
   List<dynamic> _following = [];
+  List<PublicPlayer> _players = [];
+  Set<String> _followingIds = {};
 
   late TabController _tabController;
   bool _isLoading = true;
+  bool _isPlayersLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadConnections();
   }
 
@@ -41,11 +46,20 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
     try {
       final followersResult = await _userService.getFollowers();
       final followingResult = await _userService.getFollowing();
+      PublicPlayersResponse? playersResult;
+      try {
+        playersResult = await _publicPlayersService.getPublicPlayers(limit: 100);
+      } catch (_) {
+        playersResult = null;
+      }
 
       if (mounted) {
+        final following = followingResult['data'] is List ? followingResult['data'] as List<dynamic> : <dynamic>[];
         setState(() {
           _followers = followersResult['data'] is List ? followersResult['data'] as List<dynamic> : [];
-          _following = followingResult['data'] is List ? followingResult['data'] as List<dynamic> : [];
+          _following = following;
+          _followingIds = following.map(_idFrom).whereType<String>().toSet();
+          if (playersResult != null) _players = playersResult.players;
           _isLoading = false;
         });
       }
@@ -63,9 +77,55 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
     }
   }
 
+  String? _idFrom(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value;
+    if (value is Map) {
+      return (value['_id'] ?? value['id'] ?? value['userId'])?.toString();
+    }
+    return value.toString();
+  }
+
+  Future<void> _loadPlayersOnly() async {
+    if (_isPlayersLoading) return;
+    setState(() => _isPlayersLoading = true);
+    try {
+      final playersResult = await _publicPlayersService.getPublicPlayers(limit: 100);
+      if (mounted) setState(() => _players = playersResult.players);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading players: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPlayersLoading = false);
+    }
+  }
+
+  Future<void> _followUser(String userId) async {
+    try {
+      await _userService.followUser(userId);
+      if (mounted) {
+        setState(() => _followingIds.add(userId));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Followed successfully')),
+        );
+      }
+      _loadConnections();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Follow failed: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _unfollowUser(String userId) async {
     try {
       await _userService.unfollowUser(userId);
+      if (mounted) setState(() => _followingIds.remove(userId));
       _loadConnections();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unfollowed successfully')),
@@ -83,6 +143,24 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
     }
   }
 
+  Future<void> _startPlayerChat(PublicPlayer player) async {
+    final userId = _playerUserId(player);
+    if (userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This player is not linked with a chat user yet')),
+      );
+      return;
+    }
+    await _startChat({
+      '_id': userId,
+      'id': userId,
+      'name': player.fullName.isNotEmpty ? player.fullName : player.username,
+      'fullName': player.fullName,
+      'role': player.playerType,
+      'avatar': player.avatar?.url,
+    });
+  }
+
   Future<void> _startChat(Map<String, dynamic> user) async {
     try {
       final userId = (user['id'] ?? user['_id'] ?? user['userId'])?.toString();
@@ -90,7 +168,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
         throw Exception('User id missing');
       }
       final chatInfo = await _chatService.getChatByUserId(userId);
-      final chatId = chatInfo['chatId'] ?? '';
+      final chatId = chatInfo['chatId']?.toString() ?? '';
       
       if (mounted) {
         Navigator.push(
@@ -110,6 +188,11 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
         );
       }
     }
+  }
+
+  String _playerUserId(PublicPlayer player) {
+    if (player.userId?.isNotEmpty == true) return player.userId!;
+    return player.source == 'user' ? player.id : '';
   }
 
   @override
@@ -143,6 +226,18 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
                   onAction: _unfollowUser,
                   onChat: _startChat,
                   onRefresh: _loadConnections,
+                ),
+                _PlayersConnectionList(
+                  players: _players,
+                  followingIds: _followingIds,
+                  isLoading: _isPlayersLoading,
+                  onFollow: _followUser,
+                  onUnfollow: _unfollowUser,
+                  onChat: _startPlayerChat,
+                  onRefresh: () async {
+                    await _loadConnections();
+                    await _loadPlayersOnly();
+                  },
                 ),
               ],
             ),
@@ -179,6 +274,16 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
                 const Text('Following'),
                 const SizedBox(width: 6),
                 _CountBadge(count: _following.length),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Players'),
+                const SizedBox(width: 6),
+                _CountBadge(count: _players.length),
               ],
             ),
           ),
@@ -252,6 +357,145 @@ class _ConnectionList extends StatelessWidget {
 }
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
+class _PlayersConnectionList extends StatelessWidget {
+  final List<PublicPlayer> players;
+  final Set<String> followingIds;
+  final bool isLoading;
+  final Function(String) onFollow;
+  final Function(String) onUnfollow;
+  final Function(PublicPlayer) onChat;
+  final Future<void> Function() onRefresh;
+
+  const _PlayersConnectionList({
+    required this.players,
+    required this.followingIds,
+    required this.isLoading,
+    required this.onFollow,
+    required this.onUnfollow,
+    required this.onChat,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && players.isEmpty) {
+      return Center(child: CircularProgressIndicator(color: AppColors.primary));
+    }
+    if (players.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        color: AppColors.primary,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 160),
+            _EmptyState(type: 'players'),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+        itemCount: players.length,
+        itemBuilder: (context, index) {
+          final player = players[index];
+          final userId = player.userId?.isNotEmpty == true
+              ? player.userId!
+              : (player.source == 'user' ? player.id : '');
+          final isFollowing = followingIds.contains(userId);
+          return _PlayerTile(
+            player: player,
+            isFollowing: isFollowing,
+            onFollow: userId.isEmpty ? null : () => onFollow(userId),
+            onUnfollow: userId.isEmpty ? null : () => onUnfollow(userId),
+            onChat: userId.isEmpty ? null : () => onChat(player),
+          );
+        },
+      ),
+    );
+  }
+
+}
+
+class _PlayerTile extends StatelessWidget {
+  final PublicPlayer player;
+  final bool isFollowing;
+  final VoidCallback? onFollow;
+  final VoidCallback? onUnfollow;
+  final VoidCallback? onChat;
+
+  const _PlayerTile({
+    required this.player,
+    required this.isFollowing,
+    required this.onFollow,
+    required this.onUnfollow,
+    required this.onChat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final name = player.fullName.isNotEmpty ? player.fullName : (player.username.isNotEmpty ? player.username : 'Player');
+    final subtitle = [
+      player.playerType,
+      if (player.teamName?.isNotEmpty == true) player.teamName!,
+      if (player.city?.isNotEmpty == true) player.city!,
+    ].where((item) => item.trim().isNotEmpty).join(' - ');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            _UserAvatar(avatarUrl: player.avatar?.url, initial: name.isNotEmpty ? name[0].toUpperCase() : '?'),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle.isEmpty ? 'Player' : subtitle,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _ActionButton(
+                        label: isFollowing ? 'Following' : 'Follow',
+                        isDestructive: false,
+                        onPressed: isFollowing ? (onUnfollow ?? () {}) : (onFollow ?? () {}),
+                      ),
+                      _ActionButton(
+                        label: 'Chat',
+                        isDestructive: false,
+                        onPressed: onChat ?? () {},
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   final String type;
   const _EmptyState({required this.type});
@@ -275,12 +519,16 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No $type yet',
+              type == 'players' ? 'No players found' : 'No $type yet',
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
             ),
             const SizedBox(height: 6),
             Text(
-              type == 'followers' ? 'Nobody is following you yet' : 'You are not following anyone yet',
+              type == 'players'
+                  ? 'Pull to refresh players'
+                  : type == 'followers'
+                      ? 'Nobody is following you yet'
+                      : 'You are not following anyone yet',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13, color: Color(0xFF999999)),
             ),
@@ -307,9 +555,9 @@ class _UserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = user['name'] ?? user['fullName'] ?? 'Unknown';
+    final name = _displayName(user);
     final role = user['role'] ?? user['playingStyle'] ?? 'Player';
-    final avatarUrl = user['avatar']?['url'] ?? user['avatar'] ?? user['profileImage'];
+    final avatarUrl = _avatarUrl(user);
     final userId = user['id'] ?? user['_id'] ?? '';
 
     return Card(
@@ -364,6 +612,38 @@ class _UserTile extends StatelessWidget {
       ),
     );
   }
+
+  String _displayName(dynamic user) {
+    if (user is! Map) return 'Player';
+    for (final key in const ['name', 'fullName', 'playerName', 'username']) {
+      final value = user[key]?.toString().trim();
+      if (value != null && value.isNotEmpty && value.toLowerCase() != 'unknown') {
+        return value;
+      }
+    }
+    return 'Player';
+  }
+
+  String? _avatarUrl(dynamic user) {
+    if (user is! Map) return null;
+    String? clean(String? value) {
+      final url = value?.trim();
+      if (url == null || url.isEmpty || url == 'default-avatar-url') return null;
+      final uri = Uri.tryParse(url);
+      if (uri == null || !(uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty)) {
+        return null;
+      }
+      return url;
+    }
+
+    final avatar = user['avatar'];
+    if (avatar is String) return clean(avatar);
+    if (avatar is Map) return clean(avatar['url']?.toString());
+    final profileImage = user['profileImage'];
+    if (profileImage is String) return clean(profileImage);
+    if (profileImage is Map) return clean(profileImage['url']?.toString());
+    return clean(user['photo']?.toString());
+  }
 }
 
 // ─── User Avatar ─────────────────────────────────────────────────────────────
@@ -373,8 +653,19 @@ class _UserAvatar extends StatelessWidget {
 
   const _UserAvatar({required this.avatarUrl, required this.initial});
 
+  String? get _safeAvatarUrl {
+    final url = avatarUrl?.trim();
+    if (url == null || url.isEmpty || url == 'default-avatar-url') return null;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !(uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty)) {
+      return null;
+    }
+    return url;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final safeUrl = _safeAvatarUrl;
     return Container(
       width: 56,
       height: 56,
@@ -383,9 +674,9 @@ class _UserAvatar extends StatelessWidget {
         border: Border.all(color: AppColors.primary.withOpacity(0.2), width: 2),
       ),
       child: ClipOval(
-        child: avatarUrl != null && avatarUrl!.isNotEmpty
+        child: safeUrl != null
             ? Image.network(
-                avatarUrl!,
+                safeUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => _AvatarFallback(initial: initial),
               )

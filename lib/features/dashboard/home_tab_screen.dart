@@ -8,6 +8,7 @@ import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/constants/app_routes.dart';
 import '../../core/widgets/profile_avatar.dart';
+import '../../data/services/notification_service.dart';
 import '../../../data/services/community_service.dart';
 
 class HomeTab extends StatefulWidget {
@@ -21,7 +22,9 @@ class _HomeTabState extends State<HomeTab> {
   Timer? _refreshTimer;
 
   final CommunityService _communityService = CommunityService();
+  final NotificationService _notificationService = NotificationService();
   List<Map<String, dynamic>> _posts = [];
+  int _notificationCount = 0;
   int _postsPage = 1;
   bool _postsHasMore = true;
   bool _postsLoadingMore = false;
@@ -36,13 +39,21 @@ class _HomeTabState extends State<HomeTab> {
       final provider = context.read<DashboardProvider>();
       provider.refreshDashboard();
       _loadPosts();
+      _loadNotificationCount();
     });
 
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
         context.read<DashboardProvider>().refreshDashboard(context);
+        _loadNotificationCount();
       }
     });
+  }
+
+  Future<void> _loadNotificationCount() async {
+    final count = await _notificationService.getUnreadCount();
+    if (!mounted) return;
+    setState(() => _notificationCount = count);
   }
 
   @override
@@ -118,9 +129,29 @@ class _HomeTabState extends State<HomeTab> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined),
-          onPressed: () => Navigator.pushNamed(context, '/notifications'),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined),
+              onPressed: () => Navigator.pushNamed(context, '/notifications').then((_) => _loadNotificationCount()),
+            ),
+            if (_notificationCount > 0)
+              Positioned(
+                right: 7,
+                top: 7,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
+                  child: Text(
+                    _notificationCount > 99 ? '99+' : '$_notificationCount',
+                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ),
+          ],
         ),
         IconButton(
           icon: const Icon(Icons.search),

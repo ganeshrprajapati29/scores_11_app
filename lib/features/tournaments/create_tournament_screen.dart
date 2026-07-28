@@ -143,23 +143,14 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Tournament created successfully!'),
+            content: Text('${tournament.name} created successfully!'),
             backgroundColor: _green,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12)),
-            action: SnackBarAction(
-              label: 'View',
-              textColor: _white,
-              onPressed: () => Navigator.pushNamed(
-                context,
-                '/tournament-detail',
-                arguments: tournament.id,
-              ),
-            ),
           ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {

@@ -2,6 +2,7 @@
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_loader.dart';
+import '../../data/models/notification_model.dart';
 import '../../data/services/notification_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -13,7 +14,7 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final NotificationService _notificationService = NotificationService();
-  List<dynamic> _notifications = [];
+  List<NotificationModel> _notifications = [];
   bool _isLoading = true;
   String? _error;
 
@@ -45,7 +46,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _markAsRead(String id) async {
     try {
       await _notificationService.markAsRead(id);
-      _loadNotifications();
+      if (!mounted) return;
+      setState(() {
+        _notifications = _notifications
+            .map((item) => item.id == id ? item.copyWith(isRead: true) : item)
+            .toList();
+      });
     } catch (e) {
       debugPrint('Error marking notification as read: $e');
     }
@@ -54,7 +60,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _markAllAsRead() async {
     try {
       await _notificationService.markAllAsRead();
-      _loadNotifications();
+      setState(() {
+        _notifications = _notifications.map((item) => item.copyWith(isRead: true)).toList();
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -71,13 +79,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: CustomAppBar(
         title: 'Notifications',
         showBackButton: true,
         actions: [
           if (_notifications.isNotEmpty)
             IconButton(
-              icon: Icon(Icons.done_all),
+              icon: const Icon(Icons.done_all),
               onPressed: _markAllAsRead,
               tooltip: 'Mark all as read',
             ),
@@ -94,7 +103,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _loadNotifications,
-                        child: Text('Retry'),
+                        child: const Text('Retry'),
                       ),
                     ],
                   ),
@@ -123,7 +132,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   : RefreshIndicator(
                       onRefresh: _loadNotifications,
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                         itemCount: _notifications.length,
                         itemBuilder: (context, index) {
                           final notification = _notifications[index];
@@ -134,21 +143,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationItem(dynamic notification) {
-    final isRead = notification['isRead'] ?? false;
-    final type = notification['type'] ?? 'info';
+  Widget _buildNotificationItem(NotificationModel notification) {
+    final isRead = notification.isRead;
+    final type = notification.type;
     
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: isRead ? Colors.white : AppColors.primary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: isRead 
-            ? null 
-            : Border.all(color: AppColors.primary.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isRead ? const Color(0xFFE4E7EC) : AppColors.primary.withOpacity(0.2)),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
@@ -158,14 +165,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           child: Icon(
             _getNotificationIcon(type),
             color: _getNotificationColor(type),
-            size: 24,
+            size: 22,
           ),
         ),
         title: Text(
-          notification['title'] ?? 'Notification',
+          notification.title.isEmpty ? 'Scores11 update' : notification.title,
           style: TextStyle(
-            fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-            fontSize: 16,
+            fontWeight: isRead ? FontWeight.w700 : FontWeight.w900,
+            fontSize: 13,
           ),
         ),
         subtitle: Column(
@@ -173,15 +180,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           children: [
             const SizedBox(height: 4),
             Text(
-              notification['message'] ?? '',
+              notification.message,
               style: TextStyle(
                 color: Colors.grey[600],
-                fontSize: 14,
+                fontSize: 12,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              _formatDate(notification['createdAt']),
+              _formatDate(notification.createdAt),
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 12,
@@ -201,17 +208,35 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             : null,
         onTap: () {
           if (!isRead) {
-            _markAsRead(notification['_id'] ?? notification['id']);
+            _markAsRead(notification.id);
           }
-          // Handle notification tap - navigate to relevant screen
+          _openNotificationTarget(notification);
         },
       ),
     );
   }
 
+  void _openNotificationTarget(NotificationModel notification) {
+    final id = notification.referenceId?.trim() ?? '';
+    final type = notification.type.toLowerCase();
+    if (id.isNotEmpty && (type.contains('match') || type.contains('score'))) {
+      Navigator.pushNamed(context, '/match/$id');
+    } else if (id.isNotEmpty && type.contains('team')) {
+      Navigator.pushNamed(context, '/team-detail', arguments: id);
+    } else if (id.isNotEmpty && type.contains('tournament')) {
+      Navigator.pushNamed(context, '/tournament/$id');
+    } else if (id.isNotEmpty && (type.contains('post') || type.contains('comment') || type.contains('like'))) {
+      Navigator.pushNamed(context, '/post-detail', arguments: id);
+    } else if (id.isNotEmpty && (type.contains('chat'))) {
+      Navigator.pushNamed(context, '/chats');
+    }
+  }
+
   Color _getNotificationColor(String type) {
-    switch (type) {
+    final value = type.toLowerCase();
+    switch (value) {
       case 'match':
+      case 'score':
         return AppColors.success;
       case 'team':
         return AppColors.primary;
@@ -219,6 +244,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return AppColors.warning;
       case 'wallet':
         return Colors.purple;
+      case 'chat':
+        return const Color(0xFF0891B2);
+      case 'follow':
+      case 'like':
+      case 'comment':
+      case 'post':
+      case 'social':
+        return const Color(0xFF7C3AED);
       case 'system':
         return Colors.grey;
       default:
@@ -227,8 +260,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   IconData _getNotificationIcon(String type) {
-    switch (type) {
+    final value = type.toLowerCase();
+    switch (value) {
       case 'match':
+      case 'score':
         return Icons.sports_cricket;
       case 'team':
         return Icons.groups;
@@ -236,6 +271,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Icons.emoji_events;
       case 'wallet':
         return Icons.account_balance_wallet;
+      case 'chat':
+        return Icons.chat_bubble;
+      case 'follow':
+        return Icons.person_add_alt_1;
+      case 'like':
+        return Icons.favorite;
+      case 'comment':
+        return Icons.mode_comment;
+      case 'post':
+      case 'social':
+        return Icons.forum;
       case 'system':
         return Icons.info;
       default:
@@ -243,10 +289,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  String _formatDate(dynamic dateStr) {
-    if (dateStr == null) return '';
+  String _formatDate(DateTime date) {
     try {
-      final date = DateTime.parse(dateStr);
       final now = DateTime.now();
       final diff = now.difference(date);
       

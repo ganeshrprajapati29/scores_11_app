@@ -7,6 +7,7 @@ import '../../data/models/player_model.dart';
 import '../../data/services/team_service.dart';
 import '../../data/services/public_players_service.dart';
 import '../../core/constants/enums.dart';
+import 'create_player_screen.dart';
 
 class FindPlayerScreen extends StatefulWidget {
   final String? teamId;
@@ -31,13 +32,32 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
   String _query = '';
   bool _isDetailLoading = false;
   String? _addingPlayerId;
+  final Set<String> _addedPlayerIds = {};
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _searchFocus.addListener(() => setState(() {}));
+    _loadExistingTeamPlayers();
     _loadInitialPlayers();
+  }
+
+  Future<void> _loadExistingTeamPlayers() async {
+    final teamId = widget.teamId;
+    if (teamId == null || teamId.isEmpty) return;
+    try {
+      final data = await _teamService.getTeamWithPlayers(teamId);
+      final players = data['players'];
+      if (!mounted || players is! List) return;
+      setState(() {
+        _addedPlayerIds.addAll(
+          players.whereType<Player>().map((player) => player.id),
+        );
+      });
+    } catch (_) {
+      // Search and add remain available if the initial membership lookup fails.
+    }
   }
 
   @override
@@ -101,7 +121,8 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
       if (!mounted) return;
       setState(() {
         _players = resultsById.values.toList()
-          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          ..sort(
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
         _isSearching = _players.isNotEmpty;
         _isLoading = false;
       });
@@ -161,22 +182,30 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
     if (_addingPlayerId != null) return;
     setState(() => _addingPlayerId = player.id);
     try {
-      await _teamService.addPlayer(
+      await _teamService.addPlayerWithDetails(
         widget.teamId!,
-        player.id,
+        playerId: player.id,
+        name: player.name,
+        email: player.email,
+        phone: player.phone,
+        role: player.role ?? player.playerRole,
+        battingStyle: player.battingStyle,
+        bowlingStyle: player.bowlingStyle,
+        jerseyNumber: player.jerseyNumber,
         matchId: widget.matchId,
       );
       if (mounted) {
         _showSnackBar('${player.name} added to team!', isError: false);
-        Navigator.pop(context, true);
+        setState(() => _addedPlayerIds.add(player.id));
       }
     } catch (e) {
       final message = e.toString().replaceFirst('Exception: ', '');
       final normalized = message.toLowerCase();
       if (normalized.contains('already') || normalized.contains('duplicate')) {
         if (mounted) {
-          _showSnackBar('${player.name} is already in this team', isError: false);
-          Navigator.pop(context, true);
+          _showSnackBar('${player.name} is already in this team',
+              isError: false);
+          setState(() => _addedPlayerIds.add(player.id));
         }
       } else if (mounted) {
         _showSnackBar('Add error: $message', isError: true);
@@ -198,13 +227,31 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
     }
   }
 
+  Future<void> _registerPlayer() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CreatePlayerScreen(initialTeamId: widget.teamId),
+      ),
+    );
+    if (created != true || !mounted) return;
+    _showSnackBar(
+      widget.teamId == null
+          ? 'Player registered successfully'
+          : 'Player registered and added to the team',
+      isError: false,
+    );
+    await _loadInitialPlayers();
+  }
+
   void _showSnackBar(String message, {required bool isError}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Icon(
-              isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_outline_rounded,
               color: Colors.white,
               size: 16,
             ),
@@ -212,7 +259,8 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: isError ? const Color(0xFFC62828) : const Color(0xFF2E7D32),
+        backgroundColor:
+            isError ? const Color(0xFFC62828) : const Color(0xFF2E7D32),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -270,8 +318,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
                 onClear: _query.isNotEmpty ? _clearSearch : null,
               ),
               if (_players.isNotEmpty)
-                _ResultsHeader(
-                    count: _players.length, query: _query),
+                _ResultsHeader(count: _players.length, query: _query),
               Expanded(child: _buildBody()),
             ],
           ),
@@ -297,7 +344,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
           child: const Icon(Icons.arrow_back_ios_new_rounded,
               size: 15, color: Color(0xFF1A1A2E)),
         ),
-        onPressed: () => Navigator.of(context).maybePop(),
+        onPressed: () => Navigator.of(context).pop(_addedPlayerIds.isNotEmpty),
       ),
       title: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,6 +369,17 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
         ],
       ),
       actions: [
+        IconButton(
+          tooltip: 'Register new player',
+          onPressed: _registerPlayer,
+          icon: const Icon(Icons.person_add_alt_1_rounded),
+        ),
+        if (_addedPlayerIds.isNotEmpty)
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.check_rounded, size: 18),
+            label: Text('Done (${_addedPlayerIds.length})'),
+          ),
         if (_query.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -408,6 +466,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
         teamId: widget.teamId,
         isDetailLoading: _isDetailLoading,
         isAdding: _addingPlayerId == _players[index].id,
+        isAdded: _addedPlayerIds.contains(_players[index].id),
         onView: _showPlayerDetails,
         onAdd: _addPlayerToTeam,
       ),
@@ -468,9 +527,8 @@ class _SearchBar extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               child: Icon(
                 Icons.search_rounded,
-                color: focusNode.hasFocus
-                    ? AppColors.primary
-                    : Colors.grey[400],
+                color:
+                    focusNode.hasFocus ? AppColors.primary : Colors.grey[400],
                 size: 20,
               ),
             ),
@@ -535,8 +593,7 @@ class _ResultsHeader extends StatelessWidget {
           ),
           const Spacer(),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.08),
               borderRadius: BorderRadius.circular(8),
@@ -617,6 +674,7 @@ class _PlayerCard extends StatelessWidget {
   final String? teamId;
   final bool isDetailLoading;
   final bool isAdding;
+  final bool isAdded;
   final Future<void> Function(Player) onView;
   final Future<void> Function(Player) onAdd;
 
@@ -626,6 +684,7 @@ class _PlayerCard extends StatelessWidget {
     required this.teamId,
     required this.isDetailLoading,
     required this.isAdding,
+    required this.isAdded,
     required this.onView,
     required this.onAdd,
   });
@@ -661,12 +720,13 @@ class _PlayerCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 _PlayerActions(
                   player: player,
-          teamId: teamId,
-          isDetailLoading: isDetailLoading,
-          isAdding: isAdding,
-          onView: onView,
-          onAdd: onAdd,
-        ),
+                  teamId: teamId,
+                  isDetailLoading: isDetailLoading,
+                  isAdding: isAdding,
+                  isAdded: isAdded,
+                  onView: onView,
+                  onAdd: onAdd,
+                ),
               ],
             ),
           ),
@@ -689,8 +749,8 @@ class _PlayerAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: AppColors.primary.withOpacity(0.08),
-        border: Border.all(
-            color: AppColors.primary.withOpacity(0.15), width: 1.5),
+        border:
+            Border.all(color: AppColors.primary.withOpacity(0.15), width: 1.5),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -732,8 +792,7 @@ class _PlayerInfo extends StatelessWidget {
             if (player.jerseyNumber != null) ...[
               const SizedBox(width: 6),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(6),
@@ -785,6 +844,7 @@ class _PlayerActions extends StatelessWidget {
   final String? teamId;
   final bool isDetailLoading;
   final bool isAdding;
+  final bool isAdded;
   final Future<void> Function(Player) onView;
   final Future<void> Function(Player) onAdd;
 
@@ -793,6 +853,7 @@ class _PlayerActions extends StatelessWidget {
     required this.teamId,
     required this.isDetailLoading,
     required this.isAdding,
+    required this.isAdded,
     required this.onView,
     required this.onAdd,
   });
@@ -819,8 +880,9 @@ class _PlayerActions extends StatelessWidget {
         if (teamId != null) ...[
           const SizedBox(height: 6),
           _IconActionButton(
-            onTap: isAdding ? () {} : () => onAdd(player),
-            bgColor: AppColors.primary.withOpacity(0.08),
+            onTap: isAdding || isAdded ? () {} : () => onAdd(player),
+            bgColor:
+                (isAdded ? Colors.green : AppColors.primary).withOpacity(0.08),
             borderColor: AppColors.primary.withOpacity(0.2),
             child: isAdding
                 ? SizedBox(
@@ -831,8 +893,13 @@ class _PlayerActions extends StatelessWidget {
                       color: AppColors.primary,
                     ),
                   )
-                : Icon(Icons.person_add_rounded,
-                    size: 16, color: AppColors.primary),
+                : Icon(
+                    isAdded
+                        ? Icons.check_circle_rounded
+                        : Icons.person_add_rounded,
+                    size: 16,
+                    color: isAdded ? Colors.green : AppColors.primary,
+                  ),
           ),
         ],
       ],
@@ -1038,8 +1105,7 @@ class _PlayerDetailSheet extends StatelessWidget {
                     _StatsRow(
                         icon: Icons.timer_outlined,
                         label: 'Economy',
-                        value:
-                            player.stats!.economy.toStringAsFixed(1)),
+                        value: player.stats!.economy.toStringAsFixed(1)),
                 ],
 
                 if (teamId != null) ...[
@@ -1077,8 +1143,8 @@ class _SheetAvatar extends StatelessWidget {
           height: 108,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-                color: AppColors.primary.withOpacity(0.2), width: 3),
+            border:
+                Border.all(color: AppColors.primary.withOpacity(0.2), width: 3),
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary.withOpacity(0.12),
@@ -1103,8 +1169,7 @@ class _SheetAvatar extends StatelessWidget {
             bottom: -2,
             right: -2,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(10),
@@ -1190,9 +1255,7 @@ class _Chip extends StatelessWidget {
   final Color bgColor;
 
   const _Chip(
-      {required this.label,
-      required this.textColor,
-      required this.bgColor});
+      {required this.label, required this.textColor, required this.bgColor});
 
   @override
   Widget build(BuildContext context) {
@@ -1223,8 +1286,7 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FC),
         borderRadius: BorderRadius.circular(12),
@@ -1276,8 +1338,7 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FC),
         borderRadius: BorderRadius.circular(12),

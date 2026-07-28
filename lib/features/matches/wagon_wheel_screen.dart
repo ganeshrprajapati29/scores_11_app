@@ -92,8 +92,8 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
     },
   ];
 
-  // Runs per ring (inner → outer)
-  final List<int> _ringRuns = [0, 1, 2, 4, 6];
+  // Runs per ring (inner to outer)
+  final List<int> _ringRuns = [0, 1, 2, 3, 4, 6];
 
   int? _selectedRing; // 0-4
 
@@ -142,14 +142,16 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
     int ring;
     if (relDist < 0.15) {
       ring = 0; // center = dot
-    } else if (relDist < 0.38) {
+    } else if (relDist < 0.34) {
       ring = 1;
-    } else if (relDist < 0.58) {
+    } else if (relDist < 0.52) {
       ring = 2;
-    } else if (relDist < 0.78) {
+    } else if (relDist < 0.68) {
       ring = 3;
-    } else {
+    } else if (relDist < 0.84) {
       ring = 4;
+    } else {
+      ring = 5;
     }
 
     // Determine zone (angle based)
@@ -227,6 +229,8 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
         return const Color(0xFF3B82F6);
       case 2:
         return const Color(0xFF10B981);
+      case 3:
+        return const Color(0xFF06B6D4);
       case 4:
         return const Color(0xFFFFD700);
       case 6:
@@ -249,8 +253,51 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
     }
   }
 
+  List<Map<String, dynamic>> _displayRecentShots(LiveScoreControlProvider provider) {
+    final providerShots = provider.currentOverBalls.reversed
+        .where((ball) => (ball['wagonLabel']?.toString().trim().isNotEmpty ?? false))
+        .map((ball) {
+          final label = ball['wagonLabel']?.toString() ?? '';
+          final zone = _zoneIndexFromBall(ball, label);
+          final runs = (ball['runs'] as num?)?.toInt() ?? 0;
+          return {
+            'zone': zone,
+            'ring': _ringIndexForRuns(runs),
+            'runs': runs,
+            'label': label,
+            'color': _zones[zone]['primaryColor'],
+          };
+        })
+        .take(12)
+        .toList();
+    return providerShots.isNotEmpty ? providerShots : _recentShots;
+  }
+
+  int _zoneIndexFromBall(Map<String, dynamic> ball, String label) {
+    final rawZone = (ball['wagonZone'] as num?)?.toInt();
+    if (rawZone != null && rawZone >= 0 && rawZone < _zones.length) return rawZone;
+    final labelIndex = _zones.indexWhere(
+      (zone) => (zone['label'] as String).toLowerCase() == label.toLowerCase(),
+    );
+    return labelIndex >= 0 ? labelIndex : 0;
+  }
+
+  int _ringIndexForRuns(int runs) {
+    final exact = _ringRuns.indexOf(runs);
+    if (exact >= 0) return exact;
+    if (runs >= 6) return _ringRuns.indexOf(6);
+    if (runs >= 4) return _ringRuns.indexOf(4);
+    if (runs >= 3) return _ringRuns.indexOf(3);
+    if (runs >= 2) return _ringRuns.indexOf(2);
+    if (runs >= 1) return _ringRuns.indexOf(1);
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<LiveScoreControlProvider>();
+    final recentShots = _displayRecentShots(provider);
+
     return Scaffold(
       backgroundColor: const Color(0xFF060D1F),
       appBar: AppBar(
@@ -296,10 +343,10 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
               child: Column(
                 children: [
                   const SizedBox(height: 16),
-                  _buildWheelSection(),
+                  _buildWheelSection(recentShots),
                   const SizedBox(height: 16),
                   if (_selectedZone != null) _buildSelectionPanel(),
-                  if (_recentShots.isNotEmpty) _buildRecentShots(),
+                  if (recentShots.isNotEmpty) _buildRecentShots(recentShots),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -364,7 +411,7 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
     );
   }
 
-  Widget _buildWheelSection() {
+  Widget _buildWheelSection(List<Map<String, dynamic>> recentShots) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -418,7 +465,7 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
                           ringRuns: _ringRuns,
                           selectedZone: _selectedZone,
                           selectedRing: _selectedRing,
-                          recentShots: _recentShots,
+                          recentShots: recentShots,
                           glowValue: _glowAnimation.value,
                         ),
                       );
@@ -603,7 +650,7 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
     );
   }
 
-  Widget _buildRecentShots() {
+  Widget _buildRecentShots(List<Map<String, dynamic>> recentShots) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Column(
@@ -621,15 +668,12 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
                 ),
               ),
               const Spacer(),
-              GestureDetector(
-                onTap: () => setState(() => _recentShots.clear()),
-                child: Text(
-                  'Clear',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.25),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+              Text(
+                'Live',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.25),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -639,9 +683,9 @@ class _WagonWheelScreenState extends State<WagonWheelScreen>
             height: 64,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: _recentShots.length,
+              itemCount: recentShots.length,
               itemBuilder: (context, index) {
-                final shot = _recentShots[index];
+                final shot = recentShots[index];
                 final color = shot['color'] as Color;
                 final runs = shot['runs'] as int;
                 final isNew = index == 0;
@@ -831,12 +875,13 @@ class _WagonWheelPainter extends CustomPainter {
     final maxR = math.min(size.width, size.height) / 2 - 8;
 
     // Ring radii as fraction of maxR
-    final ringFractions = [0.0, 0.15, 0.38, 0.58, 0.78, 1.0];
+    final ringFractions = [0.0, 0.15, 0.34, 0.52, 0.68, 0.84, 1.0];
     // Ring colors (outer glow colors)
     final ringColors = [
       Colors.white12,
       const Color(0xFF3B82F6).withOpacity(0.15),
       const Color(0xFF10B981).withOpacity(0.12),
+      const Color(0xFF06B6D4).withOpacity(0.12),
       const Color(0xFFFFD700).withOpacity(0.15),
       const Color(0xFF8B5CF6).withOpacity(0.18),
     ];
@@ -981,7 +1026,7 @@ class _WagonWheelPainter extends CustomPainter {
     }
 
     // ── Ring run labels (left side) ──
-    final runLabels = ['DOT', '1', '2', '4', '6'];
+    final runLabels = ['DOT', '1', '2', '3', '4', '6'];
     for (int r = 0; r < runLabels.length; r++) {
       final ringR = r == 0
           ? 0.0
@@ -1079,7 +1124,7 @@ class _WagonWheelPainter extends CustomPainter {
   bool shouldRepaint(covariant _WagonWheelPainter oldDelegate) {
     return oldDelegate.selectedZone != selectedZone ||
         oldDelegate.selectedRing != selectedRing ||
-        oldDelegate.recentShots.length != recentShots.length ||
+        oldDelegate.recentShots != recentShots ||
         oldDelegate.glowValue != glowValue;
   }
 }

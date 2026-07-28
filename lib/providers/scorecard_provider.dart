@@ -27,6 +27,21 @@ class ScorecardProvider extends ChangeNotifier {
   bool get hasData => _hasData;
   bool get isLive => _isLive;
 
+  /// Clears cached scorecard data on logout so a different account signing
+  /// in on the same app instance doesn't briefly see the previous state.
+  void reset() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    _scorecard = null;
+    _match = null;
+    _isLoading = false;
+    _error = null;
+    _hasData = false;
+    _lastUpdated = null;
+    _isLive = false;
+    notifyListeners();
+  }
+
   // ===============================
   // 🔥 MAIN FUNCTION
   // ===============================
@@ -156,6 +171,7 @@ class ScorecardProvider extends ChangeNotifier {
         final battingByInnings = <List<BatsmanStats>>[];
         final bowlingByInnings = <List<BowlerStats>>[];
         final fallOfWickets = <FallOfWicket>[];
+        final fallOfWicketsByInnings = <List<FallOfWicket>>[];
 
         for (final raw in rawInnings.whereType<Map>()) {
           final inningsMap = Map<String, dynamic>.from(raw);
@@ -178,11 +194,14 @@ class ScorecardProvider extends ChangeNotifier {
               : <BowlerStats>[]);
 
           final fowRaw = inningsMap['fallOfWickets'];
+          final inningsWickets = <FallOfWicket>[];
           if (fowRaw is List) {
-            fallOfWickets.addAll(fowRaw
+            inningsWickets.addAll(fowRaw
                 .whereType<Map>()
                 .map((w) => FallOfWicket.fromJson(Map<String, dynamic>.from(w))));
+            fallOfWickets.addAll(inningsWickets);
           }
+          fallOfWicketsByInnings.add(inningsWickets);
         }
 
         return FullScorecard(
@@ -191,6 +210,7 @@ class ScorecardProvider extends ChangeNotifier {
           batting: battingByInnings,
           bowling: bowlingByInnings,
           fallOfWickets: fallOfWickets,
+          fallOfWicketsByInnings: fallOfWicketsByInnings,
           partnerships: List<Map<String, dynamic>>.from(data['partnerships'] ?? []),
         );
       }

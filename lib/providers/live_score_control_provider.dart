@@ -6,13 +6,14 @@ import '../data/models/match_model.dart';
 import '../data/models/player_model.dart';
 import '../core/services/socket_service.dart';
 import 'scorecard_provider.dart';
+import 'package:dio/dio.dart';
 
 /// Match status flow: scheduled → ready → toss → live → completed
 enum MatchFlowStatus {
-  scheduled,  // Match created, waiting for teams/players
-  ready,     // Teams selected, ready for toss
-  toss,      // Toss in progress
-  live,      // Match is live
+  scheduled, // Match created, waiting for teams/players
+  ready, // Teams selected, ready for toss
+  toss, // Toss in progress
+  live, // Match is live
   completed, // Match completed
 }
 
@@ -71,11 +72,7 @@ class PlayerBowlingStat {
   final int runs;
   final int wickets;
 
-  const PlayerBowlingStat({
-    this.balls = 0,
-    this.runs = 0,
-    this.wickets = 0,
-  });
+  const PlayerBowlingStat({this.balls = 0, this.runs = 0, this.wickets = 0});
 
   PlayerBowlingStat copyWith({int? balls, int? runs, int? wickets}) {
     return PlayerBowlingStat(
@@ -87,6 +84,51 @@ class PlayerBowlingStat {
 
   String get overs => '${balls ~/ 6}.${balls % 6}';
   double get economy => balls == 0 ? 0 : runs / (balls / 6);
+}
+
+class _WicketRule {
+  final bool countsAsWicket;
+  final bool bowlerCredit;
+  final bool freeHitAllowed;
+  const _WicketRule({
+    required this.countsAsWicket,
+    required this.bowlerCredit,
+    required this.freeHitAllowed,
+  });
+}
+
+const Map<String, _WicketRule> _wicketRules = {
+  'bowled': _WicketRule(countsAsWicket: true, bowlerCredit: true, freeHitAllowed: false),
+  'caught': _WicketRule(countsAsWicket: true, bowlerCredit: true, freeHitAllowed: false),
+  'caught_behind': _WicketRule(countsAsWicket: true, bowlerCredit: true, freeHitAllowed: false),
+  'caught_and_bowled': _WicketRule(countsAsWicket: true, bowlerCredit: true, freeHitAllowed: false),
+  'lbw': _WicketRule(countsAsWicket: true, bowlerCredit: true, freeHitAllowed: false),
+  'stumped': _WicketRule(countsAsWicket: true, bowlerCredit: true, freeHitAllowed: false),
+  'run_out': _WicketRule(countsAsWicket: true, bowlerCredit: false, freeHitAllowed: true),
+  'run_out_non_striker': _WicketRule(countsAsWicket: true, bowlerCredit: false, freeHitAllowed: true),
+  'hit_wicket': _WicketRule(countsAsWicket: true, bowlerCredit: true, freeHitAllowed: false),
+  'hit_ball_twice': _WicketRule(countsAsWicket: true, bowlerCredit: false, freeHitAllowed: true),
+  'obstructing_field': _WicketRule(countsAsWicket: true, bowlerCredit: false, freeHitAllowed: true),
+  'handled_ball': _WicketRule(countsAsWicket: true, bowlerCredit: false, freeHitAllowed: true),
+  'timed_out': _WicketRule(countsAsWicket: true, bowlerCredit: false, freeHitAllowed: false),
+  'retired_out': _WicketRule(countsAsWicket: true, bowlerCredit: false, freeHitAllowed: false),
+  'retired_hurt': _WicketRule(countsAsWicket: false, bowlerCredit: false, freeHitAllowed: true),
+  'retired_not_out': _WicketRule(countsAsWicket: false, bowlerCredit: false, freeHitAllowed: true),
+  'absent_hurt': _WicketRule(countsAsWicket: false, bowlerCredit: false, freeHitAllowed: false),
+};
+
+String _normalizeWicketType(String wicketType) {
+  const aliases = {
+    'runOut': 'run_out',
+    'runout': 'run_out',
+    'run_out_striker': 'run_out',
+    'mankad': 'run_out_non_striker',
+    'retire_out': 'retired_out',
+    'retired': 'retired_hurt',
+    'retiredhurt': 'retired_hurt',
+    'absent': 'absent_hurt',
+  };
+  return aliases[wicketType] ?? wicketType;
 }
 
 class LiveScoreControlProvider extends ChangeNotifier {
@@ -101,6 +143,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
   String? _userRole;
   bool _isLoading = false;
   bool _isInitializing = false;
+  bool _isUndoing = false;
   String? _error;
 
   // Toss
@@ -140,7 +183,13 @@ class LiveScoreControlProvider extends ChangeNotifier {
   int _legalBalls = 0;
   int get currentBall => _currentBall;
   bool _isFreeHit = false;
-  Map<String, int> _extras = {'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0};
+  Map<String, int> _extras = {
+    'wides': 0,
+    'noBalls': 0,
+    'byes': 0,
+    'legByes': 0,
+    'penalty': 0,
+  };
   final Map<String, PlayerBattingStat> _battingStats = {};
   final Map<String, PlayerBowlingStat> _bowlingStats = {};
   final Set<String> _announcedMilestones = {};
@@ -150,6 +199,9 @@ class LiveScoreControlProvider extends ChangeNotifier {
   String? _localPlayerOfMatch;
   int? _localTarget;
   bool _autoCompletingMatch = false;
+  bool _continueAfterTarget = false;
+  bool _continueAfterOvers = false;
+  bool _continueAfterAllOut = false;
 
   // Getters
   String? get matchId => _matchId;
@@ -157,6 +209,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
   String? get userRole => _userRole;
   bool get isLoading => _isLoading;
   bool get isInitializing => _isInitializing;
+  bool get isUndoing => _isUndoing;
   String? get error => _error;
   LiveScoreState get currentScore => _currentScore;
   String get currentStatus => (_match?.status ?? 'scheduled').toLowerCase();
@@ -172,7 +225,11 @@ class LiveScoreControlProvider extends ChangeNotifier {
       _selectedTeam2Players.length >= 2 &&
       _hasCaptainAndViceCaptain(1) &&
       _hasCaptainAndViceCaptain(2);
-  bool get canEndInnings => currentStatus == 'live';
+  bool get canEndInnings =>
+      currentStatus == 'live' || currentStatus == 'duckworth_lewis';
+  bool get isRainAdjusted =>
+      currentStatus == 'duckworth_lewis' ||
+      ((_match?.result?.method ?? '').toLowerCase() == 'dls');
 
   List<Player> get team1Players => _team1Players;
   List<Player> get team2Players => _team2Players;
@@ -188,78 +245,145 @@ class LiveScoreControlProvider extends ChangeNotifier {
   String? get team2ViceCaptainId => _team2ViceCaptainId;
   List<Map<String, dynamic>> get currentOverBalls => _currentOverBalls;
   bool get isFreeHit => _isFreeHit;
+  bool get continueAfterTarget => _continueAfterTarget;
+  bool get continueAfterOvers => _continueAfterOvers;
+  bool get continueAfterAllOut => _continueAfterAllOut;
+  bool get practiceContinuationEnabled =>
+      _continueAfterOvers || _continueAfterAllOut || _continueAfterTarget;
   int get _currentOver => _legalBalls ~/ 6;
   int get _currentBall => _legalBalls % 6;
   String get currentOver => '$_currentOver.$_currentBall';
   int get team1SelectedCount => _selectedTeam1Players.length;
   int get team2SelectedCount => _selectedTeam2Players.length;
   Map<String, int> get extras => _extras;
-  String? get tossWinnerName => _tossWinnerKey == 'team1' ? _match?.team1 : _match?.team2;
-  String get tossDecisionDisplay => _tossDecision == 'bat' ? 'Bat First' : 'Bowl First';
+  String? get tossWinnerName =>
+      _tossWinnerKey == 'team1' ? _match?.team1 : _match?.team2;
+  String get tossDecisionDisplay =>
+      _tossDecision == 'bat' ? 'Bat First' : 'Bowl First';
   bool get isTeam1Batting {
-    final firstInningsTeam1 = (_tossWinnerKey == 'team1' && _tossDecision == 'bat') ||
-        (_tossWinnerKey == 'team2' && _tossDecision == 'bowl') ||
-        (_tossWinnerKey == null);
-    return (_match?.currentInnings ?? 1) == 2 ? !firstInningsTeam1 : firstInningsTeam1;
+    final firstInningsTeam1 =
+        (_tossWinnerKey == 'team1' && _tossDecision == 'bat') ||
+            (_tossWinnerKey == 'team2' && _tossDecision == 'bowl') ||
+            (_tossWinnerKey == null);
+    return (_match?.currentInnings ?? 1) == 2
+        ? !firstInningsTeam1
+        : firstInningsTeam1;
   }
-  List<Player> get battingTeamPlayers => isTeam1Batting ? _selectedTeam1Players : _selectedTeam2Players;
-  List<Player> get bowlingTeamPlayers => isTeam1Batting ? _selectedTeam2Players : _selectedTeam1Players;
+
+  List<Player> get battingTeamPlayers =>
+      isTeam1Batting ? _selectedTeam1Players : _selectedTeam2Players;
+  List<Player> get bowlingTeamPlayers =>
+      isTeam1Batting ? _selectedTeam2Players : _selectedTeam1Players;
   List<Player> get availableStrikers => _withCurrentPlayer(
         battingTeamPlayers
-            .where((player) =>
-                !battingStatFor(player).isOut &&
-                player.id != _currentNonStriker?.id)
+            .where(
+              (player) =>
+                  player.id != _currentNonStriker?.id && !_isPlayerOut(player),
+            )
             .toList(),
         _currentStriker,
       );
   List<Player> get availableNonStrikers => _withCurrentPlayer(
         battingTeamPlayers
-            .where((player) =>
-                !battingStatFor(player).isOut &&
-                player.id != _currentStriker?.id)
+            .where(
+              (player) =>
+                  player.id != _currentStriker?.id && !_isPlayerOut(player),
+            )
             .toList(),
         _currentNonStriker,
       );
   List<Player> get availableBowlers =>
       _withCurrentPlayer(bowlingTeamPlayers, _currentBowler);
-  String get battingTeamName => isTeam1Batting ? (_match?.team1 ?? 'Team 1') : (_match?.team2 ?? 'Team 2');
-  String get bowlingTeamName => isTeam1Batting ? (_match?.team2 ?? 'Team 2') : (_match?.team1 ?? 'Team 1');
+  String get battingTeamName => isTeam1Batting
+      ? (_match?.team1 ?? 'Team 1')
+      : (_match?.team2 ?? 'Team 2');
+  String get bowlingTeamName => isTeam1Batting
+      ? (_match?.team2 ?? 'Team 2')
+      : (_match?.team1 ?? 'Team 1');
   int get inningsNumber => _match?.currentInnings ?? 1;
   bool get isSecondInnings => inningsNumber == 2;
   int? get target => _match?.result?.target ?? _localTarget ?? _computedTarget;
   int? get requiredRuns {
     final chaseTarget = target;
-    if (!isSecondInnings || chaseTarget == null) return _match?.result?.requiredRuns;
+    if (!isSecondInnings || chaseTarget == null)
+      return _match?.result?.requiredRuns;
     return (chaseTarget - _currentScore.runs).clamp(0, 9999);
   }
+
   int? get requiredBalls {
     if (!isSecondInnings) return _match?.result?.requiredBalls;
-    return (_maxBalls - _legalBalls).clamp(0, _maxBalls);
+    return (_effectiveMaxBalls - _legalBalls)
+        .clamp(0, _effectiveMaxBalls)
+        .toInt();
   }
+
   String? get resultMessage => _localResultMessage ?? _match?.result?.message;
-  String? get playerOfMatchName => _localPlayerOfMatch ?? _match?.result?.playerOfMatch;
+  String? get playerOfMatchName =>
+      _localPlayerOfMatch ?? _match?.result?.playerOfMatch;
   List<String> get appreciations => List.unmodifiable(_appreciations);
-  bool get isLocallyCompleted => _localResultMessage != null || currentStatus == 'completed';
-  bool get hasFirstInningsCompleted => _match?.innings.any((i) => i.inningsNumber == 1 && i.isCompleted) ?? false;
-  double? get requiredRR => _currentScore.requiredRR != null ? double.tryParse(_currentScore.requiredRR!) : null;
+  bool get isLocallyCompleted =>
+      !_continueAfterTarget &&
+      (_localResultMessage != null || currentStatus == 'completed');
+  bool get hasFirstInningsCompleted =>
+      _match?.innings.any((i) => i.inningsNumber == 1 && i.isCompleted) ??
+      false;
+  double? get requiredRR => _currentScore.requiredRR != null
+      ? double.tryParse(_currentScore.requiredRR!)
+      : null;
   bool get canRefresh => !_isLoading;
+  bool get canUndoLastBall =>
+      !_isUndoing &&
+      (_currentOverBalls.isNotEmpty ||
+          _currentScore.runs > 0 ||
+          _currentScore.wickets > 0 ||
+          _legalBalls > 0 ||
+          _hasAnyRecordedScore);
   bool get isOverComplete => _legalBalls > 0 && _legalBalls % 6 == 0;
-  int get _maxBalls => ((_match?.overs ?? 20) * 6).clamp(6, 600);
-  PlayerBattingStat battingStatFor(Player? player) =>
-      player == null ? const PlayerBattingStat() : (_battingStats[player.id] ?? const PlayerBattingStat());
-  PlayerBowlingStat bowlingStatFor(Player? player) =>
-      player == null ? const PlayerBowlingStat() : (_bowlingStats[player.id] ?? const PlayerBowlingStat());
+  int get _maxBalls => ((_match?.overs ?? 20) * 6).clamp(6, 600).toInt();
+  bool get _isChildMatch => _match?.scoringRules.isChildMatch ?? false;
+  int get _effectiveMaxBalls {
+    final match = _match;
+    if (match == null || !isSecondInnings) return _maxBalls;
+    return match.scoringRules
+        .effectiveChaseBalls(match.overs, inningsNumber: inningsNumber)
+        .clamp(6, _maxBalls)
+        .toInt();
+  }
+
+  PlayerBattingStat battingStatFor(Player? player) => player == null
+      ? const PlayerBattingStat()
+      : (_battingStats[player.id] ?? const PlayerBattingStat());
+  PlayerBowlingStat bowlingStatFor(Player? player) => player == null
+      ? const PlayerBowlingStat()
+      : (_bowlingStats[player.id] ?? const PlayerBowlingStat());
+
+  bool get _hasAnyRecordedScore {
+    final score = _match?.score;
+    if (score == null) return false;
+    return score.team1.runs > 0 ||
+        score.team1.wickets > 0 ||
+        _ballsFromOvers(score.team1.overs) > 0 ||
+        score.team2.runs > 0 ||
+        score.team2.wickets > 0 ||
+        _ballsFromOvers(score.team2.overs) > 0;
+  }
 
   List<Player> _withCurrentPlayer(List<Player> players, Player? current) {
     if (current == null || current.id.isEmpty) return players;
+    if (_isPlayerOut(current)) return players;
     if (players.any((player) => player.id == current.id)) return players;
     return [current, ...players];
   }
 
-// Match flow status
+  bool _isPlayerOut(Player player) {
+    final stat = _battingStats[player.id];
+    return stat?.isOut == true;
+  }
+
+  // Match flow status
   MatchFlowStatus _flowStatus = MatchFlowStatus.scheduled;
   MatchFlowStatus get flowStatus => _flowStatus;
-  
+
   // Get proper match status for UI
   String get matchStatusDisplay {
     if (_match == null) return 'Unknown';
@@ -299,7 +423,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     _isLoading = true;
     _error = null;
     notifyListeners();
-    
+
     // Determine flow status from match status
     _updateFlowStatus();
 
@@ -320,7 +444,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   void _updateFlowStatus() {
     final status = _match?.status.toLowerCase();
     if (status == null) {
@@ -342,7 +466,10 @@ class LiveScoreControlProvider extends ChangeNotifier {
   Future<void> refreshMatchData() async {
     if (_matchId == null) return;
     try {
-      final updatedMatch = await _matchService.getMatchById(_matchId!, forceRefresh: true);
+      final updatedMatch = await _matchService.getMatchById(
+        _matchId!,
+        forceRefresh: true,
+      );
       _match = updatedMatch;
       _updateFlowStatus();
       await _loadTeamPlayers();
@@ -358,12 +485,21 @@ class LiveScoreControlProvider extends ChangeNotifier {
   Future<void> _loadTeamPlayers() async {
     if (_match == null) return;
 
-    _team1Players = await _loadPlayersForTeam(_match!.team1Id, _match!.team1Data);
-    _team2Players = await _loadPlayersForTeam(_match!.team2Id, _match!.team2Data);
+    _team1Players = await _loadPlayersForTeam(
+      _match!.team1Id,
+      _match!.team1Data,
+    );
+    _team2Players = await _loadPlayersForTeam(
+      _match!.team2Id,
+      _match!.team2Data,
+    );
     notifyListeners();
   }
 
-  Future<List<Player>> _loadPlayersForTeam(String teamId, dynamic teamData) async {
+  Future<List<Player>> _loadPlayersForTeam(
+    String teamId,
+    dynamic teamData,
+  ) async {
     final embeddedPlayers = _playersFromTeamData(teamData);
     if (teamId.trim().isEmpty) return embeddedPlayers;
 
@@ -382,10 +518,12 @@ class LiveScoreControlProvider extends ChangeNotifier {
       final players = teamWithPlayers['players'];
       if (players is List<Player>) loadedPlayers.addAll(players);
       if (players is List) {
-        loadedPlayers.addAll(players
-            .whereType<Map>()
-            .map((json) => Player.fromJson(Map<String, dynamic>.from(json)))
-            .toList());
+        loadedPlayers.addAll(
+          players
+              .whereType<Map>()
+              .map((json) => Player.fromJson(Map<String, dynamic>.from(json)))
+              .toList(),
+        );
       }
     } catch (e) {
       debugPrint('Team fallback failed for $teamId: $e');
@@ -432,35 +570,56 @@ class LiveScoreControlProvider extends ChangeNotifier {
         .toList();
 
     if (team1Order != null && team1Order.isNotEmpty) {
-      _selectedTeam1Players = _playersFromOrder(_team1Players, team1Order.first.players);
+      _selectedTeam1Players = _playersFromOrder(
+        _team1Players,
+        team1Order.first.players,
+      );
     } else if (_selectedTeam1Players.isEmpty && _team1Players.isNotEmpty) {
-      _selectedTeam1Players = _team1Players.take(11).toList();
+      _selectedTeam1Players = _team1Players.take(25).toList();
     }
     if (team2Order != null && team2Order.isNotEmpty) {
-      _selectedTeam2Players = _playersFromOrder(_team2Players, team2Order.first.players);
+      _selectedTeam2Players = _playersFromOrder(
+        _team2Players,
+        team2Order.first.players,
+      );
     } else if (_selectedTeam2Players.isEmpty && _team2Players.isNotEmpty) {
-      _selectedTeam2Players = _team2Players.take(11).toList();
+      _selectedTeam2Players = _team2Players.take(25).toList();
     }
 
-    _team1CaptainId ??= _idFromDynamic(_match?.team1Data is Map ? _match!.team1Data['captain'] : null);
-    _team1ViceCaptainId ??= _idFromDynamic(_match?.team1Data is Map ? _match!.team1Data['viceCaptain'] : null);
-    _team2CaptainId ??= _idFromDynamic(_match?.team2Data is Map ? _match!.team2Data['captain'] : null);
-    _team2ViceCaptainId ??= _idFromDynamic(_match?.team2Data is Map ? _match!.team2Data['viceCaptain'] : null);
+    _team1CaptainId ??= _idFromDynamic(
+      _match?.team1Data is Map ? _match!.team1Data['captain'] : null,
+    );
+    _team1ViceCaptainId ??= _idFromDynamic(
+      _match?.team1Data is Map ? _match!.team1Data['viceCaptain'] : null,
+    );
+    _team2CaptainId ??= _idFromDynamic(
+      _match?.team2Data is Map ? _match!.team2Data['captain'] : null,
+    );
+    _team2ViceCaptainId ??= _idFromDynamic(
+      _match?.team2Data is Map ? _match!.team2Data['viceCaptain'] : null,
+    );
   }
 
-  List<Player> _playersFromOrder(List<Player> availablePlayers, List<String> orderedIds) {
+  List<Player> _playersFromOrder(
+    List<Player> availablePlayers,
+    List<String> orderedIds,
+  ) {
     final byId = {for (final player in availablePlayers) player.id: player};
     return orderedIds.map((id) => byId[id]).whereType<Player>().toList();
   }
 
   bool _isTeam1Value(String? value) {
     if (value == null) return false;
-    return value == _match?.team1Id || value == _match?.team1 || value == _teamMapValue(_match?.team1Data, 'shortName');
+    return value == _match?.team1Id ||
+        value == _match?.team1 ||
+        value == _teamMapValue(_match?.team1Data, 'shortName');
   }
 
   bool _isTeam2Value(String? value) {
     if (value == null) return false;
-    return value == _match?.team2Id || value == _match?.team2 || value == _teamMapValue(_match?.team2Data, 'shortName');
+    return value == _match?.team2Id ||
+        value == _match?.team2 ||
+        value == _teamMapValue(_match?.team2Data, 'shortName');
   }
 
   int? get _computedTarget {
@@ -477,7 +636,8 @@ class LiveScoreControlProvider extends ChangeNotifier {
       return firstInnings.totalRuns + 1;
     }
     final firstTeam1 = _firstInningsTeam1Batting;
-    final firstScore = firstTeam1 ? match.score.team1.runs : match.score.team2.runs;
+    final firstScore =
+        firstTeam1 ? match.score.team1.runs : match.score.team2.runs;
     return firstScore > 0 ? firstScore + 1 : null;
   }
 
@@ -512,7 +672,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     void merge(List<Player> allPlayers, List<Player> selectedPlayers) {
       final selectedIds = selectedPlayers.map((p) => p.id).toSet();
       for (final player in allPlayers) {
-        if (selectedPlayers.length >= 11) break;
+        if (selectedPlayers.length >= 25) break;
         if (player.id.isNotEmpty && !selectedIds.contains(player.id)) {
           selectedPlayers.add(player);
           selectedIds.add(player.id);
@@ -533,12 +693,15 @@ class LiveScoreControlProvider extends ChangeNotifier {
     } catch (_) {
       liveData = {};
     }
-    final scorecard = liveData['scorecard'] is Map ? liveData['scorecard'] as Map<String, dynamic> : <String, dynamic>{};
+    final scorecard = liveData['scorecard'] is Map
+        ? liveData['scorecard'] as Map<String, dynamic>
+        : <String, dynamic>{};
     _currentScore = LiveScoreState(
       runs: scorecard['runs'] ?? _currentScore.runs,
       wickets: scorecard['wickets'] ?? _currentScore.wickets,
       overs: scorecard['overs']?.toString() ?? _currentScore.overs,
-      runRate: double.tryParse(scorecard['runRate']?.toString() ?? '0.00') ?? _currentScore.runRate,
+      runRate: double.tryParse(scorecard['runRate']?.toString() ?? '0.00') ??
+          _currentScore.runRate,
       requiredRR: liveData['requiredRunRate']?.toString(),
     );
     _localTarget = _match?.result?.target ?? _computedTarget;
@@ -581,7 +744,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     }
   }
 
-Future<void> _setupSocketListeners() async {
+  Future<void> _setupSocketListeners() async {
     _socketService ??= SocketService();
     await _socketService!.connect();
     _socketService!.joinMatch(_matchId!);
@@ -606,15 +769,17 @@ Future<void> _setupSocketListeners() async {
       runs: innings['totalRuns'] ?? _currentScore.runs,
       wickets: innings['totalWickets'] ?? _currentScore.wickets,
       overs: innings['overs']?.toString() ?? _currentScore.overs,
-      runRate: (innings['runRate'] as num?)?.toDouble() ?? _currentScore.runRate,
+      runRate:
+          (innings['runRate'] as num?)?.toDouble() ?? _currentScore.runRate,
     );
     _legalBalls = _ballsFromOvers(_currentScore.overs);
     _refreshChaseProjection();
     final strikerId = _idFromDynamic(innings['currentStriker']);
     final nonStrikerId = _idFromDynamic(innings['currentNonStriker']);
     final bowlerId = _idFromDynamic(innings['currentBowler']);
-    _currentStriker =
-        strikerId == null ? null : (_findPlayerById(strikerId) ?? _currentStriker);
+    _currentStriker = strikerId == null
+        ? null
+        : (_findPlayerById(strikerId) ?? _currentStriker);
     _currentNonStriker = nonStrikerId == null
         ? null
         : (_findPlayerById(nonStrikerId) ?? _currentNonStriker);
@@ -642,8 +807,13 @@ Future<void> _setupSocketListeners() async {
     _error = null;
     notifyListeners();
     try {
-      final winnerId = _tossWinnerKey == 'team1' ? _match!.team1Id : _match!.team2Id;
-      _match = await _matchService.updateToss(_matchId!, winnerId, _tossDecision!);
+      final winnerId =
+          _tossWinnerKey == 'team1' ? _match!.team1Id : _match!.team2Id;
+      _match = await _matchService.updateToss(
+        _matchId!,
+        winnerId,
+        _tossDecision!,
+      );
       _updateFlowStatus();
       _hydrateTossAndLineups();
     } catch (e) {
@@ -655,13 +825,40 @@ Future<void> _setupSocketListeners() async {
     notifyListeners();
   }
 
+  Future<bool> undoToss() async {
+    if (_matchId == null || !tossDone) return false;
+    _error = null;
+    notifyListeners();
+    try {
+      _match = await _matchService.undoToss(_matchId!);
+      _tossWinnerKey = null;
+      _tossDecision = null;
+      _updateFlowStatus();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Toss undo failed: ${_friendlyError(e)}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void setContinueAfterTarget(bool value) {
+    _continueAfterTarget = value;
+    if (value) {
+      _localResultMessage = null;
+      _localPlayerOfMatch = null;
+    }
+    notifyListeners();
+  }
+
   // XI Selection
   void toggleTeam1Player(Player player) {
     if (_selectedTeam1Players.any((p) => p.id == player.id)) {
       _selectedTeam1Players.removeWhere((p) => p.id == player.id);
       if (_team1CaptainId == player.id) _team1CaptainId = null;
       if (_team1ViceCaptainId == player.id) _team1ViceCaptainId = null;
-    } else if (_selectedTeam1Players.length < 11) {
+    } else if (_selectedTeam1Players.length < 25) {
       _selectedTeam1Players.add(player);
     }
     _ensureDefaultLeaders();
@@ -673,7 +870,7 @@ Future<void> _setupSocketListeners() async {
       _selectedTeam2Players.removeWhere((p) => p.id == player.id);
       if (_team2CaptainId == player.id) _team2CaptainId = null;
       if (_team2ViceCaptainId == player.id) _team2ViceCaptainId = null;
-    } else if (_selectedTeam2Players.length < 11) {
+    } else if (_selectedTeam2Players.length < 25) {
       _selectedTeam2Players.add(player);
     }
     _ensureDefaultLeaders();
@@ -681,7 +878,8 @@ Future<void> _setupSocketListeners() async {
   }
 
   void setTeamCaptain(int teamNumber, Player player) {
-    final players = teamNumber == 1 ? _selectedTeam1Players : _selectedTeam2Players;
+    final players =
+        teamNumber == 1 ? _selectedTeam1Players : _selectedTeam2Players;
     if (!players.any((p) => p.id == player.id)) return;
     if (teamNumber == 1) {
       _team1CaptainId = player.id;
@@ -694,7 +892,8 @@ Future<void> _setupSocketListeners() async {
   }
 
   void setTeamViceCaptain(int teamNumber, Player player) {
-    final players = teamNumber == 1 ? _selectedTeam1Players : _selectedTeam2Players;
+    final players =
+        teamNumber == 1 ? _selectedTeam1Players : _selectedTeam2Players;
     if (!players.any((p) => p.id == player.id)) return;
     if (teamNumber == 1) {
       _team1ViceCaptainId = player.id;
@@ -707,11 +906,15 @@ Future<void> _setupSocketListeners() async {
   }
 
   bool _hasCaptainAndViceCaptain(int teamNumber) {
-    final players = teamNumber == 1 ? _selectedTeam1Players : _selectedTeam2Players;
+    final players =
+        teamNumber == 1 ? _selectedTeam1Players : _selectedTeam2Players;
     final captainId = teamNumber == 1 ? _team1CaptainId : _team2CaptainId;
-    final viceCaptainId = teamNumber == 1 ? _team1ViceCaptainId : _team2ViceCaptainId;
+    final viceCaptainId =
+        teamNumber == 1 ? _team1ViceCaptainId : _team2ViceCaptainId;
 
-    if (captainId == null || viceCaptainId == null || captainId == viceCaptainId) {
+    if (captainId == null ||
+        viceCaptainId == null ||
+        captainId == viceCaptainId) {
       return false;
     }
 
@@ -723,9 +926,11 @@ Future<void> _setupSocketListeners() async {
     void applyForTeam(int teamNumber, List<Player> players) {
       if (players.isEmpty) return;
       final captainId = teamNumber == 1 ? _team1CaptainId : _team2CaptainId;
-      final viceCaptainId = teamNumber == 1 ? _team1ViceCaptainId : _team2ViceCaptainId;
+      final viceCaptainId =
+          teamNumber == 1 ? _team1ViceCaptainId : _team2ViceCaptainId;
 
-      final validCaptain = captainId != null && players.any((player) => player.id == captainId);
+      final validCaptain =
+          captainId != null && players.any((player) => player.id == captainId);
       final validViceCaptain = viceCaptainId != null &&
           viceCaptainId != captainId &&
           players.any((player) => player.id == viceCaptainId);
@@ -753,22 +958,29 @@ Future<void> _setupSocketListeners() async {
     _error = null;
     notifyListeners();
     if (_selectedTeam1Players.isEmpty && _team1Players.isNotEmpty) {
-      _selectedTeam1Players = _team1Players.take(11).toList();
+      _selectedTeam1Players = _team1Players.take(25).toList();
     }
     if (_selectedTeam2Players.isEmpty && _team2Players.isNotEmpty) {
-      _selectedTeam2Players = _team2Players.take(11).toList();
+      _selectedTeam2Players = _team2Players.take(25).toList();
     }
     _ensureDefaultLeaders();
     if (!canInitialize) {
-      _error = 'Select at least 2 players plus captain and vice-captain for both teams first';
+      _error =
+          'Select at least 2 players plus captain and vice-captain for both teams first';
       _isInitializing = false;
       notifyListeners();
       return;
     }
     try {
       final battingOrder = [
-        {'team': _match!.team1Id, 'players': _selectedTeam1Players.map((p) => p.id).toList()},
-        {'team': _match!.team2Id, 'players': _selectedTeam2Players.map((p) => p.id).toList()},
+        {
+          'team': _match!.team1Id,
+          'players': _selectedTeam1Players.map((p) => p.id).toList(),
+        },
+        {
+          'team': _match!.team2Id,
+          'players': _selectedTeam2Players.map((p) => p.id).toList(),
+        },
       ];
       await _matchService.initializeMatch(_matchId!, battingOrder);
       await refreshMatchData();
@@ -799,8 +1011,9 @@ Future<void> _setupSocketListeners() async {
 
   // Live Scoring
   Future<void> setStriker(Player player) async {
-    if (battingStatFor(player).isOut) {
-      _error = '${player.name} is already out';
+    if (_isPlayerOut(player)) {
+      _error =
+          '${player.name} is already out. Select the next available batter.';
       notifyListeners();
       return;
     }
@@ -818,8 +1031,9 @@ Future<void> _setupSocketListeners() async {
   }
 
   Future<void> setNonStriker(Player player) async {
-    if (battingStatFor(player).isOut) {
-      _error = '${player.name} is already out';
+    if (_isPlayerOut(player)) {
+      _error =
+          '${player.name} is already out. Select the next available batter.';
       notifyListeners();
       return;
     }
@@ -849,6 +1063,29 @@ Future<void> _setupSocketListeners() async {
     notifyListeners();
   }
 
+  String _serverErrorMessage(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map && data['message'] != null) {
+        return data['message'].toString();
+      }
+      return error.message ?? 'Unable to sync score with server';
+    }
+    return error.toString().replaceFirst('Exception: ', '');
+  }
+
+  Future<void> _recoverFromScoreSyncFailure(Object error) async {
+    final message = _serverErrorMessage(error);
+    try {
+      await refreshMatchData();
+      _error = 'Score not saved: $message. Server score restored.';
+    } catch (_) {
+      _error =
+          'Score not saved: $message. Refresh the match before scoring again.';
+    }
+    notifyListeners();
+  }
+
   Future<void> addRuns(int runs) async {
     if (isLocallyCompleted) return;
     if (_currentStriker == null || _currentBowler == null) {
@@ -863,6 +1100,8 @@ Future<void> _setupSocketListeners() async {
       'runs': runs,
       'isFour': runs == 4,
       'isSix': runs == 6,
+      'continueAfterTarget': _continueAfterTarget,
+      'allowAllOutContinue': true,
     };
 
     _applyLocalBall(runs: runs);
@@ -871,8 +1110,7 @@ Future<void> _setupSocketListeners() async {
       await refreshMatchData();
       await _syncAutoResultIfNeeded();
     } catch (e) {
-      _error = 'Score saved locally. Server sync failed: $e';
-      notifyListeners();
+      await _recoverFromScoreSyncFailure(e);
     }
   }
 
@@ -888,25 +1126,27 @@ Future<void> _setupSocketListeners() async {
       return;
     }
 
+    final scoredRuns = runs;
     final ballData = <String, dynamic>{
       'batsmanId': _currentStriker!.id,
       'bowlerId': _currentBowler!.id,
-      'runs': runs,
+      'runs': scoredRuns,
       'isFour': runs == 4,
       'isSix': runs == 6,
       'wagonZone': zone,
       'wagonLabel': label,
       'comment': '$runs run${runs == 1 ? '' : 's'} through $label',
+      'continueAfterTarget': _continueAfterTarget,
+      'allowAllOutContinue': true,
     };
 
-    _applyLocalBall(runs: runs, wagonLabel: label);
+    _applyLocalBall(runs: scoredRuns, wagonZone: zone, wagonLabel: label);
     try {
       await _matchService.addBall(_matchId!, ballData);
       await refreshMatchData();
       await _syncAutoResultIfNeeded();
     } catch (e) {
-      _error = 'Shot saved locally. Server sync failed: $e';
-      notifyListeners();
+      await _recoverFromScoreSyncFailure(e);
     }
   }
 
@@ -926,21 +1166,60 @@ Future<void> _setupSocketListeners() async {
                 : type == 'legBye'
                     ? 'isLegBye'
                     : 'is$type';
+    final scoredRuns = _isChildMatch && type == 'bye' && runs <= 0 ? 1 : runs;
     final ballData = <String, dynamic>{
       'batsmanId': _currentStriker!.id,
       'bowlerId': _currentBowler!.id,
-      'runs': runs,
+      'runs': scoredRuns,
       apiKey: true,
       'isFreeHit': _isFreeHit,
+      'continueAfterTarget': _continueAfterTarget,
+      'allowAllOutContinue': true,
     };
-    _applyLocalBall(runs: runs, extraType: type);
+    _applyLocalBall(runs: scoredRuns, extraType: type);
     try {
       await _matchService.addBall(_matchId!, ballData);
       await refreshMatchData();
       await _syncAutoResultIfNeeded();
     } catch (e) {
-      _error = 'Extra saved locally. Server sync failed: $e';
+      await _recoverFromScoreSyncFailure(e);
+    }
+  }
+
+  Future<void> addCustomRuns({
+    required int runs,
+    bool isPenalty = false,
+    bool? forceStrikeChange,
+  }) async {
+    if (isLocallyCompleted) return;
+    if (_currentStriker == null || _currentBowler == null) {
+      _error = 'Set striker and bowler first';
       notifyListeners();
+      return;
+    }
+    final ballData = <String, dynamic>{
+      'batsmanId': _currentStriker!.id,
+      'bowlerId': _currentBowler!.id,
+      'runs': runs,
+      if (isPenalty) 'isPenalty': true,
+      if (forceStrikeChange != null) 'forceStrikeChange': forceStrikeChange,
+      'continueAfterTarget': _continueAfterTarget,
+      'allowAllOutContinue': true,
+      'comment': isPenalty
+          ? '$runs penalty run${runs == 1 ? '' : 's'}'
+          : '$runs custom run${runs == 1 ? '' : 's'}',
+    };
+    _applyLocalBall(
+      runs: runs,
+      extraType: isPenalty ? 'penalty' : null,
+      forceStrikeChange: forceStrikeChange,
+    );
+    try {
+      await _matchService.addBall(_matchId!, ballData);
+      await refreshMatchData();
+      await _syncAutoResultIfNeeded();
+    } catch (e) {
+      await _recoverFromScoreSyncFailure(e);
     }
   }
 
@@ -951,6 +1230,7 @@ Future<void> _setupSocketListeners() async {
   Future<void> addWicketDetailed({
     required String wicketType,
     Player? dismissedPlayer,
+    Player? fielder,
     int completedRuns = 0,
   }) async {
     if (isLocallyCompleted) return;
@@ -959,9 +1239,15 @@ Future<void> _setupSocketListeners() async {
       notifyListeners();
       return;
     }
+    final normalizedWicketType = _normalizeWicketType(wicketType);
     final dismissed = dismissedPlayer ?? _currentStriker!;
-    if (_isFreeHit && !_isFreeHitWicketAllowed(wicketType)) {
-      _error = 'Free hit par $wicketType out allowed nahi hai';
+    if (!_wicketRules.containsKey(normalizedWicketType)) {
+      _error = 'Unsupported wicket type: $wicketType';
+      notifyListeners();
+      return;
+    }
+    if (_isFreeHit && !_isFreeHitWicketAllowed(normalizedWicketType)) {
+      _error = 'Free hit par $normalizedWicketType out allowed nahi hai';
       notifyListeners();
       return;
     }
@@ -969,14 +1255,17 @@ Future<void> _setupSocketListeners() async {
       'batsmanId': _currentStriker!.id,
       'bowlerId': _currentBowler!.id,
       'isWicket': true,
-      'wicketType': wicketType,
+      'wicketType': normalizedWicketType,
       'runs': completedRuns,
       'dismissedBatsmanId': dismissed.id,
+      if (fielder != null) 'fielderId': fielder.id,
       'isFreeHit': _isFreeHit,
+      'continueAfterTarget': _continueAfterTarget,
+      'allowAllOutContinue': true,
     };
     _applyLocalBall(
       runs: completedRuns,
-      wicketType: wicketType,
+      wicketType: normalizedWicketType,
       dismissedPlayer: dismissed,
     );
     try {
@@ -984,19 +1273,130 @@ Future<void> _setupSocketListeners() async {
       await refreshMatchData();
       await _syncAutoResultIfNeeded();
     } catch (e) {
-      _error = 'Wicket saved locally. Server sync failed: $e';
+      await _recoverFromScoreSyncFailure(e);
+    }
+  }
+
+  Future<bool> undoLastBall() async {
+    if (_matchId == null || _isUndoing) return false;
+    _isUndoing = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _matchService.undoLastBall(_matchId!);
+      _localResultMessage = null;
+      _localPlayerOfMatch = null;
+      await refreshMatchData();
+      _error = null;
+      return true;
+    } catch (e) {
+      _error = 'Undo failed: ${_friendlyError(e)}';
+      notifyListeners();
+      return false;
+    } finally {
+      _isUndoing = false;
       notifyListeners();
     }
   }
 
+  Future<bool> retireBatter({
+    required Player batter,
+    required String type,
+    required String reason,
+  }) async {
+    if (_matchId == null) return false;
+    _error = null;
+    notifyListeners();
+    try {
+      await _matchService.retireBatter(_matchId!, {
+        'batsmanId': batter.id,
+        'type': type,
+        'reason': reason,
+      });
+      if (_currentStriker?.id == batter.id) _currentStriker = null;
+      if (_currentNonStriker?.id == batter.id) _currentNonStriker = null;
+      await refreshLiveData();
+      return true;
+    } catch (e) {
+      _error = 'Retirement failed: ${_friendlyError(e)}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updatePracticeContinuation({
+    required bool afterOvers,
+    required bool afterAllOut,
+    required bool afterTarget,
+  }) async {
+    if (_matchId == null) return false;
+    _error = null;
+    notifyListeners();
+    try {
+      await _matchService.updateInningsContinuation(_matchId!, {
+        'afterOvers': afterOvers,
+        'afterAllOut': afterAllOut,
+        'afterTarget': afterTarget,
+      });
+      _continueAfterOvers = afterOvers;
+      _continueAfterAllOut = afterAllOut;
+      _continueAfterTarget = afterTarget;
+      if (practiceContinuationEnabled) {
+        _localResultMessage = null;
+        _localPlayerOfMatch = null;
+      }
+      await refreshMatchData();
+      return true;
+    } catch (e) {
+      _error = 'Continuation update failed: ${_friendlyError(e)}';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> applyRainDls({
+    required String method,
+    required int revisedOvers,
+    bool completeMatch = false,
+  }) async {
+    if (_matchId == null) return;
+    _error = null;
+    notifyListeners();
+    try {
+      final result = await _matchService.applyRainDls(_matchId!, {
+        'method': method,
+        'revisedOvers': revisedOvers,
+        'wicketsLost': _currentScore.wickets,
+        'completeMatch': completeMatch,
+      });
+      final resultData = result['result'];
+      if (resultData is Map && resultData['message'] != null) {
+        _localResultMessage = resultData['message'].toString();
+      }
+      if (resultData is Map && resultData['target'] != null) {
+        _localTarget = int.tryParse(resultData['target'].toString());
+      }
+      await refreshMatchData();
+    } catch (e) {
+      _error = 'Rain/DLS update failed: ${_friendlyError(e)}';
+      notifyListeners();
+    }
+  }
+
+  String _friendlyError(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map && data['message'] != null)
+        return data['message'].toString();
+      if (error.message != null && error.message!.isNotEmpty)
+        return error.message!;
+    }
+    return error.toString().replaceFirst('Exception: ', '');
+  }
+
   bool _isFreeHitWicketAllowed(String wicketType) {
-    return const {
-      'run_out',
-      'runOut',
-      'obstructing_field',
-      'handled_ball',
-      'hit_ball_twice',
-    }.contains(wicketType);
+    return _wicketRules[_normalizeWicketType(wicketType)]?.freeHitAllowed ?? false;
   }
 
   Future<void> startMatch() async {
@@ -1029,13 +1429,18 @@ Future<void> _setupSocketListeners() async {
   }
 
   Future<void> _syncAutoResultIfNeeded() async {
-    if (_matchId == null || _autoCompletingMatch || _localResultMessage == null) return;
+    if (_continueAfterTarget ||
+        _matchId == null ||
+        _autoCompletingMatch ||
+        _localResultMessage == null) return;
     if (currentStatus == 'completed') return;
 
     _autoCompletingMatch = true;
     try {
       await _matchService.updateMatchResult(_matchId!, {
-        'winner': _localResultMessage!.startsWith('Match tied') ? null : _winnerNameFromMessage(),
+        'winner': _localResultMessage!.startsWith('Match tied')
+            ? null
+            : _winnerNameFromMessage(),
         'message': _localResultMessage,
         'method': 'normal',
         'playerOfMatch': _localPlayerOfMatch,
@@ -1060,7 +1465,7 @@ Future<void> _setupSocketListeners() async {
     return wonIndex > 0 ? message.substring(0, wonIndex) : null;
   }
 
-@override
+  @override
   void dispose() {
     if (_matchId != null) _socketService?.leaveMatch(_matchId!);
     _socketService?.offLiveScoreUpdate();
@@ -1078,7 +1483,11 @@ Future<void> _setupSocketListeners() async {
     if (value == null) return null;
     if (value is String) return value;
     if (value is Map) {
-      return (value['_id'] ?? value['id'] ?? value['batsman'] ?? value['bowler'])?.toString();
+      return (value['_id'] ??
+              value['id'] ??
+              value['batsman'] ??
+              value['bowler'])
+          ?.toString();
     }
     return value.toString();
   }
@@ -1096,12 +1505,17 @@ Future<void> _setupSocketListeners() async {
       for (final raw in batting.whereType<Map>()) {
         final id = _idFromDynamic(raw['batsman']);
         if (id == null) continue;
+        final howOut = (raw['howOut'] ?? raw['dismissal'] ?? 'not_out')
+            .toString()
+            .toLowerCase();
         _battingStats[id] = PlayerBattingStat(
           runs: (raw['runs'] as num?)?.toInt() ?? 0,
           balls: (raw['balls'] as num?)?.toInt() ?? 0,
           fours: (raw['fours'] as num?)?.toInt() ?? 0,
           sixes: (raw['sixes'] as num?)?.toInt() ?? 0,
-          isOut: (raw['howOut'] ?? 'not_out') != 'not_out',
+          isOut: howOut != 'not_out' &&
+              howOut != 'not out' &&
+              howOut != 'retired_hurt',
         );
       }
     }
@@ -1123,9 +1537,13 @@ Future<void> _setupSocketListeners() async {
     if (extras is Map) {
       _extras = {
         'wides': (extras['wides'] as num?)?.toInt() ?? _extras['wides'] ?? 0,
-        'noBalls': (extras['noBalls'] as num?)?.toInt() ?? _extras['noBalls'] ?? 0,
+        'noBalls':
+            (extras['noBalls'] as num?)?.toInt() ?? _extras['noBalls'] ?? 0,
         'byes': (extras['byes'] as num?)?.toInt() ?? _extras['byes'] ?? 0,
-        'legByes': (extras['legByes'] as num?)?.toInt() ?? _extras['legByes'] ?? 0,
+        'legByes':
+            (extras['legByes'] as num?)?.toInt() ?? _extras['legByes'] ?? 0,
+        'penalty':
+            (extras['penalty'] as num?)?.toInt() ?? _extras['penalty'] ?? 0,
       };
     }
   }
@@ -1137,11 +1555,25 @@ Future<void> _setupSocketListeners() async {
       final isNoBall = ball['isNoBall'] == true;
       final isBye = ball['isBye'] == true;
       final isLegBye = ball['isLegBye'] == true;
-      final extra = isWide ? 'Wd' : isNoBall ? 'Nb' : isBye ? 'B' : isLegBye ? 'LB' : null;
+      final wicketType = ball['wicketType']?.toString();
+      final wicketRule =
+          wicketType == null ? null : _wicketRules[_normalizeWicketType(wicketType)];
+      final extra = isWide
+          ? 'Wd'
+          : isNoBall
+              ? 'Nb'
+              : isBye
+                  ? 'B'
+                  : isLegBye
+                      ? 'LB'
+                      : null;
       return {
         'runs': (ball['runs'] as num?)?.toInt() ?? 0,
         'wicket': ball['wicket'] == true || ball['isWicket'] == true,
+        'wicketCounts': wicketRule?.countsAsWicket ?? (ball['wicket'] == true || ball['isWicket'] == true),
+        'wicketType': wicketType == null ? null : _normalizeWicketType(wicketType),
         'extra': extra,
+        'wagonZone': (ball['wagonZone'] as num?)?.toInt(),
         'wagonLabel': ball['wagonLabel']?.toString(),
         'overNumber': ball['overNumber'],
         'ballNumber': ball['ballNumber'],
@@ -1151,7 +1583,8 @@ Future<void> _setupSocketListeners() async {
 
   bool _freeHitFromRecentBalls(dynamic raw) {
     if (raw is! List || raw.isEmpty) return _isFreeHit;
-    final last = raw.whereType<Map>().isEmpty ? null : raw.whereType<Map>().last;
+    final last =
+        raw.whereType<Map>().isEmpty ? null : raw.whereType<Map>().last;
     if (last == null) return _isFreeHit;
     final isWide = last['isWide'] == true;
     final isNoBall = last['isNoBall'] == true;
@@ -1165,8 +1598,10 @@ Future<void> _setupSocketListeners() async {
     required int runs,
     String? extraType,
     String? wicketType,
+    int? wagonZone,
     String? wagonLabel,
     Player? dismissedPlayer,
+    bool? forceStrikeChange,
   }) {
     final striker = _currentStriker;
     final bowler = _currentBowler;
@@ -1174,30 +1609,36 @@ Future<void> _setupSocketListeners() async {
 
     final isWide = extraType == 'wide';
     final isNoBall = extraType == 'noBall';
-    final isLegal = !isWide && !isNoBall;
+    final isPenalty = extraType == 'penalty';
+    final isLegal = !isWide && !isNoBall && !isPenalty;
     final isBye = extraType == 'bye';
     final isLegBye = extraType == 'legBye';
+    final scoredRuns = _isChildMatch && isBye && runs <= 0 ? 1 : runs;
     final extraRuns = extraType == null
         ? 0
-        : (isWide || isNoBall)
-            ? 1
-            : runs;
-    final batsmanRuns = (isBye || isLegBye) ? 0 : runs;
+        : isWide
+            ? scoredRuns + 1
+            : isNoBall
+                ? 1
+                : scoredRuns;
+    final batsmanRuns = (isBye || isLegBye || isPenalty) ? 0 : scoredRuns;
     final isWicket = wicketType != null;
-    final isBowlerWicket = const {
-      'bowled',
-      'caught',
-      'lbw',
-      'stumped',
-      'hit_wicket',
-    }.contains(wicketType);
-    final totalRuns = (isBye || isLegBye) ? extraRuns : runs + extraRuns;
+    final normalizedWicketType =
+        wicketType == null ? null : _normalizeWicketType(wicketType);
+    final wicketRule = normalizedWicketType == null
+        ? null
+        : _wicketRules[normalizedWicketType];
+    final wicketCounts = isWicket && (wicketRule?.countsAsWicket ?? true);
+    final isBowlerWicket = wicketCounts && (wicketRule?.bowlerCredit ?? false);
+    final totalRuns = (isWide || isBye || isLegBye || isPenalty)
+        ? extraRuns
+        : scoredRuns + extraRuns;
     final nextBalls = _legalBalls + (isLegal ? 1 : 0);
     final wasFreeHit = _isFreeHit;
 
     _currentScore = LiveScoreState(
       runs: _currentScore.runs + totalRuns,
-      wickets: _currentScore.wickets + (isWicket ? 1 : 0),
+      wickets: _currentScore.wickets + (wicketCounts ? 1 : 0),
       overs: _formatOvers(nextBalls),
       runRate: _calculateRunRate(_currentScore.runs + totalRuns, nextBalls),
       requiredRR: _currentScore.requiredRR,
@@ -1210,32 +1651,39 @@ Future<void> _setupSocketListeners() async {
               ? 'noBalls'
               : extraType == 'bye'
                   ? 'byes'
-                  : 'legByes';
+                  : extraType == 'legBye'
+                      ? 'legByes'
+                      : 'penalty';
       _extras[key] = (_extras[key] ?? 0) + extraRuns;
     }
 
-    if (isLegal) {
+    if (!isWide && !isBye && !isLegBye && !isPenalty) {
       final stat = _battingStats[striker.id] ?? const PlayerBattingStat();
       final updatedBatting = stat.copyWith(
         runs: stat.runs + batsmanRuns,
-        balls: stat.balls + 1,
+        balls: stat.balls + (isLegal ? 1 : 0),
         fours: stat.fours + (batsmanRuns == 4 ? 1 : 0),
         sixes: stat.sixes + (batsmanRuns == 6 ? 1 : 0),
-        isOut: (isWicket && (dismissedPlayer?.id ?? striker.id) == striker.id) || stat.isOut,
+        isOut: (wicketCounts &&
+                (dismissedPlayer?.id ?? striker.id) == striker.id) ||
+            stat.isOut,
       );
       _battingStats[striker.id] = updatedBatting;
       _recordBattingMilestone(striker, stat.runs, updatedBatting.runs);
     }
 
-    if (isWicket && dismissedPlayer != null && dismissedPlayer.id != striker.id) {
-      final dismissedStat = _battingStats[dismissedPlayer.id] ?? const PlayerBattingStat();
+    if (wicketCounts &&
+        dismissedPlayer != null &&
+        dismissedPlayer.id != striker.id) {
+      final dismissedStat =
+          _battingStats[dismissedPlayer.id] ?? const PlayerBattingStat();
       _battingStats[dismissedPlayer.id] = dismissedStat.copyWith(isOut: true);
     }
 
     final bowlerStat = _bowlingStats[bowler.id] ?? const PlayerBowlingStat();
     final updatedBowling = bowlerStat.copyWith(
       balls: bowlerStat.balls + (isLegal ? 1 : 0),
-      runs: bowlerStat.runs + totalRuns,
+      runs: bowlerStat.runs + (isPenalty ? 0 : totalRuns),
       wickets: bowlerStat.wickets + (isBowlerWicket ? 1 : 0),
     );
     _bowlingStats[bowler.id] = updatedBowling;
@@ -1245,8 +1693,10 @@ Future<void> _setupSocketListeners() async {
 
     _legalBalls = nextBalls;
     _currentOverBalls.add({
-      'runs': runs,
+      'runs': scoredRuns,
       'wicket': isWicket,
+      'wicketCounts': wicketCounts,
+      'wicketType': normalizedWicketType,
       'extra': extraType == 'wide'
           ? 'Wd'
           : extraType == 'noBall'
@@ -1255,15 +1705,20 @@ Future<void> _setupSocketListeners() async {
                   ? 'B'
                   : extraType == 'legBye'
                       ? 'LB'
-                      : wasFreeHit
-                          ? 'FH'
-                          : null,
+                      : extraType == 'penalty'
+                          ? 'P'
+                          : wasFreeHit
+                              ? 'FH'
+                              : null,
+      'wagonZone': wagonZone,
       'wagonLabel': wagonLabel,
       'overNumber': _currentOver,
       'ballNumber': _currentBall,
     });
-    if (_currentOverBalls.length > 8) {
-      _currentOverBalls = _currentOverBalls.sublist(_currentOverBalls.length - 8);
+    if (_currentOverBalls.length > 12) {
+      _currentOverBalls = _currentOverBalls.sublist(
+        _currentOverBalls.length - 12,
+      );
     }
 
     if (isNoBall) {
@@ -1276,13 +1731,13 @@ Future<void> _setupSocketListeners() async {
       final dismissedId = dismissedPlayer?.id ?? striker.id;
       if (_currentStriker?.id == dismissedId) _currentStriker = null;
       if (_currentNonStriker?.id == dismissedId) _currentNonStriker = null;
-    } else if (isLegal && runs.isOdd) {
+    } else if (forceStrikeChange == true ||
+        (forceStrikeChange == null && !isPenalty && runs.isOdd)) {
       swapStrike();
     }
     if (isLegal && _currentBall == 0) {
       swapStrike();
       _currentBowler = null;
-      _currentOverBalls = [];
     }
     _refreshChaseProjection();
     _updateAutomaticResultIfFinished();
@@ -1290,19 +1745,30 @@ Future<void> _setupSocketListeners() async {
     notifyListeners();
   }
 
-  void _recordBattingMilestone(Player striker, int previousRuns, int currentRuns) {
+  void _recordBattingMilestone(
+    Player striker,
+    int previousRuns,
+    int currentRuns,
+  ) {
     for (final mark in const [50, 100]) {
       if (previousRuns < mark && currentRuns >= mark) {
         final key = 'bat-${striker.id}-$mark';
         if (_announcedMilestones.add(key)) {
-          _appreciations.insert(0, '${striker.name} gets a brilliant $mark. Great batting.');
+          _appreciations.insert(
+            0,
+            '${striker.name} gets a brilliant $mark. Great batting.',
+          );
         }
       }
     }
     if (_appreciations.length > 6) _appreciations.removeLast();
   }
 
-  void _recordBowlingMoment(Player bowler, bool isWicket, PlayerBowlingStat stat) {
+  void _recordBowlingMoment(
+    Player bowler,
+    bool isWicket,
+    PlayerBowlingStat stat,
+  ) {
     if (!isWicket) {
       _consecutiveWickets[bowler.id] = 0;
       return;
@@ -1312,12 +1778,18 @@ Future<void> _setupSocketListeners() async {
     if (streak >= 3) {
       final key = 'hat-${bowler.id}-${stat.wickets}';
       if (_announcedMilestones.add(key)) {
-        _appreciations.insert(0, '${bowler.name} takes a hat-trick. Outstanding bowling.');
+        _appreciations.insert(
+          0,
+          '${bowler.name} takes a hat-trick. Outstanding bowling.',
+        );
       }
     } else {
       final key = 'wkt-${bowler.id}-${stat.wickets}';
       if (stat.wickets >= 3 && _announcedMilestones.add(key)) {
-        _appreciations.insert(0, '${bowler.name} has ${stat.wickets} wickets. Match-changing spell.');
+        _appreciations.insert(
+          0,
+          '${bowler.name} has ${stat.wickets} wickets. Match-changing spell.',
+        );
       }
     }
     if (_appreciations.length > 6) _appreciations.removeLast();
@@ -1328,9 +1800,11 @@ Future<void> _setupSocketListeners() async {
     final chaseTarget = target;
     if (chaseTarget == null) return;
     _localTarget = chaseTarget;
-    final ballsLeft = (_maxBalls - _legalBalls).clamp(0, _maxBalls);
-    final runsLeft = (chaseTarget - _currentScore.runs).clamp(0, 9999);
-    final rrr = ballsLeft == 0 ? null : ((runsLeft * 6) / ballsLeft).toStringAsFixed(2);
+    final ballsLeft =
+        (_effectiveMaxBalls - _legalBalls).clamp(0, _effectiveMaxBalls).toInt();
+    final runsLeft = (chaseTarget - _currentScore.runs).clamp(0, 9999).toInt();
+    final rrr =
+        ballsLeft == 0 ? null : ((runsLeft * 6) / ballsLeft).toStringAsFixed(2);
     _currentScore = LiveScoreState(
       runs: _currentScore.runs,
       wickets: _currentScore.wickets,
@@ -1341,6 +1815,7 @@ Future<void> _setupSocketListeners() async {
   }
 
   void _updateAutomaticResultIfFinished() {
+    if (_continueAfterTarget) return;
     if (!isSecondInnings || _localResultMessage != null) return;
     final chaseTarget = target;
     if (chaseTarget == null) return;
@@ -1349,14 +1824,17 @@ Future<void> _setupSocketListeners() async {
     final defendingTeam = _firstInningsBattingTeamName;
     if (_currentScore.runs >= chaseTarget) {
       final wicketsLeft = (10 - _currentScore.wickets).clamp(0, 10);
-      _localResultMessage = '$chasingTeam won by $wicketsLeft wicket${wicketsLeft == 1 ? '' : 's'}';
-    } else if (_currentScore.wickets >= 10 || _legalBalls >= _maxBalls) {
+      _localResultMessage =
+          '$chasingTeam won by $wicketsLeft wicket${wicketsLeft == 1 ? '' : 's'}';
+    } else if (_currentScore.wickets >= 10 ||
+        _legalBalls >= _effectiveMaxBalls) {
       final firstInningsRuns = chaseTarget - 1;
       if (_currentScore.runs == firstInningsRuns) {
         _localResultMessage = 'Match tied';
       } else {
         final margin = firstInningsRuns - _currentScore.runs;
-        _localResultMessage = '$defendingTeam won by $margin run${margin == 1 ? '' : 's'}';
+        _localResultMessage =
+            '$defendingTeam won by $margin run${margin == 1 ? '' : 's'}';
       }
     }
     if (_localResultMessage != null) {
@@ -1373,7 +1851,11 @@ Future<void> _setupSocketListeners() async {
     for (final player in [..._selectedTeam1Players, ..._selectedTeam2Players]) {
       final bat = _battingStats[player.id] ?? const PlayerBattingStat();
       final bowl = _bowlingStats[player.id] ?? const PlayerBowlingStat();
-      final score = bat.runs + (bat.fours * 2) + (bat.sixes * 3) + (bowl.wickets * 25) - (bowl.runs ~/ 10);
+      final score = bat.runs +
+          (bat.fours * 2) +
+          (bat.sixes * 3) +
+          (bowl.wickets * 25) -
+          (bowl.runs ~/ 10);
       if (score > bestScore) {
         bestScore = score;
         bestPlayer = player;
@@ -1386,6 +1868,31 @@ Future<void> _setupSocketListeners() async {
     final oldStriker = _currentStriker;
     _currentStriker = _currentNonStriker;
     _currentNonStriker = oldStriker;
+  }
+
+  /// Manually swap the striker/non-striker via a dedicated one-tap control
+  /// (as opposed to [swapStrike], which is only ever applied as a side
+  /// effect of scoring a ball). Persists to the backend so it survives a
+  /// refresh, unlike the local-only swap above.
+  Future<bool> swapStrikeManual() async {
+    if (_matchId == null) return false;
+    if (currentStriker == null || currentNonStriker == null) {
+      _error = 'Set both striker and non-striker first';
+      notifyListeners();
+      return false;
+    }
+    _error = null;
+    notifyListeners();
+    try {
+      await _matchService.swapStrike(_matchId!);
+      swapStrike();
+      await refreshMatchData();
+      return true;
+    } catch (e) {
+      _error = 'Swap strike failed: ${_friendlyError(e)}';
+      notifyListeners();
+      return false;
+    }
   }
 
   String _formatOvers(int balls) => '${balls ~/ 6}.${balls % 6}';

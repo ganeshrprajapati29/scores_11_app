@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'core/config/theme_config.dart';
-import 'core/services/cache_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/scorecard_provider.dart';
@@ -10,9 +10,6 @@ import 'data/models/match_model.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
-import 'features/auth/forgot_password_screen.dart';
-import 'features/auth/otp_verification_screen.dart';
-import 'features/auth/reset_password_screen.dart';
 import 'features/auth/complete_profile_screen.dart';
 import 'features/auth/phone_login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -38,6 +35,7 @@ import 'features/matches/toss_screen.dart';
 import 'features/matches/scheduled_matches_screen.dart';
 import 'features/teams/team_list_screen.dart';
 import 'features/teams/team_detail_screen.dart';
+import 'features/teams/team_invite_join_screen.dart';
 import 'features/teams/create_team_screen.dart';
 import 'features/players/player_search_screen.dart';
 import 'features/players/player_list_screen.dart';
@@ -67,12 +65,19 @@ import 'features/blogs/blogs_screen.dart';
 import 'features/live_stream/live_player_screen.dart';
 import 'features/profile/connections_screen.dart';
 import 'features/chat/chat_list_screen.dart';
-import 'features/chat/chat_screen.dart';
 import 'features/players/player_profile_screen.dart';
 
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
+final _AppRouteBackController _appRouteBackController =
+    _AppRouteBackController();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+  } catch (error) {
+    debugPrint('Firebase initialization unavailable: $error');
+  }
   runApp(const Cric11App());
 }
 
@@ -89,12 +94,27 @@ class Cric11App extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LeaderboardProvider()),
       ],
       child: MaterialApp(
+        navigatorKey: _rootNavigatorKey,
+        navigatorObservers: [_appRouteBackController],
+        builder: (context, child) {
+          final media = MediaQuery.of(context);
+          return MediaQuery(
+            data: media.copyWith(
+              textScaler: media.textScaler
+                  .clamp(minScaleFactor: 0.86, maxScaleFactor: 0.98),
+            ),
+            child: _GlobalBackButtonHost(
+              controller: _appRouteBackController,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
+        },
         title: 'Scores11',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-themeMode: ThemeMode.light,
-onGenerateRoute: (RouteSettings settings) {
+        themeMode: ThemeMode.light,
+        onGenerateRoute: (RouteSettings settings) {
           // Handle dynamic player profile route: /player-profile/:id
           if (settings.name!.startsWith('/player-profile/')) {
             final parts = settings.name!.split('/');
@@ -114,6 +134,35 @@ onGenerateRoute: (RouteSettings settings) {
               settings: settings,
             );
           }
+          // Handle dynamic tournament route: /tournament/:id
+          if (settings.name!.startsWith('/tournament/')) {
+            final uri = Uri.parse(settings.name!);
+            final pathSegments = uri.pathSegments;
+            final tournamentId =
+                pathSegments.isNotEmpty ? pathSegments.last : '';
+            return MaterialPageRoute(
+              builder: (context) =>
+                  TournamentDetailScreen(tournamentId: tournamentId),
+              settings: settings,
+            );
+          }
+          if (settings.name!.startsWith('/team-invite/')) {
+            final uri = Uri.parse(settings.name!);
+            final code = uri.pathSegments.length > 1 ? uri.pathSegments[1] : '';
+            return MaterialPageRoute(
+              builder: (context) => TeamInviteJoinScreen(code: code),
+              settings: settings,
+            );
+          }
+          if (settings.name!.startsWith('/live-stream/')) {
+            final uri = Uri.parse(settings.name!);
+            final streamId =
+                uri.pathSegments.length > 1 ? uri.pathSegments[1] : '';
+            return MaterialPageRoute(
+              builder: (context) => LivePlayerScreen(streamId: streamId),
+              settings: settings,
+            );
+          }
           return null;
         },
         home: const SplashScreen(),
@@ -122,13 +171,6 @@ onGenerateRoute: (RouteSettings settings) {
           '/splash': (context) => const SplashScreen(),
           '/login': (context) => const _AuthAwareLoginScreen(),
           '/register': (context) => const RegisterScreen(),
-          '/forgot-password': (context) => const ForgotPasswordScreen(),
-          '/otp-verification': (context) => OTPVerificationScreen(
-            identifier: '',
-            onVerify: (code) {},
-            onResend: () {},
-          ),
-          '/reset-password': (context) => const ResetPasswordScreen(),
           '/complete-profile': (context) => const CompleteProfileScreen(),
           '/phone-login': (context) => const PhoneLoginScreen(),
 
@@ -154,21 +196,32 @@ onGenerateRoute: (RouteSettings settings) {
               }
             }
             return MatchListScreen(
-              initialTabIndex: int.tryParse(data['initialTab']?.toString() ?? '0') ?? 0,
+              initialTabIndex:
+                  int.tryParse(data['initialTab']?.toString() ?? '0') ?? 0,
               initialMatch: initialMatch,
             );
           },
-          '/matches/live': (context) => const MatchListScreen(initialTabIndex: 0),
-          '/live-matches': (context) => const MatchListScreen(initialTabIndex: 0),
-          '/all-matches': (context) => const MatchListScreen(initialTabIndex: 1),
+          '/matches/live': (context) =>
+              const MatchListScreen(initialTabIndex: 0),
+          '/live-matches': (context) =>
+              const MatchListScreen(initialTabIndex: 0),
+          '/all-matches': (context) =>
+              const MatchListScreen(initialTabIndex: 1),
           '/scheduled-matches': (context) => const ScheduledMatchesScreen(),
-          '/completed-matches': (context) => const ScheduledMatchesScreen(initialTabIndex: 1),
-          '/scorecards': (context) => const ScorecardScreen(matchId: ''),
+          '/completed-matches': (context) =>
+              const ScheduledMatchesScreen(initialTabIndex: 1),
+          '/scorecards': (context) => const MatchListScreen(initialTabIndex: 0),
           '/match-detail': (context) {
-            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            final matchId =
+                ModalRoute.of(context)!.settings.arguments as String? ?? '';
             return MatchDetailScreen(matchId: matchId);
           },
-          '/create-match': (context) => const CreateMatchScreen(),
+          '/create-match': (context) {
+            final auth = context.read<AuthProvider>();
+            return auth.isGuestUser
+                ? const LoginScreen()
+                : const CreateMatchScreen();
+          },
 // '/create-match-enhanced': (context) => CreateMatchScreen(), // Temporarily disabled - class not found
           '/live-match': (context) => const LiveMatchScreen(matchId: ''),
           '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
@@ -180,34 +233,38 @@ onGenerateRoute: (RouteSettings settings) {
             } else if (args is Match) {
               matchId = args.id;
             } else if (args is Map) {
-              matchId =
-                  (args['_id'] ?? args['id'] ?? args['matchId'] ?? '').toString();
+              matchId = (args['_id'] ?? args['id'] ?? args['matchId'] ?? '')
+                  .toString();
             }
             return ScorecardScreen(matchId: matchId);
           },
-          
+
           // Live Control Routes (new)
           '/team-select': (context) {
-            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            final matchId =
+                ModalRoute.of(context)!.settings.arguments as String? ?? '';
             return TeamSelectionScreen(matchId: matchId);
           },
           '/wagon-wheel': (context) {
-            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            final matchId =
+                ModalRoute.of(context)!.settings.arguments as String? ?? '';
             return WagonWheelScreen(matchId: matchId);
           },
           '/live-control': (context) {
-            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            final matchId =
+                ModalRoute.of(context)!.settings.arguments as String? ?? '';
             return LiveScoreControlScreen(matchId: matchId);
           },
           '/toss': (context) {
-            final matchId = ModalRoute.of(context)!.settings.arguments as String? ?? '';
+            final matchId =
+                ModalRoute.of(context)!.settings.arguments as String? ?? '';
             return TossScreen(matchId: matchId);
           },
 
-
           // Team Routes
           '/teams': (context) => const TeamListScreen(),
-          '/team-detail': (context) => TeamDetailScreen(teamId: ModalRoute.of(context)!.settings.arguments as String),
+          '/team-detail': (context) => TeamDetailScreen(
+              teamId: ModalRoute.of(context)!.settings.arguments as String),
 
           '/create-team': (context) => const CreateTeamScreen(),
           '/my-teams': (context) => const TeamListScreen(),
@@ -217,7 +274,9 @@ onGenerateRoute: (RouteSettings settings) {
           '/tournament-detail': (context) {
             final args = ModalRoute.of(context)?.settings.arguments;
             final tournamentId = args is Map
-                ? (args['tournamentId']?.toString() ?? args['id']?.toString() ?? '')
+                ? (args['tournamentId']?.toString() ??
+                    args['id']?.toString() ??
+                    '')
                 : args?.toString() ?? '';
             return TournamentDetailScreen(tournamentId: tournamentId);
           },
@@ -266,11 +325,18 @@ onGenerateRoute: (RouteSettings settings) {
           // Community Routes
           '/community': (context) => const CommunityFeedScreen(),
           '/create-post': (context) => const CreatePostScreen(),
-          '/post-detail': (context) => const PostDetailScreen(postId: ''),
+          '/post-detail': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            final postId = args is Map
+                ? (args['postId'] ?? args['id'] ?? '').toString()
+                : args?.toString() ?? '';
+            return PostDetailScreen(postId: postId);
+          },
 
           // Store Routes
           '/store': (context) => const StoreHomeScreen(),
-          '/product-detail': (context) => const ProductDetailScreen(productId: ''),
+          '/product-detail': (context) =>
+              const ProductDetailScreen(productId: ''),
           '/cart': (context) => const CartScreen(),
           '/checkout': (context) => const CheckoutScreen(),
           '/orders': (context) => const OrdersScreen(),
@@ -284,7 +350,6 @@ onGenerateRoute: (RouteSettings settings) {
           // Other Routes
           '/go-live': (context) => const GoLiveScreen(),
           '/live-player': (context) => const LivePlayerScreen(streamId: ''),
-          '/live-match': (context) => const LivePlayerScreen(streamId: ''),
           '/discover': (context) => const DiscoveryScreen(),
           '/stats': (context) => const HomeScreen(),
           '/history': (context) => const HomeScreen(),
@@ -292,23 +357,22 @@ onGenerateRoute: (RouteSettings settings) {
           '/edit-profile': (context) => const ProfileScreen(),
           '/my-performance': (context) => const CricketProfileScreen(),
           '/settings': (context) => const AppSettingsScreen(),
-          '/settings/notifications': (context) => const NotificationSettingsScreen(),
+          '/settings/notifications': (context) =>
+              const NotificationSettingsScreen(),
           '/settings/privacy': (context) => const PrivacySettingsScreen(),
           '/settings/preferences': (context) => const PreferencesScreen(),
           '/settings/security': (context) => const SecurityScreen(),
           '/privacy-policy': (context) => const PrivacyPolicyScreen(),
           '/help-support': (context) => const HelpSupportScreen(),
           '/testing': (context) => const TestingScreen(),
-          '/change-password': (context) => const AppSettingsScreen(),
           '/support': (context) => const AppSettingsScreen(),
           '/notifications': (context) => const NotificationsScreen(),
           '/connections': (context) => const ConnectionsScreen(),
           '/chats': (context) => const ChatListScreen(),
-'/chat': (context) => const ChatListScreen(),
+          '/chat': (context) => const ChatListScreen(),
           '/my-cricket': (context) => const HomeScreen(),
           '/blogs': (context) => const BlogsScreen(),
           '/discovery': (context) => const DiscoveryScreen(),
-          
         },
       ),
     );
@@ -322,14 +386,127 @@ class _AuthAwareLoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
-        if (auth.status == AuthStatus.authenticated) {
+        if (auth.status == AuthStatus.authenticated && !auth.isGuestUser) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (route) => false);
+            Navigator.of(context)
+                .pushNamedAndRemoveUntil('/dashboard', (route) => false);
           });
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
         return const LoginScreen();
       },
+    );
+  }
+}
+
+class _AppRouteBackController extends NavigatorObserver with ChangeNotifier {
+  String? _routeName;
+
+  String? get routeName => _routeName;
+
+  void _update(Route<dynamic>? route) {
+    _routeName = route?.settings.name;
+    Future<void>.microtask(notifyListeners);
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _update(route);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _update(previousRoute);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _update(previousRoute);
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    _update(newRoute);
+  }
+}
+
+class _GlobalBackButtonHost extends StatelessWidget {
+  final Widget child;
+  final _AppRouteBackController controller;
+
+  const _GlobalBackButtonHost({
+    required this.child,
+    required this.controller,
+  });
+
+  static const Set<String> _rootRoutes = {
+    '/',
+    '/splash',
+    '/login',
+    '/dashboard',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        child,
+        AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final navigator = _rootNavigatorKey.currentState;
+            final route = controller.routeName;
+            final canPop = navigator?.canPop() ?? false;
+            final shouldShow = canPop && !_rootRoutes.contains(route);
+
+            return AnimatedPositioned(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              top: shouldShow
+                  ? MediaQuery.of(context).padding.top + 8
+                  : MediaQuery.of(context).padding.top - 56,
+              left: 10,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 160),
+                opacity: shouldShow ? 1 : 0,
+                child: IgnorePointer(
+                  ignoring: !shouldShow,
+                  child: Material(
+                    color: Colors.white,
+                    elevation: 8,
+                    shadowColor: Colors.black.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      onTap: () {
+                        final nav = _rootNavigatorKey.currentState;
+                        if (nav?.canPop() ?? false) {
+                          nav!.maybePop();
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE8EEFF)),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

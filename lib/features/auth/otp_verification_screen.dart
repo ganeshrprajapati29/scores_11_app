@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
+import 'auth_design.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final String identifier;
@@ -62,6 +63,64 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return AuthShell(
+      showBack: true,
+      title: 'Verify OTP',
+      subtitle: 'Enter the 6-digit code sent to ${widget.identifier}.',
+      heroIcon: Icons.sms_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(6, (index) {
+              return SizedBox(
+                width: 45,
+                height: 56,
+                child: TextField(
+                  controller: _controllers[index],
+                  focusNode: _focusNodes[index],
+                  textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
+                  maxLength: 1,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AuthDesign.ink),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AuthDesign.line)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AuthDesign.line)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.8)),
+                  ),
+                  onChanged: (value) => _onDigitChanged(index, value),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 22),
+          AuthPrimaryButton(
+            onPressed: _isComplete ? _verify : null,
+            label: widget.isForgotPassword ? 'Reset password' : 'Verify',
+            loading: _isLoading,
+            icon: Icons.verified_rounded,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("Didn't receive code?", style: TextStyle(color: AuthDesign.muted, fontWeight: FontWeight.w600)),
+              TextButton(
+                onPressed: widget.onResend,
+                child: const Text('Resend', style: TextStyle(fontWeight: FontWeight.w900)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
     return Scaffold(
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),

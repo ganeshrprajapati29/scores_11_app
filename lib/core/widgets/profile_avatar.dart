@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../../data/models/user_model.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../data/models/user_model.dart';
+import '../theme/app_colors.dart';
 
 class ProfileAvatar extends StatelessWidget {
   final UserModel? user;
@@ -24,6 +24,7 @@ class ProfileAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatarRadius = heroRadius ?? radius;
+    final avatarUrl = _safeUrl(user?.avatar?.url);
     
     return GestureDetector(
       onTap: onTap,
@@ -33,10 +34,10 @@ class ProfileAvatar extends StatelessWidget {
           CircleAvatar(
             radius: avatarRadius,
             backgroundColor: AppColors.primary.withOpacity(0.1),
-            child: user?.avatar?.url != null
+            child: avatarUrl != null
               ? ClipOval(
                   child: CachedNetworkImage(
-                    imageUrl: user!.avatar!.url!,
+                    imageUrl: avatarUrl,
                     width: avatarRadius * 2,
                     height: avatarRadius * 2,
                     fit: BoxFit.cover,
@@ -80,6 +81,16 @@ class ProfileAvatar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String? _safeUrl(String? value) {
+    final url = value?.trim();
+    if (url == null || url.isEmpty || url == 'default-avatar-url') return null;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !(uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty)) {
+      return null;
+    }
+    return url;
   }
 
   Widget _buildInitials() {

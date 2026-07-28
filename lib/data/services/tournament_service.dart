@@ -32,6 +32,30 @@ class TournamentService {
     String? status,
   }) async {
     try {
+      final normalizedStatus = status?.toUpperCase();
+      if (normalizedStatus == 'LIVE') {
+        final tournaments = await getOngoingTournaments(limit: limit);
+        return PaginatedTournaments(
+          tournaments: tournaments,
+          page: page,
+          limit: limit,
+          total: tournaments.length,
+          totalPages: 1,
+          hasMore: false,
+        );
+      }
+      if (normalizedStatus == 'UPCOMING') {
+        final tournaments = await getUpcomingTournaments(limit: limit);
+        return PaginatedTournaments(
+          tournaments: tournaments,
+          page: page,
+          limit: limit,
+          total: tournaments.length,
+          totalPages: 1,
+          hasMore: false,
+        );
+      }
+
       final response = await _apiClient.get(
         '${ApiConfig.tournaments}/list',
         queryParameters: {
@@ -58,6 +82,45 @@ class TournamentService {
   }) async {
     final result = await getTournaments(page: page, limit: limit, status: status);
     return result.tournaments;
+  }
+
+  Future<List<Tournament>> searchTournaments(String query, {int limit = 8}) async {
+    final cleaned = query.trim();
+    if (cleaned.length < 2) return [];
+
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.tournaments}/list',
+        queryParameters: {
+          'page': '1',
+          'limit': limit.toString(),
+          'search': cleaned,
+          'q': cleaned,
+        },
+      );
+      final results = _parsePaginatedTournaments(response.data, page: 1, limit: limit).tournaments;
+      return _filterTournamentMatches(results, cleaned, limit: limit);
+    } catch (_) {
+      final results = await getTournamentsList(page: 1, limit: 50);
+      return _filterTournamentMatches(results, cleaned, limit: limit);
+    }
+  }
+
+  List<Tournament> _filterTournamentMatches(List<Tournament> tournaments, String query, {required int limit}) {
+    final needle = query.toLowerCase();
+    return tournaments.where((tournament) {
+      final values = [
+        tournament.name,
+        tournament.shortName,
+        tournament.description,
+        tournament.format,
+        tournament.type,
+        tournament.status,
+        tournament.venue,
+        tournament.city,
+      ];
+      return values.any((value) => (value ?? '').toLowerCase().contains(needle));
+    }).take(limit).toList();
   }
 
   Future<Tournament> getTournamentById(String id) async {
@@ -119,28 +182,45 @@ class TournamentService {
     double? entryFee,
     double? prizeMoney,
   }) async {
-    final response = await _apiClient.post(
-      ApiConfig.tournaments,
-      data: {
-        'name': name,
-        if (shortName != null && shortName.isNotEmpty) 'shortName': shortName,
-        if (description != null && description.isNotEmpty) 'description': description,
-        'format': format,
-        'type': type,
-        'startDate': startDate.toIso8601String(),
-        'endDate': endDate.toIso8601String(),
-        'venue': {
-          'name': venue?.isNotEmpty == true ? venue : 'Default Stadium',
-          'city': '',
-          'state': '',
-          'country': 'India',
+    try {
+      final safeStartDate = startDate.isBefore(DateTime.now())
+          ? DateTime.now().add(const Duration(hours: 1))
+          : startDate;
+      final safeEndDate = endDate.isBefore(safeStartDate)
+          ? safeStartDate.add(const Duration(days: 1))
+          : endDate;
+      final response = await _apiClient.post(
+        ApiConfig.tournaments,
+        data: {
+          'name': name,
+          if (shortName != null && shortName.isNotEmpty) 'shortName': shortName,
+          if (description != null && description.isNotEmpty)
+            'description': description,
+          'format': format.toLowerCase(),
+          'type': type.toLowerCase(),
+          'startDate': safeStartDate.toIso8601String(),
+          'endDate': safeEndDate.toIso8601String(),
+          'venue': {
+            'name': venue?.isNotEmpty == true ? venue : 'Default Stadium',
+            'city': '',
+            'state': '',
+            'country': 'India',
+          },
+          'maxTeams': totalTeams,
+          'minTeams': 2,
+          'entryFee': entryFee ?? 0,
+          if (prizeMoney != null) 'prizeMoney': prizeMoney,
         },
-        'maxTeams': totalTeams,
-        'entryFee': entryFee ?? 0,
-        if (prizeMoney != null) 'prizeMoney': prizeMoney,
-      },
-    );
-    return Tournament.fromJson(_unwrapData(response.data));
+      );
+      return Tournament.fromJson(_unwrapData(response.data));
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(
+        e,
+        defaultMessage: 'Tournament create nahi ho paaya.',
+      ));
+    } catch (e) {
+      throw Exception(_cleanError(e));
+    }
   }
 
   Future<Tournament> updateTournament(String id, Map<String, dynamic> data) async {
@@ -153,19 +233,37 @@ class TournamentService {
   }
 
   Future<Tournament> registerTeam(String tournamentId, String teamId) async {
-    final response = await _apiClient.post(
-      '${ApiConfig.tournaments}/$tournamentId/register',
-      data: {'teamId': teamId},
-    );
-    return Tournament.fromJson(_unwrapData(response.data));
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.tournaments}/$tournamentId/register',
+        data: {'teamId': teamId},
+      );
+      return Tournament.fromJson(_unwrapData(response.data));
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(
+        e,
+        defaultMessage: 'Team register nahi ho paayi.',
+      ));
+    } catch (e) {
+      throw Exception(_cleanError(e));
+    }
   }
 
   Future<Tournament> unregisterTeam(String tournamentId, String teamId) async {
-    final response = await _apiClient.delete(
-      '${ApiConfig.tournaments}/$tournamentId/register',
-      data: {'teamId': teamId},
-    );
-    return Tournament.fromJson(_unwrapData(response.data));
+    try {
+      final response = await _apiClient.delete(
+        '${ApiConfig.tournaments}/$tournamentId/register',
+        data: {'teamId': teamId},
+      );
+      return Tournament.fromJson(_unwrapData(response.data));
+    } on DioException catch (e) {
+      throw Exception(_apiClient.parseDioError(
+        e,
+        defaultMessage: 'Team unregister nahi ho paayi.',
+      ));
+    } catch (e) {
+      throw Exception(_cleanError(e));
+    }
   }
 
   Future<Tournament> updateStatus(String tournamentId, String status) async {
@@ -296,7 +394,7 @@ class TournamentService {
       case 'LIVE':
         return 'in_progress';
       case 'UPCOMING':
-        return 'published';
+        return 'draft';
       case 'COMPLETED':
         return 'completed';
       default:

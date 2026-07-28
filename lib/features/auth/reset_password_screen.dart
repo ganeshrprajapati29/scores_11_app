@@ -6,6 +6,7 @@ import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_textfield.dart';
 import '../../providers/auth_provider.dart';
+import 'auth_design.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -99,6 +100,92 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return AuthShell(
+      showBack: true,
+      title: 'New password',
+      subtitle: 'Enter your OTP and create a strong password for your Scores11 account.',
+      heroIcon: Icons.password_rounded,
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _emailController,
+              focusNode: _emailFocusNode,
+              keyboardType: TextInputType.emailAddress,
+              decoration: AuthDesign.input(label: 'Email address', hint: 'Registered email', icon: Icons.email_outlined),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) return 'Please enter email';
+                if (!value.contains('@') || !value.contains('.')) return 'Enter valid email';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _otpController,
+              focusNode: _otpFocusNode,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              decoration: AuthDesign.input(label: 'OTP code', hint: '6-digit code', icon: Icons.pin_rounded).copyWith(counterText: ''),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) return 'Please enter OTP';
+                if (value.trim().length != 6) return 'OTP must be 6 digits';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _passwordController,
+              focusNode: _passwordFocusNode,
+              obscureText: _obscurePassword,
+              decoration: AuthDesign.input(
+                label: 'New password',
+                hint: 'Create new password',
+                icon: Icons.lock_outline_rounded,
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please enter password';
+                if (value.length < 6) return 'Password must be at least 6 characters';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _confirmPasswordController,
+              focusNode: _confirmPasswordFocusNode,
+              obscureText: _obscureConfirmPassword,
+              decoration: AuthDesign.input(
+                label: 'Confirm password',
+                hint: 'Re-enter password',
+                icon: Icons.verified_user_outlined,
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                  onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Please confirm password';
+                if (value != _passwordController.text) return 'Passwords do not match';
+                return null;
+              },
+            ),
+            const SizedBox(height: 18),
+            AuthPrimaryButton(
+              onPressed: _verifyOTP,
+              label: 'Reset password',
+              loading: _isLoading,
+              icon: Icons.lock_reset_rounded,
+            ),
+          ],
+        ),
+      ),
+    );
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: GestureDetector(

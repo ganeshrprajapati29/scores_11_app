@@ -6,6 +6,7 @@ import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_textfield.dart';
 import '../../providers/auth_provider.dart';
+import 'auth_design.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({super.key});
@@ -58,6 +59,68 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return AuthShell(
+      title: 'Complete profile',
+      subtitle: 'Add your cricket details so teams, matches, and scorecards can show your profile properly.',
+      heroIcon: Icons.account_circle_rounded,
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: AuthDesign.input(label: 'Full name', hint: 'Enter your name', icon: Icons.person_outline_rounded),
+              validator: (value) => value == null || value.trim().isEmpty ? 'Please enter your name' : null,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: AuthDesign.input(label: 'Phone number', hint: 'Enter phone number', icon: Icons.phone_android_rounded),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _cityController,
+                    decoration: AuthDesign.input(label: 'City', hint: 'City', icon: Icons.location_city_rounded),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: _stateController,
+                    decoration: AuthDesign.input(label: 'State', hint: 'State', icon: Icons.map_outlined),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            DropdownButtonFormField<String>(
+              value: _selectedPlayerType,
+              decoration: AuthDesign.input(label: 'Player type', hint: 'Select type', icon: Icons.sports_cricket_rounded),
+              items: const [
+                DropdownMenuItem(value: 'batsman', child: Text('Batsman')),
+                DropdownMenuItem(value: 'bowler', child: Text('Bowler')),
+                DropdownMenuItem(value: 'all-rounder', child: Text('All-rounder')),
+                DropdownMenuItem(value: 'wicket-keeper', child: Text('Wicket keeper')),
+              ],
+              onChanged: (value) => setState(() => _selectedPlayerType = value ?? 'batsman'),
+            ),
+            const SizedBox(height: 18),
+            AuthPrimaryButton(
+              onPressed: _completeProfile,
+              label: 'Finish profile',
+              loading: _isLoading,
+              icon: Icons.check_circle_rounded,
+            ),
+          ],
+        ),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Complete Your Profile'),

@@ -10,6 +10,7 @@ import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/settings_service.dart';
 import '../../data/models/settings_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/utils/logout_helper.dart';
 import 'notification_settings_screen.dart';
 import 'privacy_settings_screen.dart';
 import '../../core/constants/enums.dart';
@@ -231,17 +232,27 @@ CustomButton(
   }
 
   void _showLogoutDialog() {
+    final rootContext = context;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text('Logout'),
         content: Text('Are you sure?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel')),
           TextButton(
-            onPressed: () {
-              Provider.of<AuthProvider>(context, listen: false).logout();
-              Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await performLogout(rootContext);
+              if (!rootContext.mounted) return;
+              Navigator.pushNamedAndRemoveUntil(
+                rootContext,
+                AppRoutes.login,
+                (route) => false,
+              );
             },
             child: Text('Logout'),
           ),

@@ -6,6 +6,12 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+} else {
+    logger.warn("google-services.json is missing; Firebase Phone Auth will be unavailable.")
+}
+
 // =========================
 // Local properties
 // =========================
@@ -37,6 +43,11 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def releaseStoreFile = keystoreProperties['storeFile']
+        ? file(keystoreProperties['storeFile'])
+        : null
+def hasReleaseKeystore = releaseStoreFile != null && releaseStoreFile.exists()
+
 android {
 
     namespace "com.scores11.app"
@@ -45,7 +56,7 @@ android {
     compileSdk 36
 
     // ✅ UPDATED NDK (27+ required by plugins)
-    ndkVersion "27.0.12077973"
+    ndkVersion "28.2.13676358"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
@@ -77,9 +88,7 @@ targetSdk 36
         release {
             keyAlias keystoreProperties['keyAlias']
             keyPassword keystoreProperties['keyPassword']
-            storeFile keystoreProperties['storeFile']
-                    ? file(keystoreProperties['storeFile'])
-                    : null
+            storeFile releaseStoreFile
             storePassword keystoreProperties['storePassword']
         }
     }
@@ -87,7 +96,11 @@ targetSdk 36
     buildTypes {
 
         debug {
-            signingConfig signingConfigs.debug
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
+        }
+
+        profile {
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
         }
 
         release {

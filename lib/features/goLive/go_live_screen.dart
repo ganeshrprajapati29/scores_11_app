@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/utils/logout_helper.dart';
 import '../../data/services/live_stream_service.dart';
+import '../../data/services/match_service.dart';
 import '../goLive/stream_preview_screen.dart';
 import '../live_stream/live_player_screen.dart';
 import '../../data/models/live_stream_model.dart';
+import '../../data/models/match_model.dart' as match_model;
 import '../../core/utils/safe_list.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -43,19 +47,23 @@ class _GoLiveScreenState extends State<GoLiveScreen>
 
   List<LiveStreamModel> _liveStreams    = [];
   List<LiveStreamModel> _featuredStreams = [];
+  List<match_model.Match> _matchOptions = [];
   bool   _isLoading  = true;
   String? _error;
 
   String _selectedLanguage = 'English';
   bool   _acceptTerms      = false;
   bool   _isCreating       = false;
+  bool _isYoutubeChecking = false;
+  bool _isYoutubeConnected = false;
+  String _youtubeChannelTitle = '';
 
   final _titleCtrl = TextEditingController();
   final _descCtrl  = TextEditingController();
   final _reqCtrl   = TextEditingController();
-  final _youtubeUrlCtrl = TextEditingController();
 
   String _streamType   = 'mobile';
+  String? _selectedMatchId;
   String _quality      = '720p';
   String _pricing      = 'free';
   double _priceAmount  = 99;
@@ -70,6 +78,8 @@ class _GoLiveScreenState extends State<GoLiveScreen>
     _tabController = TabController(length: 4, vsync: this);
     _initService();
     _loadStreams();
+    _loadMatchOptions();
+    _loadYoutubeStatus();
   }
 
   Future<void> _initService() async {
@@ -83,12 +93,18 @@ class _GoLiveScreenState extends State<GoLiveScreen>
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _reqCtrl.dispose();
-    _youtubeUrlCtrl.dispose();
     super.dispose();
   }
 
   String _t(String en, String hi) =>
       _selectedLanguage == 'Hindi' ? hi : en;
+
+  String _matchTitle(match_model.Match match) {
+    final left = match.team1.trim().isEmpty ? 'Team 1' : match.team1.trim();
+    final right = match.team2.trim().isEmpty ? 'Team 2' : match.team2.trim();
+    final status = match.status.replaceAll('_', ' ').toUpperCase();
+    return '$left vs $right • $status';
+  }
 
   Future<bool> _checkAuth() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -100,10 +116,11 @@ class _GoLiveScreenState extends State<GoLiveScreen>
   }
 
   void _showAuthDialog() {
+    final rootContext = context;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16)),
         title: const Text('Login Required',
@@ -114,7 +131,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
             style: TextStyle(color: _textSecondary)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel',
                 style: TextStyle(color: _textMuted)),
           ),
@@ -124,8 +141,13 @@ class _GoLiveScreenState extends State<GoLiveScreen>
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10))),
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              if (!rootContext.mounted) return;
+              Navigator.pushNamedAndRemoveUntil(
+                rootContext,
+                '/login',
+                (route) => false,
+              );
             },
             child: const Text('Go to Login',
                 style: TextStyle(color: _white)),
@@ -151,8 +173,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
     } catch (e) {
       final s = e.toString();
       if (s.contains('401') || s.contains('unauthorized')) {
-        final auth = Provider.of<AuthProvider>(context, listen: false);
-        await auth.logout();
+        await performLogout(context);
         _showAuthDialog();
       } else {
         setState(() {
@@ -160,6 +181,73 @@ class _GoLiveScreenState extends State<GoLiveScreen>
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadMatchOptions() async {
+    try {
+      final service = MatchService();
+      var matches = await service.getMyMatches(limit: 50);
+      if (matches.matches.isEmpty) {
+        matches = await service.getMatches(limit: 50);
+      }
+      final playable = matches.matches
+          .where((match) => match.id.isNotEmpty)
+          .where((match) {
+            final status = match.status.toLowerCase();
+            return status == 'scheduled' ||
+                status == 'team_selecting' ||
+                status == 'ready' ||
+                status == 'live' ||
+                status == 'in_progress';
+          })
+          .toList();
+      if (!mounted) return;
+      setState(() => _matchOptions = playable);
+    } catch (e) {
+      debugPrint('Match options load skipped: $e');
+    }
+  }
+
+  Future<void> _loadYoutubeStatus() async {
+    if (!mounted) return;
+    setState(() => _isYoutubeChecking = true);
+    try {
+      final status = await LiveStreamService.getYoutubeStatus();
+      if (!mounted) return;
+      setState(() {
+        _isYoutubeConnected = status['connected'] == true;
+        _youtubeChannelTitle = status['channelTitle']?.toString() ?? '';
+      });
+    } catch (e) {
+      debugPrint('YouTube status load skipped: $e');
+    } finally {
+      if (mounted) setState(() => _isYoutubeChecking = false);
+    }
+  }
+
+  Future<void> _connectYoutube() async {
+    if (!await _checkAuth()) return;
+    setState(() => _isYoutubeChecking = true);
+    try {
+      final authUrl = await LiveStreamService.getYoutubeAuthUrl();
+      if (authUrl.isEmpty) {
+        _snack('YouTube auth URL not available', isError: true);
+        return;
+      }
+      final launched = await launchUrl(
+        Uri.parse(authUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        _snack('Could not open Google login', isError: true);
+        return;
+      }
+      _snack('Complete Google login, then tap Check connection.', isError: false);
+    } catch (e) {
+      _snack(e.toString().replaceFirst('Exception: ', ''), isError: true);
+    } finally {
+      if (mounted) setState(() => _isYoutubeChecking = false);
     }
   }
 
@@ -175,8 +263,13 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       return;
     }
 
-    if (_streamType == 'youtube' && _youtubeUrlCtrl.text.trim().isEmpty) {
-      _snack('Please enter YouTube Live URL or video ID', isError: true);
+    if (_streamType == 'youtube' && !_isYoutubeConnected) {
+      _snack('Connect YouTube channel first', isError: true);
+      return;
+    }
+    if (_streamType == 'youtube' &&
+        (_selectedMatchId == null || _selectedMatchId!.isEmpty)) {
+      _snack('Select match for YouTube Live', isError: true);
       return;
     }
 
@@ -189,7 +282,8 @@ class _GoLiveScreenState extends State<GoLiveScreen>
             : _descCtrl.text.trim(),
         'streamType': _streamType,
         'provider': _streamType == 'youtube' ? 'youtube' : 'zenstream',
-        if (_streamType == 'youtube') 'youtubeUrl': _youtubeUrlCtrl.text.trim(),
+        if (_selectedMatchId != null && _selectedMatchId!.isNotEmpty)
+          'matchId': _selectedMatchId,
         'streamQuality': _quality,
         'isPrivate': _isPrivate,
         'pricing': {
@@ -217,9 +311,10 @@ class _GoLiveScreenState extends State<GoLiveScreen>
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => created.isYoutube
-                ? LivePlayerScreen(streamId: created.id, isHost: true)
-                : StreamPreviewScreen(stream: created),
+            builder: (_) =>
+                created.isYoutube && created.youtubeBroadcastId == null
+                    ? LivePlayerScreen(streamId: created.id, isHost: true)
+                    : StreamPreviewScreen(stream: created),
           ),
         );
       }
@@ -229,8 +324,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
           'Failed to start stream. Please try again.',
           'स्ट्रीम शुरू करने में विफल। पुनः प्रयास करें।');
       if (e.toString().contains('401')) {
-        final auth = Provider.of<AuthProvider>(context, listen: false);
-        await auth.logout();
+        await performLogout(context);
         msg = _t('Session expired. Please login again.',
             'सत्र समाप्त। कृपया पुनः लॉगिन करें।');
         _showAuthDialog();
@@ -808,19 +902,51 @@ class _GoLiveScreenState extends State<GoLiveScreen>
           ),
           const SizedBox(height: 18),
 
+          _sectionLabel('Linked Match Scorecard'),
+          _card(
+            child: DropdownButtonFormField<String>(
+              value: _selectedMatchId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Match for live scorecard',
+                prefixIcon: const Icon(Icons.scoreboard_rounded, color: _primary),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _border),
+                ),
+              ),
+              hint: const Text('Select match'),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: '',
+                  child: Text('No match scorecard'),
+                ),
+                ..._matchOptions.map(
+                  (match) => DropdownMenuItem<String>(
+                    value: match.id,
+                    child: Text(
+                      _matchTitle(match),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedMatchId = value == null || value.isEmpty ? null : value;
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 18),
+
           // Stream type
           _sectionLabel('Stream Type'),
-          _streamTypeCard('youtube', 'YT', 'YouTube Live', 'Paste live URL'),
+          _streamTypeCard('youtube', 'YT', 'YouTube Live', 'Create from channel'),
           if (_streamType == 'youtube') ...[
             const SizedBox(height: 12),
-            _card(
-              child: _field(
-                controller: _youtubeUrlCtrl,
-                label: 'YouTube Live URL or Video ID *',
-                hint: 'https://youtube.com/watch?v=...',
-                icon: Icons.smart_display_rounded,
-              ),
-            ),
+            _buildYoutubeConnectCard(),
           ],
           const SizedBox(height: 12),
           Row(
@@ -996,6 +1122,73 @@ class _GoLiveScreenState extends State<GoLiveScreen>
         ),
         child: child,
       );
+
+  Widget _buildYoutubeConnectCard() {
+    final connectedText = _youtubeChannelTitle.isEmpty
+        ? 'YouTube channel connected'
+        : 'Connected: $_youtubeChannelTitle';
+
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                _isYoutubeConnected ? Icons.verified_rounded : Icons.link_rounded,
+                color: _isYoutubeConnected ? _primary : _red,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _isYoutubeConnected
+                      ? connectedText
+                      : 'Connect YouTube channel to create live from app',
+                  style: const TextStyle(
+                    color: _textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isYoutubeChecking ? null : _connectYoutube,
+                  icon: const Icon(Icons.login_rounded),
+                  label: Text(_isYoutubeConnected ? 'Reconnect' : 'Connect'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isYoutubeChecking ? null : _loadYoutubeStatus,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    foregroundColor: _white,
+                  ),
+                  icon: _isYoutubeChecking
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _white,
+                          ),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                  label: const Text('Check'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _field({
     required TextEditingController controller,

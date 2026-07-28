@@ -1,8 +1,21 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/player_service.dart';
+import '../../data/services/user_service.dart';
 import '../../data/models/player_model.dart';
+import '../../data/models/match_model.dart';
+
+String? _safeUrl(String? value) {
+  final url = value?.trim();
+  if (url == null || url.isEmpty || url == 'default-avatar-url') return null;
+  final uri = Uri.tryParse(url);
+  if (uri == null ||
+      !(uri.hasScheme &&
+          (uri.scheme == 'http' || uri.scheme == 'https') &&
+          uri.host.isNotEmpty)) {
+    return null;
+  }
+  return url;
+}
 
 // ─── Color Tokens ─────────────────────────────────────────────────────────────
 class _C {
@@ -35,6 +48,8 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen>
   final PlayerService _playerService = PlayerService();
 
   Player? _player;
+  PlayerStats? _liveStats;
+  List<Match> _recentMatches = [];
   bool _isLoading = true;
   String? _error;
 
@@ -70,10 +85,26 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen>
       _error = null;
     });
     try {
-      final player = await _playerService.getPlayerById(widget.playerId);
+      Player player;
+      PlayerStats? stats;
+      try {
+        final fullProfile = await _playerService.getFullPlayerProfile(widget.playerId);
+        final playerData = fullProfile['player'];
+        player = Player.fromJson(Map<String, dynamic>.from(playerData as Map));
+        final statsData = fullProfile['stats'];
+        stats = statsData is Map
+            ? PlayerStats.fromJson(Map<String, dynamic>.from(statsData))
+            : player.stats;
+      } catch (_) {
+        player = await _playerService.getPlayerById(widget.playerId);
+        stats = await _playerService.getPlayerStats(widget.playerId);
+      }
+      final matches = await _playerService.getPlayerMatches(widget.playerId, limit: 5);
       if (!mounted) return;
       setState(() {
         _player = player;
+        _liveStats = stats;
+        _recentMatches = matches;
         _isLoading = false;
       });
       _ctrl.forward(from: 0);
@@ -86,15 +117,39 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen>
     }
   }
 
+  Future<void> _optOutFromMatch(Match match) async {
+    try {
+      final ok = await _playerService.optOutFromMatch(widget.playerId, match.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? 'Player opted out from match' : 'Unable to opt out')),
+      );
+      await _loadPlayerProfile();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _C.surface,
-      appBar: CustomAppBar(
-        title: 'Player Profile',
+      appBar: AppBar(
+        title: const Text(
+          'Player Profile',
+          style: TextStyle(color: _C.textPrimary, fontWeight: FontWeight.w800),
+        ),
+        centerTitle: false,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: _C.textPrimary),
         actions: [
           IconButton(
-            icon: const Icon(Icons.share_outlined),
+            icon: const Icon(Icons.share_outlined, color: _C.textPrimary),
             onPressed: () {},
           ),
         ],
@@ -114,7 +169,12 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen>
       opacity: _fade,
       child: SlideTransition(
         position: _slide,
-        child: _ProfileBody(player: _player!),
+        child: _ProfileBody(
+          player: _player!,
+          stats: _liveStats ?? _player!.stats,
+          recentMatches: _recentMatches,
+          onOptOut: _optOutFromMatch,
+        ),
       ),
     );
   }
@@ -223,7 +283,15 @@ class _EmptyView extends StatelessWidget {
 
 class _ProfileBody extends StatelessWidget {
   final Player player;
-  const _ProfileBody({required this.player});
+  final PlayerStats? stats;
+  final List<Match> recentMatches;
+  final ValueChanged<Match> onOptOut;
+  const _ProfileBody({
+    required this.player,
+    required this.stats,
+    required this.recentMatches,
+    required this.onOptOut,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -238,9 +306,13 @@ class _ProfileBody extends StatelessWidget {
           const SizedBox(height: 20),
           _SectionLabel(label: 'Career Stats'),
           const SizedBox(height: 12),
-          player.stats != null
-              ? _StatsCard(stats: player.stats!)
+          stats != null
+              ? _StatsCard(stats: stats!)
               : const _EmptyStatsCard(),
+          const SizedBox(height: 20),
+          _SectionLabel(label: 'Live & Upcoming Matches'),
+          const SizedBox(height: 12),
+          _RecentMatchesCard(matches: recentMatches, onOptOut: onOptOut),
           const SizedBox(height: 20),
           _ActionRow(player: player),
         ],
@@ -278,8 +350,8 @@ class _PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = player.photo ?? player.profileImage;
-    final hasImage = url != null && url.isNotEmpty;
+    final url = _safeUrl(player.photo ?? player.profileImage);
+    final hasImage = url != null;
 
     return Container(
       width: 86,
@@ -553,6 +625,36 @@ class _StatsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _SummaryStat(
+                    label: 'Matches',
+                    value: stats.matches.toString(),
+                    icon: Icons.event_available_rounded,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SummaryStat(
+                    label: 'Runs',
+                    value: stats.runs.toString(),
+                    icon: Icons.sports_cricket_rounded,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SummaryStat(
+                    label: 'Wickets',
+                    value: stats.wickets.toString(),
+                    icon: Icons.adjust_rounded,
+                  ),
+                ),
+              ],
+            ),
+          ),
           _StatsSectionHeader(
               title: 'Batting', icon: Icons.sports_cricket_rounded),
           Padding(
@@ -602,20 +704,78 @@ class _StatsSectionHeader extends StatelessWidget {
 
 // ─── Batting Grid ─────────────────────────────────────────────────────────────
 
+class _SummaryStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _SummaryStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _C.border),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: _C.primary),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _C.textPrimary,
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _C.textSecondary,
+              fontWeight: FontWeight.w700,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BattingGrid extends StatelessWidget {
   final PlayerStats stats;
   const _BattingGrid({required this.stats});
 
   @override
   Widget build(BuildContext context) {
+    final estimatedBalls = stats.strikeRate > 0
+        ? (stats.runs * 100 / stats.strikeRate).round()
+        : 0;
     final items = [
       _SI('Matches', stats.matches.toString()),
+      _SI('Innings', stats.innings.toString()),
       _SI('Runs', stats.runs.toString()),
+      _SI('Balls', estimatedBalls.toString()),
       _SI('Average', stats.average.toStringAsFixed(1)),
       _SI('Strike Rate', stats.strikeRate.toStringAsFixed(1)),
       _SI('Highest', stats.highestScore.toString()),
       _SI('100s', stats.hundreds.toString()),
       _SI('50s', stats.fifties.toString()),
+      _SI('4s', stats.fours.toString()),
+      _SI('6s', stats.sixes.toString()),
     ];
     return Wrap(
       spacing: 8,
@@ -634,7 +794,10 @@ class _BowlingGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
+      _SI('Innings', stats.bowlingInnings.toString()),
+      _SI('Overs', stats.bowlingOvers.toStringAsFixed(1)),
       _SI('Wickets', stats.wickets.toString()),
+      _SI('Runs', stats.runsConceded.toString()),
       _SI('Economy', stats.economy.toStringAsFixed(1)),
       _SI('Best', '${stats.bestBowlingWickets}/${stats.bestBowlingRuns}'),
     ];
@@ -723,21 +886,262 @@ class _EmptyStatsCard extends StatelessWidget {
 
 // ─── Action Row ───────────────────────────────────────────────────────────────
 
-class _ActionRow extends StatelessWidget {
+class _RecentMatchesCard extends StatelessWidget {
+  final List<Match> matches;
+  final ValueChanged<Match> onOptOut;
+  const _RecentMatchesCard({required this.matches, required this.onOptOut});
+
+  @override
+  Widget build(BuildContext context) {
+    if (matches.isEmpty) {
+      return const _Card(
+        child: Column(
+          children: [
+            Icon(Icons.event_note_rounded, size: 36, color: _C.textTertiary),
+            SizedBox(height: 8),
+            Text(
+              'No live or upcoming matches available',
+              style: TextStyle(fontSize: 13, color: _C.textTertiary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _Card(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        children: matches.map((match) => _MatchTile(match: match, onOptOut: onOptOut)).toList(),
+      ),
+    );
+  }
+
+  String? _safeUrl(String? value) {
+    final url = value?.trim();
+    if (url == null || url.isEmpty || url == 'default-avatar-url') return null;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !(uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty)) return null;
+    return url;
+  }
+}
+
+class _MatchTile extends StatelessWidget {
+  final Match match;
+  final ValueChanged<Match> onOptOut;
+  const _MatchTile({required this.match, required this.onOptOut});
+
+  @override
+  Widget build(BuildContext context) {
+    final date = match.scheduledDate.toIso8601String().split('T').first;
+    final venue = match.venue?.name ?? match.venue?.city ?? 'TBD';
+    final score = '${match.team1ScoreDisplay} / ${match.team2ScoreDisplay}';
+    final canOptOut = match.canOptOut;
+
+    return InkWell(
+      onTap: match.id.isEmpty
+          ? null
+          : () => Navigator.pushNamed(context, '/match/${match.id}'),
+      child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: _C.primaryLight,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.sports_cricket_rounded,
+              size: 20,
+              color: _C.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${match.team1} vs ${match.team2}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _C.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$date • $venue',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: _C.textTertiary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                match.status,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: _C.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                score,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: _C.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (canOptOut) ...[
+                const SizedBox(height: 6),
+                TextButton.icon(
+                  onPressed: () => onOptOut(match),
+                  icon: const Icon(Icons.logout_rounded, size: 14),
+                  label: const Text('Opt out'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _C.danger,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: EdgeInsets.zero,
+                    textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+      ),
+    );
+  }
+}
+
+class _ActionRow extends StatefulWidget {
   final Player player;
   const _ActionRow({required this.player});
 
   @override
+  State<_ActionRow> createState() => _ActionRowState();
+}
+
+class _ActionRowState extends State<_ActionRow> {
+  final UserService _userService = UserService();
+  bool _isFollowing = false;
+  bool _isLoadingStatus = true;
+  bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFollowStatus();
+  }
+
+  Future<void> _loadFollowStatus() async {
+    final userId = widget.player.userId;
+    if (userId == null || userId.isEmpty) {
+      if (mounted) setState(() => _isLoadingStatus = false);
+      return;
+    }
+    try {
+      final result = await _userService.getFollowing();
+      if (!mounted) return;
+      if (result['success'] == true) {
+        final following = result['data'] is List ? result['data'] as List : const [];
+        setState(() {
+          _isFollowing = following.any((item) {
+            if (item is Map) {
+              final id = item['_id']?.toString() ?? item['id']?.toString();
+              return id == userId;
+            }
+            return false;
+          });
+        });
+      }
+    } catch (_) {
+      // Leave the button in its default (not-following) state on failure.
+    }
+    if (mounted) setState(() => _isLoadingStatus = false);
+  }
+
+  Future<void> _toggleFollow() async {
+    final userId = widget.player.userId;
+    if (userId == null || userId.isEmpty || _isProcessing) return;
+
+    setState(() => _isProcessing = true);
+    try {
+      final result = _isFollowing
+          ? await _userService.unfollowUser(userId)
+          : await _userService.followUser(userId);
+
+      if (!mounted) return;
+      if (result['success'] == true) {
+        setState(() => _isFollowing = !_isFollowing);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                _isFollowing ? 'Followed successfully' : 'Unfollowed successfully'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                result['message']?.toString() ?? 'Unable to update follow status'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Action failed: $e')));
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final canFollow = widget.player.userId != null && widget.player.userId!.isNotEmpty;
     return Row(
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            icon: const Icon(Icons.person_add_alt_1_rounded, size: 17),
-            label: const Text('Follow'),
-            onPressed: () {},
+            icon: _isProcessing
+                ? const SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: _C.white),
+                  )
+                : Icon(
+                    _isFollowing
+                        ? Icons.check_rounded
+                        : Icons.person_add_alt_1_rounded,
+                    size: 17,
+                  ),
+            label: Text(_isFollowing ? 'Following' : 'Follow'),
+            onPressed: (!canFollow || _isLoadingStatus || _isProcessing)
+                ? null
+                : _toggleFollow,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _C.primary,
+              backgroundColor: _isFollowing ? _C.primaryMid : _C.primary,
               foregroundColor: _C.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -790,6 +1194,13 @@ class _Card extends StatelessWidget {
         color: _C.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _C.border, width: 0.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: child,
     );

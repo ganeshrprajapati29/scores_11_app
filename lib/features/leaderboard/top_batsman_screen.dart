@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../data/services/leaderboard_service.dart';
 
+const Color _rankPrimary = Color(0xFF185FA5);
+const Color _rankBg = Color(0xFFF7F8FA);
+const Color _rankBorder = Color(0xFFE4E7EC);
+const Color _rankHeader = Color(0xFFF2F4F7);
+const Color _rankText = Color(0xFF111827);
+const Color _rankMuted = Color(0xFF667085);
+
 class TopBatsmanScreen extends StatefulWidget {
   const TopBatsmanScreen({super.key});
 
@@ -91,18 +98,18 @@ class _TopBatsmanScreenState extends State<TopBatsmanScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FF),
+      backgroundColor: _rankBg,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 18),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _rankText, size: 18),
           onPressed: () => Navigator.maybePop(context),
         ),
         title: const Text(
           'Rankings',
-          style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w900),
+          style: TextStyle(color: _rankText, fontWeight: FontWeight.w900, fontSize: 16),
         ),
         centerTitle: true,
       ),
@@ -111,30 +118,30 @@ class _TopBatsmanScreenState extends State<TopBatsmanScreen>
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
               child: _RankHero(data: _data),
             ),
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+              margin: const EdgeInsets.symmetric(horizontal: 12),
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE8EEFF)),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _rankBorder),
               ),
               child: TabBar(
                 controller: _tabController,
                 isScrollable: true,
                 labelColor: Colors.white,
-                unselectedLabelColor: const Color(0xFF64748B),
+                unselectedLabelColor: _rankMuted,
                 indicator: BoxDecoration(
-                  color: const Color(0xFF1A56DB),
-                  borderRadius: BorderRadius.circular(11),
+                  color: _rankPrimary,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
-                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-                unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+                unselectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                 tabs: _tabs.map((tab) => Tab(text: tab.label, icon: Icon(tab.icon, size: 16))).toList(),
               ),
             ),
@@ -157,10 +164,10 @@ class _TopBatsmanScreenState extends State<TopBatsmanScreen>
 
     return RefreshIndicator(
       onRefresh: () => _load(tab, force: true),
-      color: const Color(0xFF1A56DB),
+      color: _rankPrimary,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
         children: [
           if (_error != null)
             Padding(
@@ -170,7 +177,7 @@ class _TopBatsmanScreenState extends State<TopBatsmanScreen>
           if (isLoading && entries.isEmpty)
             const SizedBox(
               height: 320,
-              child: Center(child: CircularProgressIndicator(color: Color(0xFF1A56DB))),
+              child: Center(child: CircularProgressIndicator(color: _rankPrimary)),
             )
           else if (entries.isEmpty)
             SizedBox(height: 320, child: _EmptyRankings(tab: tab))
@@ -287,18 +294,11 @@ class _RankHero extends StatelessWidget {
     final totalMvp = data[_RankTab.mvp]?.length ?? 0;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8EEFF)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1A56DB).withOpacity(0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _rankBorder),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -310,10 +310,10 @@ class _RankHero extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A56DB).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: _rankPrimary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.leaderboard_rounded, color: Color(0xFF1A56DB), size: 20),
+                child: const Icon(Icons.leaderboard_rounded, color: _rankPrimary, size: 20),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -324,21 +324,21 @@ class _RankHero extends StatelessWidget {
                       'Live Leaderboards',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Color(0xFF0F172A), fontSize: 18, fontWeight: FontWeight.w900),
+                      style: TextStyle(color: _rankText, fontSize: 15, fontWeight: FontWeight.w900),
                     ),
                     SizedBox(height: 2),
                     Text(
                       'Real players, teams and MVP rankings',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: _rankMuted, fontSize: 10, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(child: _HeroMetric(label: 'Players', value: '$totalPlayers')),
@@ -362,11 +362,11 @@ class _HeroMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE8EEFF)),
+        color: _rankHeader,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _rankBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,14 +375,14 @@ class _HeroMetric extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(value, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 18, fontWeight: FontWeight.w900)),
+            child: Text(value, style: const TextStyle(color: _rankText, fontSize: 15, fontWeight: FontWeight.w900)),
           ),
           const SizedBox(height: 2),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Color(0xFF64748B), fontSize: 10, fontWeight: FontWeight.w800),
+            style: const TextStyle(color: _rankMuted, fontSize: 9, fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -401,54 +401,51 @@ class _RankingCard extends StatelessWidget {
     final metrics = _metricsFor(tab, entry);
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         onTap: entry.id.isEmpty || tab == _RankTab.teams
             ? null
             : () => Navigator.pushNamed(context, '/player-profile/${entry.id}'),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE8EEFF)),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.035), blurRadius: 14, offset: const Offset(0, 5)),
-            ],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: _rankBorder),
           ),
           child: Column(
             children: [
               Row(
                 children: [
                   _RankBadge(rank: entry.rank, color: accent),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   CircleAvatar(
-                    radius: 22,
+                    radius: 19,
                     backgroundColor: accent.withOpacity(0.12),
-                    child: Text(entry.initials, style: TextStyle(color: accent, fontWeight: FontWeight.w900)),
+                    child: Text(entry.initials, style: TextStyle(color: accent, fontSize: 12, fontWeight: FontWeight.w900)),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
-                        const SizedBox(height: 4),
+                        Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: _rankText)),
+                        const SizedBox(height: 3),
                         Wrap(
                           spacing: 6,
                           runSpacing: 5,
                           children: [
-                            _SmallChip(text: entry.team.isEmpty ? entry.role : entry.team, color: const Color(0xFF1A56DB)),
+                            _SmallChip(text: entry.team.isEmpty ? entry.role : entry.team, color: _rankPrimary),
                             if (entry.tournament != null) _SmallChip(text: entry.tournament!, color: const Color(0xFFF59E0B)),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  Icon(tab.icon, color: accent, size: 22),
+                  Icon(tab.icon, color: accent, size: 19),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   for (var i = 0; i < metrics.length; i++) ...[
@@ -468,7 +465,7 @@ class _RankingCard extends StatelessWidget {
     if (rank == 1) return const Color(0xFFF59E0B);
     if (rank == 2) return const Color(0xFF64748B);
     if (rank == 3) return const Color(0xFFB45309);
-    return const Color(0xFF1A56DB);
+    return _rankPrimary;
   }
 
   static List<_MetricData> _metricsFor(_RankTab tab, _RankEntry entry) {
@@ -505,11 +502,11 @@ class _RankBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
       alignment: Alignment.center,
-      child: Text('#$rank', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)),
+      child: Text('#$rank', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
     );
   }
 }
@@ -523,9 +520,9 @@ class _SmallChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 140),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(999)),
-      child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800)),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+      child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w800)),
     );
   }
 }
@@ -543,13 +540,13 @@ class _RankMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      decoration: BoxDecoration(color: const Color(0xFFF8FAFF), borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(color: _rankHeader, borderRadius: BorderRadius.circular(8)),
       child: Column(
         children: [
-          Text(metric.value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w900)),
+          Text(metric.value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _rankText, fontSize: 12, fontWeight: FontWeight.w900)),
           const SizedBox(height: 2),
-          Text(metric.label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 9, fontWeight: FontWeight.w800)),
+          Text(metric.label, style: const TextStyle(color: _rankMuted, fontSize: 9, fontWeight: FontWeight.w800)),
         ],
       ),
     );
@@ -563,10 +560,10 @@ class _StateBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isError ? const Color(0xFFEF4444) : const Color(0xFF1A56DB);
+    final color = isError ? const Color(0xFFEF4444) : _rankPrimary;
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
       child: Text(message, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
     );
   }
@@ -586,9 +583,9 @@ class _EmptyRankings extends StatelessWidget {
           children: [
             Icon(tab.icon, size: 56, color: const Color(0xFFCBD5E1)),
             const SizedBox(height: 12),
-            Text('No ${tab.label.toLowerCase()} rankings yet', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+            Text('No ${tab.label.toLowerCase()} rankings yet', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: _rankText)),
             const SizedBox(height: 6),
-            const Text('Rankings will appear automatically after matches are scored.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF64748B))),
+            const Text('Rankings will appear automatically after matches are scored.', textAlign: TextAlign.center, style: TextStyle(color: _rankMuted, fontSize: 12)),
           ],
         ),
       ),

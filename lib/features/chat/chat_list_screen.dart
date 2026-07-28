@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/services/user_service.dart';
-import '../../../core/widgets/custom_appbar.dart';
-import '../../../data/services/chat_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/services/user_service.dart';
+import '../../core/widgets/custom_appbar.dart';
+import '../../data/services/chat_service.dart';
 import 'chat_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
@@ -66,6 +66,16 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return other is Map ? Map<String, dynamic>.from(other) : null;
   }
 
+  String _displayName(Map<String, dynamic> user) {
+    for (final key in const ['name', 'fullName', 'playerName', 'username']) {
+      final value = user[key]?.toString().trim();
+      if (value != null && value.isNotEmpty && value.toLowerCase() != 'unknown') {
+        return value;
+      }
+    }
+    return 'Player';
+  }
+
   String? _getLastMessageText(Map<String, dynamic> chat) {
     final lastMsg = chat['lastMessage'];
     return lastMsg?['text'] ?? 'No messages yet';
@@ -81,13 +91,25 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   String? _avatarUrl(Map<String, dynamic> user) {
-    final avatar = user['avatar'];
-    if (avatar is String) return avatar.isEmpty ? null : avatar;
-    if (avatar is Map) {
-      final url = avatar['url']?.toString();
-      return url == null || url.isEmpty ? null : url;
+    String? clean(String? value) {
+      final url = value?.trim();
+      if (url == null || url.isEmpty || url == 'default-avatar-url') return null;
+      final uri = Uri.tryParse(url);
+      if (uri == null || !(uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty)) {
+        return null;
+      }
+      return url;
     }
-    return null;
+
+    final avatar = user['avatar'];
+    if (avatar is String) return clean(avatar);
+    if (avatar is Map) {
+      return clean(avatar['url']?.toString());
+    }
+    final profileImage = user['profileImage'];
+    if (profileImage is String) return clean(profileImage);
+    if (profileImage is Map) return clean(profileImage['url']?.toString());
+    return clean(user['photo']?.toString());
   }
 
   @override
@@ -134,27 +156,37 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       final lastMsgText = _getLastMessageText(chat);
                       final avatarUrl = _avatarUrl(otherUser);
 
+                      final displayName = _displayName(otherUser);
+                      final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'P';
+
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.grey.withOpacity(0.12)),
+                        ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.all(16),
                           leading: CircleAvatar(
                             radius: 24,
+                            backgroundColor: AppColors.primary.withOpacity(0.10),
                             backgroundImage: avatarUrl != null
                                 ? NetworkImage(avatarUrl)
                                 : null,
                             child: avatarUrl == null
                                 ? Text(
-                                    (otherUser['name'] ?? otherUser['fullName'] ?? '?')[0].toUpperCase(),
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    initial,
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
                                   )
                                 : null,
                           ),
                           title: Text(
-                            otherUser['name'] ?? otherUser['fullName'] ?? 'Unknown',
+                            displayName,
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
-subtitle: Text(                            lastMsgText ?? '',
+                          subtitle: Text(
+                            lastMsgText ?? '',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -182,8 +214,8 @@ subtitle: Text(                            lastMsgText ?? '',
                             context,
                             MaterialPageRoute(
                               builder: (context) => ChatScreen(
-                                chatId: chat['id'] ?? chat['_id'],
-                                otherUser: otherUser,
+                                chatId: (chat['id'] ?? chat['_id']).toString(),
+                                otherUser: {...otherUser, 'name': displayName},
                               ),
                             ),
                           ),

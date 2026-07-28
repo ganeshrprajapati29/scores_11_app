@@ -6,12 +6,14 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_textfield.dart';
 import '../../providers/auth_provider.dart';
+import '../../core/utils/logout_helper.dart';
 import 'dart:convert';
 import '../../data/models/user_model.dart';
 import 'package:flutter/foundation.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../data/services/dashboard_service.dart';
 import '../../data/services/user_service.dart';
+import '../../data/services/notification_service.dart';
 import '../../data/models/user_model.dart';
 import '../../core/constants/app_routes.dart';
 import '../../core/widgets/profile_avatar.dart';
@@ -31,10 +33,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isSearching = false;
   bool _isDrawerOpen = false;
   final UserService _userService = UserService();
+  final NotificationService _notificationService = NotificationService();
 
   int _followers = 0;
   int _following = 0;
   int _profileViews = 0;
+  int _notificationCount = 0;
   bool _isLoadingStats = false;
 
   final List<Map<String, dynamic>> _shortcuts = [
@@ -66,8 +70,15 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         context.read<DashboardProvider>().loadDashboard();
         _loadUserStats();
+        _loadNotificationCount();
       }
     });
+  }
+
+  Future<void> _loadNotificationCount() async {
+    final count = await _notificationService.getUnreadCount();
+    if (!mounted) return;
+    setState(() => _notificationCount = count);
   }
 
   Future<void> _loadUserStats() async {
@@ -233,9 +244,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.notifications),
-                      onPressed: () => Navigator.pushNamed(context, '/notifications'),
+                      onPressed: () => Navigator.pushNamed(context, '/notifications').then((_) => _loadNotificationCount()),
                     ),
-                    if ((dashboardProvider.quickStats?.liveMatches ?? 0) > 0)
+                    if (_notificationCount > 0)
                       Positioned(
                         right: 8,
                         top: 8,
@@ -243,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
                           child: Text(
-                            '${dashboardProvider.quickStats!.liveMatches}',
+                            _notificationCount > 99 ? '99+' : '$_notificationCount',
                             style: const TextStyle(color: Colors.white, fontSize: 10),
                           ),
                         ),
@@ -488,10 +499,15 @@ ProfileAvatar(
           ListTile(
             leading: const Icon(Icons.logout, color: AppColors.error),
             title: const Text('Logout', style: TextStyle(color: AppColors.error)),
-            onTap: () {
+            onTap: () async {
               Navigator.pop(context);
-              context.read<AuthProvider>().logout();
-              Navigator.pushReplacementNamed(context, AppRoutes.login);
+              await performLogout(context);
+              if (!context.mounted) return;
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRoutes.login,
+                (route) => false,
+              );
             },
           ),
         ],

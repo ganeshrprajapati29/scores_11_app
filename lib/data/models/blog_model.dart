@@ -24,31 +24,46 @@ class BlogModel extends Equatable {
   factory BlogModel.fromJson(Map<String, dynamic> json) {
     return BlogModel(
       // ✅ FIX 1: _id use karo
-      id: json['_id']?.toString() ?? '',
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
 
-      title: json['title'] ?? 'Untitled',
+      title: (json['title'] ?? json['name'] ?? 'Untitled Blog').toString(),
 
       // ✅ FIX 2: author object handle
-      author: json['author'] is Map
-          ? json['author']['_id']?.toString()
-          : json['author']?.toString(),
+      author: _readAuthor(json['author']),
 
-      excerpt: json['excerpt'],
-      content: json['content'],
+      excerpt: json['excerpt']?.toString(),
+      content: json['content']?.toString(),
 
       // ✅ FIX 3: image fix
       imageUrl: json['image'] is Map
-          ? json['image']['url']
-          : json['image'] ?? json['imageUrl'],
+          ? json['image']['url']?.toString()
+          : (json['image'] ?? json['imageUrl'])?.toString(),
 
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'])
+          ? DateTime.tryParse(json['createdAt'].toString())
           : null,
 
       updatedAt: json['updatedAt'] != null
-          ? DateTime.tryParse(json['updatedAt'])
+          ? DateTime.tryParse(json['updatedAt'].toString())
           : null,
     );
+  }
+
+  static String? _readAuthor(dynamic value) {
+    if (value is Map) {
+      final name = value['name'] ??
+          value['fullName'] ??
+          value['username'] ??
+          value['displayName'] ??
+          value['email'];
+      final text = name?.toString().trim();
+      return text == null || text.isEmpty ? null : text;
+    }
+
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) return null;
+    final looksLikeMongoId = RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(text);
+    return looksLikeMongoId ? null : text;
   }
 
   Map<String, dynamic> toJson() {

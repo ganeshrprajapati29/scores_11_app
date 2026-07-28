@@ -1,97 +1,34 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../../core/config/api_config.dart';
-import '../../core/services/api_client.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
-import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/custom_loader.dart';
-import '../../../data/models/blog_model.dart';
+import '../../core/widgets/empty_state.dart';
+import '../../data/models/blog_model.dart';
+import '../../data/services/blog_service.dart';
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-final List<Map<String, dynamic>> _mockBlogs = [
-  {
-    'id': '1',
-    '_id': '1',
-    'title': 'India vs Australia: Top 5 Moments from the Test Series',
-    'author': 'Rahul Sharma',
-    'excerpt':
-        'The Border-Gavaskar Trophy delivered breathtaking cricket. Here are the five moments that defined the series and left fans speechless.',
-    'category': 'Test Cricket',
-    'readTime': '5 min read',
-    'publishedAt': '2024-01-20',
-    'tags': ['India', 'Australia', 'Test', 'BGT'],
-    'coverColor': 0xFF1565C0,
-  },
-  {
-    'id': '2',
-    '_id': '2',
-    'title': 'IPL 2024: Which Teams Are the Title Contenders This Season?',
-    'author': 'Priya Mehta',
-    'excerpt':
-        'With mega auctions reshaping squads, we break down the strongest teams heading into IPL 2024 and who stands the best chance to lift the trophy.',
-    'category': 'IPL',
-    'readTime': '7 min read',
-    'publishedAt': '2024-01-18',
-    'tags': ['IPL', 'T20', 'Preview'],
-    'coverColor': 0xFFE65100,
-  },
-  {
-    'id': '3',
-    '_id': '3',
-    'title': 'Virat Kohli: The Art of Batting Under Pressure',
-    'author': 'Scores11 Team',
-    'excerpt':
-        'Few batters in the history of cricket have thrived under pressure like Virat Kohli. We analyse the technique and mindset behind his chase masterclasses.',
-    'category': 'Player Focus',
-    'readTime': '6 min read',
-    'publishedAt': '2024-01-15',
-    'tags': ['Kohli', 'Batting', 'Analysis'],
-    'coverColor': 0xFF2E7D32,
-  },
-  {
-    'id': '4',
-    '_id': '4',
-    'title': 'How to Read a Cricket Pitch Before a Match',
-    'author': 'Amit Verma',
-    'excerpt':
-        'Understanding pitch conditions is a skill that separates good players from great ones. Learn what to look for before your next match.',
-    'category': 'Tips & Tricks',
-    'readTime': '4 min read',
-    'publishedAt': '2024-01-12',
-    'tags': ['Tips', 'Pitch', 'Beginner'],
-    'coverColor': 0xFF6A1B9A,
-  },
-  {
-    'id': '5',
-    '_id': '5',
-    'title': "Women's Cricket: Rising Stars to Watch in 2024",
-    'author': 'Sneha Patel',
-    'excerpt':
-        "Women's cricket is growing at an incredible pace. These young players have caught the attention of selectors and fans alike with standout performances.",
-    'category': "Women's Cricket",
-    'readTime': '5 min read',
-    'publishedAt': '2024-01-10',
-    'tags': ["Women's", 'Stars', '2024'],
-    'coverColor': 0xFFC62828,
-  },
-  {
-    'id': '6',
-    '_id': '6',
-    'title': 'The Science of Swing Bowling: A Deep Dive',
-    'author': 'Deepak Nair',
-    'excerpt':
-        'What makes the ball swing? From seam position to atmospheric conditions, we explore the physics and craft behind one of cricket\'s most dangerous weapons.',
-    'category': 'Bowling',
-    'readTime': '8 min read',
-    'publishedAt': '2024-01-08',
-    'tags': ['Bowling', 'Swing', 'Science'],
-    'coverColor': 0xFF00695C,
-  },
+final List<BlogModel> _fallbackBlogs = [
+  BlogModel(
+    id: 'fallback1',
+    title: 'India vs Australia: Top 5 Moments from the Test Series',
+    author: 'Scores11 Team',
+    excerpt:
+        'The Border-Gavaskar Trophy delivered breathtaking cricket. Here are the five moments that defined the series.',
+    content:
+        'The Border-Gavaskar Trophy delivered breathtaking cricket, pressure moments, and brilliant individual performances. This article highlights the five moments that shaped the series and kept fans hooked until the end.',
+    createdAt: DateTime.now().subtract(const Duration(days: 1)),
+  ),
+  BlogModel(
+    id: 'fallback2',
+    title: 'IPL 2024: Which Teams Are the Title Contenders?',
+    author: 'Scores11 Team',
+    excerpt:
+        'A quick look at the strongest squads, key players, and tactical edges heading into the tournament.',
+    content:
+        'With balanced squads and several match winners, the IPL title race is wide open. We look at team combinations, powerplay impact, death bowling, and the players who could decide the season.',
+    createdAt: DateTime.now().subtract(const Duration(days: 3)),
+  ),
 ];
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
 
 class BlogsScreen extends StatefulWidget {
   const BlogsScreen({super.key});
@@ -101,7 +38,7 @@ class BlogsScreen extends StatefulWidget {
 }
 
 class _BlogsScreenState extends State<BlogsScreen> {
-  final ApiClient _apiClient = ApiClient();
+  final BlogService _blogService = BlogService();
   List<BlogModel> blogs = [];
   bool isLoading = true;
   String? error;
@@ -119,61 +56,16 @@ class _BlogsScreenState extends State<BlogsScreen> {
     });
 
     try {
-      final response = await _apiClient.executeWithRetry(
-        () => _apiClient.get('${ApiConfig.blogs}/published'),
-        maxRetries: 3,
-      );
-
-      dynamic rawBlogs = response;
-
-      List<Map<String, dynamic>> parsedBlogs = [];
-
-      if (rawBlogs is List<dynamic>) {
-        parsedBlogs = rawBlogs.cast<Map<String, dynamic>>();
-      } else if (rawBlogs is Map<String, dynamic>) {
-        final data = rawBlogs['data'] ??
-            rawBlogs['blogs'] ??
-            rawBlogs['items'] ??
-            (rawBlogs.values.firstOrNull is List
-                ? rawBlogs.values.first
-                : []);
-        
-        if (data is List<dynamic>) {
-          parsedBlogs = data.cast<Map<String, dynamic>>();
-        }
-      }
-
-      debugPrint('📊 Raw blogs count: ${parsedBlogs.length}');
-
-      // Process each blog item for tag parsing
-      for (final item in List<Map<String, dynamic>>.from(parsedBlogs)) {
-        try {
-          if (item['tags'] != null &&
-              item['tags'] is List &&
-              item['tags']!.isNotEmpty) {
-            final firstTag = item['tags']![0];
-            if (firstTag is String && firstTag.startsWith('[')) {
-              item['tags'] = List<String>.from(jsonDecode(firstTag));
-            }
-          }
-        } catch (e) {
-          debugPrint('❌ Blog parse error: $e');
-        }
-      }
-
-      // If API returns empty, fall back to mock data
-      if (parsedBlogs.isEmpty) {
-        parsedBlogs = _mockBlogs;
-      }
-
+      final loadedBlogs = await _blogService.getBlogs(page: 1, limit: 20);
+      if (!mounted) return;
       setState(() {
-        blogs = parsedBlogs.map((map) => BlogModel.fromJson(map)).toList();
+        blogs = loadedBlogs.isNotEmpty ? loadedBlogs : _fallbackBlogs;
       });
     } catch (e) {
-      debugPrint('❌ Blogs API error: $e — using mock data');
-      // On error, show mock data instead of error state
+      debugPrint('Blogs API error: $e - using fallback data');
+      if (!mounted) return;
       setState(() {
-        blogs = _mockBlogs.map((map) => BlogModel.fromJson(map)).toList();
+        blogs = _fallbackBlogs;
         error = null;
       });
     } finally {
@@ -189,9 +81,10 @@ class _BlogsScreenState extends State<BlogsScreen> {
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: CustomAppBar(
         title: 'Blogs',
+        showBackButton: true,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh_rounded, color: AppColors.primary),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             onPressed: _fetchBlogs,
           ),
         ],
@@ -202,24 +95,16 @@ class _BlogsScreenState extends State<BlogsScreen> {
         child: isLoading
             ? const CustomLoader()
             : blogs.isEmpty
-                ? (error != null
-                    ? EmptyState(
-                        icon: Icons.error_outline_rounded,
-                        title: 'Load Failed',
-                        subtitle: error!,
-                      )
-                    : const EmptyState(
-                        icon: Icons.article_outlined,
-                        title: 'No blogs yet',
-                        subtitle: 'Cricket updates coming soon!',
-                      ))
+                ? const EmptyState(
+                    icon: Icons.article_outlined,
+                    title: 'No blogs yet',
+                    subtitle: 'Cricket updates coming soon!',
+                  )
                 : _BlogList(blogs: blogs),
       ),
     );
   }
 }
-
-// ─── Blog List ────────────────────────────────────────────────────────────────
 
 class _BlogList extends StatelessWidget {
   final List<BlogModel> blogs;
@@ -232,109 +117,84 @@ class _BlogList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       itemCount: blogs.length,
       itemBuilder: (context, index) {
-        return _BlogCard(
-          blog: blogs[index],
-          mockMeta: index < _mockBlogs.length ? _mockBlogs[index] : null,
-        );
+        final accent = _blogAccent(index);
+        return _BlogCard(blog: blogs[index], accent: accent);
       },
     );
   }
 }
 
-// ─── Blog Card ────────────────────────────────────────────────────────────────
-
 class _BlogCard extends StatelessWidget {
   final BlogModel blog;
-  final Map<String, dynamic>? mockMeta;
+  final Color accent;
 
-  const _BlogCard({required this.blog, this.mockMeta});
+  const _BlogCard({required this.blog, required this.accent});
 
   @override
   Widget build(BuildContext context) {
-    final category =
-        mockMeta?['category'] as String? ?? 'Cricket';
-    final readTime =
-        mockMeta?['readTime'] as String? ?? '4 min read';
-    final coverColorValue =
-        mockMeta?['coverColor'] as int? ?? AppColors.primary.value;
-    final coverColor = Color(coverColorValue);
-    final tags = mockMeta?['tags'] as List? ?? [];
+    final title = blog.title.trim().isEmpty ? 'Untitled Blog' : blog.title.trim();
+    final excerpt = (blog.excerpt?.trim().isNotEmpty ?? false)
+        ? blog.excerpt!.trim()
+        : 'Read the latest cricket updates, stories, and analysis from Scores11.';
+    final author = (blog.author?.trim().isNotEmpty ?? false) ? blog.author!.trim() : 'Scores11 Team';
+    final date = _formatDate(blog.createdAt);
 
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => BlogDetailScreen(blogId: blog.id),
+          builder: (_) => BlogDetailScreen(blogId: blog.id, initialBlog: blog, accent: accent),
         ),
       ),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: accent.withOpacity(0.10)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
+              color: accent.withOpacity(0.10),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cover strip
-            _CoverStrip(color: coverColor, category: category),
-            // Content
+            _BlogCover(blog: blog, accent: accent, date: date),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title
                   Text(
-                    blog.title,
+                    title,
                     style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A1A2E),
-                      letterSpacing: -0.2,
-                      height: 1.35,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF111827),
+                      height: 1.3,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  // Excerpt
+                  const SizedBox(height: 7),
                   Text(
-                    blog.excerpt ?? 'Read full article...',
+                    excerpt,
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF888888),
-                      height: 1.5,
+                      color: Color(0xFF667085),
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 12),
-                  // Tags
-                  if (tags.isNotEmpty) ...[
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: (tags as List)
-                          .take(3)
-                          .map((tag) => _Tag(label: tag.toString()))
-                          .toList(),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  // Footer
-                  _CardFooter(
-                    author: blog.author ?? 'Scores11 Team',
-                    readTime: readTime,
-                    coverColor: coverColor,
-                  ),
+                  const SizedBox(height: 14),
+                  _CardFooter(author: author, readTime: _readTime(blog), accent: accent),
                 ],
               ),
             ),
@@ -345,147 +205,201 @@ class _BlogCard extends StatelessWidget {
   }
 }
 
-// ─── Cover Strip ─────────────────────────────────────────────────────────────
+class _BlogCover extends StatelessWidget {
+  final BlogModel blog;
+  final Color accent;
+  final String date;
 
-class _CoverStrip extends StatelessWidget {
-  final Color color;
-  final String category;
-
-  const _CoverStrip({required this.color, required this.category});
+  const _BlogCover({required this.blog, required this.accent, required this.date});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 6,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+    return SizedBox(
+      height: 138,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if ((blog.imageUrl ?? '').trim().isNotEmpty)
+            Image.network(
+              blog.imageUrl!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _CoverFallback(accent: accent),
+            )
+          else
+            _CoverFallback(accent: accent),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.black.withOpacity(0.60), Colors.transparent],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 14,
+            bottom: 12,
+            child: _Chip(label: 'CRICKET BLOG', color: accent),
+          ),
+          if (date.isNotEmpty)
+            Positioned(
+              right: 14,
+              bottom: 12,
+              child: _Chip(label: date, color: Colors.white, dark: true),
+            ),
+        ],
       ),
     );
   }
 }
 
-// ─── Tag ──────────────────────────────────────────────────────────────────────
+class _CoverFallback extends StatelessWidget {
+  final Color accent;
 
-class _Tag extends StatelessWidget {
-  final String label;
-
-  const _Tag({required this.label});
+  const _CoverFallback({required this.accent});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F2F8),
-        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: [accent.withOpacity(0.92), accent.withOpacity(0.56)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Icon(Icons.article_rounded, size: 44, color: Colors.white.withOpacity(0.94)),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool dark;
+
+  const _Chip({required this.label, required this.color, this.dark = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: dark ? Colors.black.withOpacity(0.36) : Colors.white.withOpacity(0.94),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: dark ? Colors.white.withOpacity(0.18) : Colors.transparent),
       ),
       child: Text(
-        '#$label',
+        label,
         style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primary,
+          color: dark ? Colors.white : color,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.4,
         ),
       ),
     );
   }
 }
 
-// ─── Card Footer ─────────────────────────────────────────────────────────────
-
 class _CardFooter extends StatelessWidget {
   final String author;
   final String readTime;
-  final Color coverColor;
+  final Color accent;
 
   const _CardFooter({
     required this.author,
     required this.readTime,
-    required this.coverColor,
+    required this.accent,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Author avatar
         Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: coverColor.withOpacity(0.12),
-            shape: BoxShape.circle,
-          ),
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(color: accent.withOpacity(0.12), shape: BoxShape.circle),
           child: Center(
             child: Text(
               author.isNotEmpty ? author[0].toUpperCase() : 'S',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: coverColor,
-              ),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: accent),
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 9),
         Expanded(
           child: Text(
             author,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF555555),
-            ),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF475467)),
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        Row(
-          children: [
-            const Icon(Icons.schedule_rounded,
-                size: 13, color: Color(0xFFAAAAAA)),
-            const SizedBox(width: 4),
-            Text(
-              readTime,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFFAAAAAA),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        const Icon(Icons.schedule_rounded, size: 14, color: Color(0xFF98A2B3)),
+        const SizedBox(width: 4),
+        Text(
+          readTime,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF98A2B3), fontWeight: FontWeight.w700),
         ),
         const SizedBox(width: 10),
         Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: coverColor.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(Icons.arrow_forward_rounded,
-              size: 15, color: coverColor),
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(color: accent.withOpacity(0.10), borderRadius: BorderRadius.circular(10)),
+          child: Icon(Icons.arrow_forward_rounded, size: 16, color: accent),
         ),
       ],
     );
   }
 }
 
-// ─── Blog Detail Screen ───────────────────────────────────────────────────────
-
-class BlogDetailScreen extends StatelessWidget {
+class BlogDetailScreen extends StatefulWidget {
   final String blogId;
+  final BlogModel? initialBlog;
+  final Color? accent;
 
-  const BlogDetailScreen({super.key, required this.blogId});
+  const BlogDetailScreen({
+    super.key,
+    required this.blogId,
+    this.initialBlog,
+    this.accent,
+  });
+
+  @override
+  State<BlogDetailScreen> createState() => _BlogDetailScreenState();
+}
+
+class _BlogDetailScreenState extends State<BlogDetailScreen> {
+  final BlogService _blogService = BlogService();
+  BlogModel? blog;
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    blog = widget.initialBlog;
+    if (!widget.blogId.startsWith('fallback')) {
+      _loadBlog();
+    }
+  }
+
+  Future<void> _loadBlog() async {
+    setState(() => isLoading = blog == null);
+    final loaded = await _blogService.getBlogById(widget.blogId);
+    if (!mounted) return;
+    setState(() {
+      blog = loaded ?? blog;
+      isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Find mock data for this blog
-    final meta = _mockBlogs.firstWhere(
-      (m) => m['id'] == blogId,
-      orElse: () => _mockBlogs.first,
-    );
-    final coverColor = Color(meta['coverColor'] as int);
+    final accent = widget.accent ?? AppColors.primary;
+    final currentBlog = blog;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -493,162 +407,111 @@ class BlogDetailScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1A1A2E)),
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF111827)),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Article',
-          style: TextStyle(
-            color: Color(0xFF1A1A2E),
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-          ),
+          style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.w900, fontSize: 18),
         ),
-        actions: [
-          IconButton(
-            icon:
-                Icon(Icons.share_outlined, color: AppColors.primary),
-            onPressed: () {},
+      ),
+      body: isLoading && currentBlog == null
+          ? const CustomLoader()
+          : currentBlog == null
+              ? const EmptyState(
+                  icon: Icons.article_outlined,
+                  title: 'Blog not found',
+                  subtitle: 'This article is not available right now.',
+                )
+              : _BlogDetailBody(blog: currentBlog, accent: accent),
+    );
+  }
+}
+
+class _BlogDetailBody extends StatelessWidget {
+  final BlogModel blog;
+  final Color accent;
+
+  const _BlogDetailBody({required this.blog, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    final author = (blog.author?.trim().isNotEmpty ?? false) ? blog.author!.trim() : 'Scores11 Team';
+    final body = (blog.content?.trim().isNotEmpty ?? false)
+        ? blog.content!.trim()
+        : (blog.excerpt?.trim().isNotEmpty ?? false)
+            ? blog.excerpt!.trim()
+            : 'Full blog content will be available soon.';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: _BlogCover(blog: blog, accent: accent, date: _formatDate(blog.createdAt)),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            blog.title,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF111827),
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _CardFooter(author: author, readTime: _readTime(blog), accent: accent),
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 14, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Text(
+              body,
+              style: const TextStyle(
+                fontSize: 15,
+                color: Color(0xFF344054),
+                height: 1.7,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Category badge
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(
-                color: coverColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                meta['category'] as String,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: coverColor,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            // Title
-            Text(
-              meta['title'] as String,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF1A1A2E),
-                letterSpacing: -0.4,
-                height: 1.3,
-              ),
-            ),
-            const SizedBox(height: 14),
-            // Author row
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: coverColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      (meta['author'] as String)[0].toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: coverColor,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      meta['author'] as String,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A2E),
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          meta['publishedAt'] as String,
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF999999)),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.circle,
-                            size: 3, color: Color(0xFFCCCCCC)),
-                        const SizedBox(width: 8),
-                        Text(
-                          meta['readTime'] as String,
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF999999)),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            // Divider strip
-            Container(
-              height: 4,
-              decoration: BoxDecoration(
-                color: coverColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Content placeholder
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Text(
-                meta['excerpt'] as String,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: Color(0xFF444444),
-                  height: 1.7,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Tags
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: (meta['tags'] as List)
-                  .map((tag) => _Tag(label: tag.toString()))
-                  .toList(),
-            ),
-          ],
-        ),
-      ),
     );
   }
+}
+
+Color _blogAccent(int index) {
+  const colors = [
+    Color(0xFF1565C0),
+    Color(0xFFE65100),
+    Color(0xFF2E7D32),
+    Color(0xFF6A1B9A),
+    Color(0xFFC62828),
+    Color(0xFF00695C),
+  ];
+  return colors[index % colors.length];
+}
+
+String _formatDate(DateTime? date) {
+  if (date == null) return '';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return '${date.day} ${months[date.month - 1]}';
+}
+
+String _readTime(BlogModel blog) {
+  final text = '${blog.content ?? ''} ${blog.excerpt ?? ''}'.trim();
+  final words = text.isEmpty ? 700 : text.split(RegExp(r'\s+')).length;
+  final minutes = (words / 180).ceil().clamp(3, 12);
+  return '$minutes min read';
 }

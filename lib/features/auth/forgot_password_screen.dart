@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../core/config/theme_config.dart';
 import '../../providers/auth_provider.dart';
+import 'auth_design.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -77,6 +78,73 @@ Future<void> _sendResetLink() async {
 
   @override
   Widget build(BuildContext context) {
+    return AuthShell(
+      showBack: true,
+      title: _emailSent ? 'Check your email' : 'Reset password',
+      subtitle: _emailSent
+          ? 'We sent an OTP to ${_sentEmail ?? 'your email'}. Continue to reset your password securely.'
+          : 'Enter your registered email and we will send an OTP for secure account recovery.',
+      heroIcon: Icons.lock_reset_rounded,
+      child: _emailSent
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.success.withOpacity(0.18)),
+                  ),
+                  child: const Icon(Icons.mark_email_read_rounded, color: AppColors.success, size: 42),
+                ),
+                const SizedBox(height: 18),
+                AuthPrimaryButton(
+                  onPressed: () => Navigator.pushNamed(context, '/reset-password', arguments: {'email': _sentEmail}),
+                  label: 'Proceed to reset password',
+                  icon: Icons.arrow_forward_rounded,
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _emailSent = false),
+                  child: const Text('Use a different email', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ],
+            )
+          : Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _emailController,
+                    focusNode: _emailFocusNode,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.done,
+                    decoration: AuthDesign.input(label: 'Email address', hint: 'Enter your registered email', icon: Icons.email_outlined),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return 'Please enter email';
+                      if (!value.contains('@') || !value.contains('.')) return 'Enter valid email';
+                      return null;
+                    },
+                    onFieldSubmitted: (_) => _sendResetLink(),
+                  ),
+                  const SizedBox(height: 18),
+                  AuthPrimaryButton(
+                    onPressed: _sendResetLink,
+                    label: 'Send OTP',
+                    loading: _isLoading,
+                    icon: Icons.send_rounded,
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                    child: const Text('Back to sign in', style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+            ),
+    );
+
     return Scaffold(
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -177,7 +245,54 @@ child: SafeArea(
                           ),
                     ).animate().fadeIn(delay: 300.ms, duration: 500.ms),
                   ],
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 18),
+                  Container(
+                    height: 116,
+                    width: double.infinity,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.14),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          'https://images.unsplash.com/photo-1624526267942-ab0ff8a3e972?auto=format&fit=crop&w=900&q=70',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: AppColors.primaryDark,
+                            child: const Icon(Icons.lock_reset, color: Colors.white, size: 44),
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.black.withOpacity(0.58), Colors.transparent],
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                            ),
+                          ),
+                        ),
+                        const Positioned(
+                          left: 16,
+                          bottom: 14,
+                          child: Text(
+                            'Get back to your cricket account',
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ).animate().fadeIn(delay: 340.ms, duration: 500.ms).slideY(begin: 0.12),
+                  const SizedBox(height: 24),
                   // Form Card
                   Container(
                     padding: const EdgeInsets.all(24),

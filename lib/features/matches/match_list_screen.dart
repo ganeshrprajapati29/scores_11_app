@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/app_colors.dart';
@@ -47,6 +47,32 @@ class _MatchListScreenState extends State<MatchListScreen>
 
   DateTime? _selectedDate;
 
+  static const List<String> _liveStatuses = [
+    'live',
+    'in_progress',
+    'paused',
+    'innings_break',
+    'duckworth_lewis',
+  ];
+  static const List<String> _upcomingStatuses = [
+    'scheduled',
+    'upcoming',
+    'ready',
+    'team_selecting',
+    'toss_pending',
+  ];
+  static const List<String> _completedStatuses = [
+    'completed',
+    'finished',
+    'tie',
+    'tied',
+    'draw',
+    'washed_out',
+    'abandoned',
+    'cancelled',
+    'no_result',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -73,7 +99,7 @@ class _MatchListScreenState extends State<MatchListScreen>
     sorted.sort((a, b) {
       final dateA = a.scheduledDate;
       final dateB = b.scheduledDate;
-      
+
       switch (type) {
         case 'live':
           // Live: newest (most recent start) first
@@ -91,6 +117,54 @@ class _MatchListScreenState extends State<MatchListScreen>
     return sorted;
   }
 
+  PaginatedMatches _emptyPage(int page) => PaginatedMatches(
+        matches: const [],
+        page: page,
+        limit: 20,
+        total: 0,
+        totalPages: page,
+        hasMore: false,
+      );
+
+  List<Match> _dedupeMatches(Iterable<Match> matches) {
+    final seen = <String>{};
+    final unique = <Match>[];
+    for (final match in matches) {
+      final key = match.id.isNotEmpty
+          ? match.id
+          : '${match.team1Id}-${match.team2Id}-${match.scheduledDate.toIso8601String()}';
+      if (seen.add(key)) unique.add(match);
+    }
+    return unique;
+  }
+
+  Future<List<PaginatedMatches>> _fetchStatusGroup({
+    required List<String> statuses,
+    required int page,
+    required bool publicFeed,
+    bool forceRefresh = false,
+  }) {
+    return Future.wait(
+      statuses.map((status) async {
+        try {
+          return publicFeed
+              ? await _matchService.getMatches(
+                  page: page,
+                  status: status,
+                  forceRefresh: forceRefresh,
+                )
+              : await _matchService.getMyMatches(page: page, status: status);
+        } catch (_) {
+          return _emptyPage(page);
+        }
+      }),
+    );
+  }
+
+  bool _hasMoreInGroup(List<PaginatedMatches> pages) {
+    return pages.any((page) => page.hasMore);
+  }
+
   Future<void> _loadMatches({bool refresh = false}) async {
     if (refresh) {
       _livePage = 1;
@@ -105,33 +179,56 @@ class _MatchListScreenState extends State<MatchListScreen>
     }
 
     setState(() => _isLoading = true);
-    
+
     try {
-      // Fetch all persisted matches by status so newly created scheduled
-      // matches always appear on this page. Live is public; scheduled and
-      // completed are scoped to the logged-in user's own created matches.
-      final results = await Future.wait([
-        _matchService.getMatches(status: 'live', forceRefresh: refresh),
-        _matchService.getMyMatches(status: 'scheduled'),
-        _matchService.getMyMatches(status: 'completed'),
+      final groupedResults = await Future.wait([
+        _fetchStatusGroup(
+          statuses: _liveStatuses,
+          page: 1,
+          publicFeed: true,
+          forceRefresh: refresh,
+        ),
+        _fetchStatusGroup(
+          statuses: _upcomingStatuses,
+          page: 1,
+          publicFeed: false,
+        ),
+        _fetchStatusGroup(
+          statuses: _completedStatuses,
+          page: 1,
+          publicFeed: false,
+        ),
       ]);
 
-      final liveMatches = results[0].matches;
-      final upcomingMatches = results[1].matches;
-      final completedMatches = results[2].matches;
+      final livePages = groupedResults[0];
+      final upcomingPages = groupedResults[1];
+      final completedPages = groupedResults[2];
+      final liveMatches = _dedupeMatches(
+        livePages.expand((page) => page.matches).where((match) => match.isLive),
+      );
+      final upcomingMatches = _dedupeMatches(
+        upcomingPages.expand((page) => page.matches).where(
+              (match) => !match.isLive && !match.isCompleted,
+            ),
+      );
+      final completedMatches = _dedupeMatches(
+        completedPages
+            .expand((page) => page.matches)
+            .where((match) => match.isCompleted),
+      );
 
       setState(() {
         // Sort matches appropriately for each tab
         _liveMatches = _sortMatches(liveMatches, 'live');
         _upcomingMatches = _sortMatches(upcomingMatches, 'upcoming');
-        
+
         // Sort completed matches
         _completedMatches = _sortMatches(completedMatches, 'completed');
 
         // Update pagination flags
-        _hasMoreLive = _liveMatches.length >= 20;
-        _hasMoreUpcoming = _upcomingMatches.length >= 20;
-        _hasMoreCompleted = _completedMatches.length >= 20;
+        _hasMoreLive = _hasMoreInGroup(livePages);
+        _hasMoreUpcoming = _hasMoreInGroup(upcomingPages);
+        _hasMoreCompleted = _hasMoreInGroup(completedPages);
 
         _isLoading = false;
       });
@@ -143,7 +240,8 @@ class _MatchListScreenState extends State<MatchListScreen>
           SnackBar(
             content: Text('Error loading matches: $e'),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -174,18 +272,25 @@ class _MatchListScreenState extends State<MatchListScreen>
 
   Future<void> _loadMoreLive() async {
     if (_isLoadingMoreLive || !_hasMoreLive) return;
-    
+
     setState(() {
       _isLoadingMoreLive = true;
       _livePage++;
     });
-    
+
     try {
-      final result = await _matchService.getMatches(page: _livePage, status: 'live');
+      final pages = await _fetchStatusGroup(
+        statuses: _liveStatuses,
+        page: _livePage,
+        publicFeed: true,
+      );
       setState(() {
-        final newMatches = _sortMatches(result.matches, 'live');
-        _liveMatches.addAll(newMatches);
-        _hasMoreLive = result.hasMore;
+        _liveMatches = _sortMatches(
+          _dedupeMatches(
+              [..._liveMatches, ...pages.expand((page) => page.matches)]),
+          'live',
+        );
+        _hasMoreLive = _hasMoreInGroup(pages);
         _isLoadingMoreLive = false;
       });
     } catch (e) {
@@ -203,18 +308,25 @@ class _MatchListScreenState extends State<MatchListScreen>
 
   Future<void> _loadMoreUpcoming() async {
     if (_isLoadingMoreUpcoming || !_hasMoreUpcoming) return;
-    
+
     setState(() {
       _isLoadingMoreUpcoming = true;
       _upcomingPage++;
     });
-    
+
     try {
-      final result = await _matchService.getMyMatches(page: _upcomingPage, status: 'scheduled');
+      final pages = await _fetchStatusGroup(
+        statuses: _upcomingStatuses,
+        page: _upcomingPage,
+        publicFeed: false,
+      );
       setState(() {
-        final newMatches = _sortMatches(result.matches, 'upcoming');
-        _upcomingMatches.addAll(newMatches);
-        _hasMoreUpcoming = result.hasMore;
+        _upcomingMatches = _sortMatches(
+          _dedupeMatches(
+              [..._upcomingMatches, ...pages.expand((page) => page.matches)]),
+          'upcoming',
+        );
+        _hasMoreUpcoming = _hasMoreInGroup(pages);
         _isLoadingMoreUpcoming = false;
       });
     } catch (e) {
@@ -232,18 +344,25 @@ class _MatchListScreenState extends State<MatchListScreen>
 
   Future<void> _loadMoreCompleted() async {
     if (_isLoadingMoreCompleted || !_hasMoreCompleted) return;
-    
+
     setState(() {
       _isLoadingMoreCompleted = true;
       _completedPage++;
     });
-    
+
     try {
-      final result = await _matchService.getMyMatches(page: _completedPage, status: 'completed');
+      final pages = await _fetchStatusGroup(
+        statuses: _completedStatuses,
+        page: _completedPage,
+        publicFeed: false,
+      );
       setState(() {
-        final newMatches = _sortMatches(result.matches, 'completed');
-        _completedMatches.addAll(newMatches);
-        _hasMoreCompleted = result.hasMore;
+        _completedMatches = _sortMatches(
+          _dedupeMatches(
+              [..._completedMatches, ...pages.expand((page) => page.matches)]),
+          'completed',
+        );
+        _hasMoreCompleted = _hasMoreInGroup(pages);
         _isLoadingMoreCompleted = false;
       });
     } catch (e) {
@@ -309,6 +428,7 @@ class _MatchListScreenState extends State<MatchListScreen>
           ? _buildShimmerLoading()
           : Column(
               children: [
+                _buildMatchSummaryStrip(),
                 _buildDateFilterBar(),
                 Expanded(
                   child: TabBarView(
@@ -344,6 +464,50 @@ class _MatchListScreenState extends State<MatchListScreen>
               ],
             ),
       floatingActionButton: _buildFAB(),
+    );
+  }
+
+  Widget _buildMatchSummaryStrip() {
+    final filteredLive = _applyDateFilter(_liveMatches).length;
+    final filteredUpcoming = _applyDateFilter(_upcomingMatches).length;
+    final filteredCompleted = _applyDateFilter(_completedMatches).length;
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SummaryTile(
+              label: 'Live',
+              count: filteredLive,
+              icon: Icons.radio_button_checked_rounded,
+              color: const Color(0xFFE53E3E),
+              onTap: () => _tabController.animateTo(0),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _SummaryTile(
+              label: 'Upcoming',
+              count: filteredUpcoming,
+              icon: Icons.event_available_rounded,
+              color: AppColors.primary,
+              onTap: () => _tabController.animateTo(1),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _SummaryTile(
+              label: 'Results',
+              count: filteredCompleted,
+              icon: Icons.emoji_events_rounded,
+              color: const Color(0xFF10B981),
+              onTap: () => _tabController.animateTo(2),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -500,7 +664,7 @@ class _MatchListScreenState extends State<MatchListScreen>
     );
   }
 
-Widget _buildFAB() {
+  Widget _buildFAB() {
     return FloatingActionButton.extended(
       heroTag: 'match_list_create',
       onPressed: () async {
@@ -534,7 +698,8 @@ Widget _buildFAB() {
             SnackBar(
               content: const Text('New match added!'),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
@@ -548,6 +713,69 @@ Widget _buildFAB() {
       foregroundColor: Colors.white,
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  final String label;
+  final int count;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SummaryTile({
+    required this.label,
+    required this.count,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.16)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 16),
+                const Spacer(),
+                Text(
+                  count.toString(),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF0D1117),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -659,7 +887,8 @@ class _MatchListState extends State<_MatchList> {
         _MatchCard(match: match)
             .animate()
             .fadeIn(duration: 280.ms, delay: (index * 40).ms)
-            .slideY(begin: 0.06, end: 0, duration: 280.ms, delay: (index * 40).ms),
+            .slideY(
+                begin: 0.06, end: 0, duration: 280.ms, delay: (index * 40).ms),
       );
     }
 
@@ -791,16 +1020,14 @@ class _MatchCard extends StatelessWidget {
 
   void _handleMatchTap(BuildContext context) {
     final status = match.status;
-    
+
     final normalized = status.toLowerCase();
-    if (normalized == 'live') {
-      Navigator.pushNamed(context, '/live-control', arguments: match.id);
+    if (match.isLive || match.isCompleted) {
+      Navigator.pushNamed(context, '/scorecard', arguments: match.id);
     } else if (normalized == 'team_selecting' || normalized == 'ready') {
       Navigator.pushNamed(context, '/live-control', arguments: match.id);
     } else if (normalized == 'toss') {
       Navigator.pushNamed(context, '/toss', arguments: match.id);
-    } else if (normalized == 'completed') {
-      Navigator.pushNamed(context, '/scorecard', arguments: match.id);
     } else {
       Navigator.pushNamed(context, '/match-detail', arguments: match.id);
     }
@@ -811,7 +1038,7 @@ class _MatchCard extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final matchDate = DateTime(date.year, date.month, date.day);
-    
+
     if (matchDate == today) {
       return 'Today, ${DateFormat('h:mm a').format(date)}';
     } else if (matchDate == today.subtract(const Duration(days: 1))) {
@@ -834,9 +1061,7 @@ class _MatchCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isLive
-              ? const Color(0xFFFFE0E0)
-              : const Color(0xFFEEEFF2),
+          color: isLive ? const Color(0xFFFFE0E0) : const Color(0xFFEEEFF2),
           width: 1,
         ),
         boxShadow: [
@@ -869,7 +1094,8 @@ class _MatchCard extends StatelessWidget {
                       _MatchNumberChip(matchNumber: match.matchNumber!),
                     ],
                     const Spacer(),
-                    if (match.tournament != null && match.tournament!.isNotEmpty) ...[
+                    if (match.tournament != null &&
+                        match.tournament!.isNotEmpty) ...[
                       _TournamentBadge(tournament: match.tournament),
                       const SizedBox(width: 8),
                     ],
@@ -884,11 +1110,12 @@ class _MatchCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 // Teams row
-                _TeamsRow(match: match, isLive: isLive, isCompleted: isCompleted),
+                _TeamsRow(
+                    match: match, isLive: isLive, isCompleted: isCompleted),
                 const SizedBox(height: 14),
                 // Footer with date/time
                 _MatchFooter(
-                  match: match, 
+                  match: match,
                   isLive: isLive,
                   formatDate: _formatMatchDate,
                 ),
@@ -912,10 +1139,12 @@ class _FormatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String displayFormat = format.toUpperCase();
-    if (displayFormat == 'T20') displayFormat = 'T20';
-    else if (displayFormat == 'ODI') displayFormat = 'ODI';
+    if (displayFormat == 'T20')
+      displayFormat = 'T20';
+    else if (displayFormat == 'ODI')
+      displayFormat = 'ODI';
     else if (displayFormat == 'TEST') displayFormat = 'TEST';
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -1002,12 +1231,11 @@ class _TournamentBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.emoji_events,
-              size: 10, color: Color(0xFF10B981)),
+          const Icon(Icons.emoji_events, size: 10, color: Color(0xFF10B981)),
           const SizedBox(width: 3),
           Text(
-            (tournament?.length ?? 0) > 8 
-                ? '${tournament?.substring(0, 8)}...' 
+            (tournament?.length ?? 0) > 8
+                ? '${tournament?.substring(0, 8)}...'
                 : tournament ?? 'Tournament',
             style: const TextStyle(
               color: Color(0xFF10B981),
@@ -1266,7 +1494,7 @@ class _MatchFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCompleted = match.isCompleted;
-    
+
     String getFooterText() {
       if (isLive) {
         final overs = match.score.team1.overs;
@@ -1287,13 +1515,13 @@ class _MatchFooter extends StatelessWidget {
         return '📅 ${formatDate(match.scheduledDate)}';
       }
     }
-    
+
     Color getFooterColor() {
       if (isLive) return const Color(0xFFE53E3E);
       if (isCompleted) return const Color(0xFF10B981);
       return const Color(0xFF6B7280);
     }
-    
+
     IconData getFooterIcon() {
       if (isLive) return Icons.radio_button_on_rounded;
       if (isCompleted) return Icons.emoji_events_rounded;

@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../data/models/team_model.dart';
+import '../../data/services/match_service.dart';
+import '../../data/services/team_service.dart';
 import '../../data/services/user_service.dart';
 import '../../providers/auth_provider.dart';
 
@@ -15,6 +18,8 @@ class CricketProfileScreen extends StatefulWidget {
 class _CricketProfileScreenState extends State<CricketProfileScreen>
     with SingleTickerProviderStateMixin {
   final UserService _userService = UserService();
+  final TeamService _teamService = TeamService();
+  final MatchService _matchService = MatchService();
   late TabController _tabController;
   bool _isLoading = true;
 
@@ -39,60 +44,112 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
     super.dispose();
   }
 
+  Map<String, dynamic> _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    if (value is String && value.trim().isNotEmpty) {
+      final decoded = jsonDecode(value);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    }
+    return <String, dynamic>{};
+  }
+
+  List<Map<String, dynamic>> _asMapList(dynamic value) {
+    if (value is List) {
+      return value
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    return const [];
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
+      final fullProfileResult = await _userService.getFullProfile();
       final statsResult = await _userService.getCricketStats();
-      if (statsResult['success']) {
-        setState(() {
-          _cricketStats = jsonDecode(statsResult['data']);
-        });
+      Map<String, dynamic>? cricketStats;
+      if (fullProfileResult['success'] == true) {
+        final fullProfile = _asMap(fullProfileResult['data']);
+        cricketStats = _asMap(fullProfile['stats']);
+      }
+      if ((cricketStats == null || cricketStats.isEmpty) && statsResult['success']) {
+        cricketStats = _asMap(statsResult['data']);
       }
 
       final achievementsResult = await _userService.getAchievements();
-      if (achievementsResult['success']) {
-        final data = jsonDecode(achievementsResult['data']);
-        setState(() {
-          _achievements =
-              List<Map<String, dynamic>>.from(data['achievements'] ?? []);
-        });
+      List<Map<String, dynamic>> achievements = const [];
+      if (fullProfileResult['success'] == true) {
+        final fullProfile = _asMap(fullProfileResult['data']);
+        achievements = _asMapList(fullProfile['achievements']);
+      }
+      if (achievements.isEmpty && achievementsResult['success']) {
+        final data = _asMap(achievementsResult['data']);
+        achievements = _asMapList(data['achievements'] ?? data['data'] ?? data['items']);
       }
 
-      _teams = [
-        {'name': 'Delhi Strikers', 'role': 'Captain', 'logo': '🏏'},
-        {'name': 'Mumbai Kings', 'role': 'Player', 'logo': '👑'},
-      ];
+      final teams = await _loadTeamsSafely();
+      final matches = await _loadMatchesSafely();
 
-      _matches = [
-        {
-          'id': '1',
-          'opponent': 'Chennai Super',
-          'date': '2024-01-15',
-          'result': 'Won',
-          'score': '145/2',
-          'venue': 'Delhi',
-        },
-        {
-          'id': '2',
-          'opponent': 'Kolkata Knight',
-          'date': '2024-01-10',
-          'result': 'Lost',
-          'score': '98/10',
-          'venue': 'Kolkata',
-        },
-        {
-          'id': '3',
-          'opponent': 'Bangalore Royal',
-          'date': '2024-01-05',
-          'result': 'Won',
-          'score': '167/5',
-          'venue': 'Bangalore',
-        },
-      ];
+      if (!mounted) return;
+      setState(() {
+        _cricketStats = cricketStats;
+        _achievements = achievements;
+        _teams = teams
+            .map((team) => {
+                  'name': team.name,
+                  'role': team.captainName != null
+                      ? 'Captain: ${team.captainName}'
+                      : '${team.players.length} players',
+                  'logo': (team.shortName?.isNotEmpty == true
+                          ? team.shortName
+                          : team.name.isNotEmpty
+                              ? team.name[0]
+                              : 'T')
+                      ?.toString(),
+                })
+            .toList();
+        _matches = matches.matches
+            .map((match) => {
+                  'id': match.id,
+                  'opponent': '${match.team1} vs ${match.team2}',
+                  'date': match.scheduledDate.toIso8601String().split('T').first,
+                  'result': match.result?.message ?? match.status,
+                  'score': '${match.team1ScoreDisplay} / ${match.team2ScoreDisplay}',
+                  'venue': match.venue?.name ?? match.venue?.city ?? 'TBD',
+                })
+            .toList();
+      });
     } catch (e) {
       debugPrint('Error loading cricket profile: $e');
     }
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<List<Team>> _loadTeamsSafely() async {
+    try {
+      return await _teamService.getMyTeams();
+    } catch (e) {
+      debugPrint('Cricket profile teams unavailable: $e');
+      return const [];
+    }
+  }
+
+  Future<PaginatedMatches> _loadMatchesSafely() async {
+    try {
+      return await _matchService.getMyMatches(limit: 10);
+    } catch (e) {
+      debugPrint('Cricket profile matches unavailable: $e');
+      return PaginatedMatches(
+        matches: const [],
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 1,
+        hasMore: false,
+      );
+    }
   }
 
   @override
@@ -133,7 +190,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
                       _StatsTab(cricketStats: _cricketStats),
                       _TeamsTab(teams: _teams),
                       _AchievementsTab(achievements: _achievements),
-                      const _InsightsTab(),
+                      _InsightsTab(cricketStats: _cricketStats),
                     ],
                   ),
                 ),
@@ -147,7 +204,16 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
       backgroundColor: Colors.white,
       elevation: 0,
       centerTitle: false,
-      titleSpacing: 20,
+      titleSpacing: Navigator.canPop(context) ? 0 : 20,
+      leading: Navigator.canPop(context)
+          ? IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Color(0xFF1A1A2E),
+              ),
+              onPressed: () => Navigator.pop(context),
+            )
+          : null,
       title: const Text(
         'Cricket Profile',
         style: TextStyle(
@@ -1126,37 +1192,16 @@ class _AchievementsTab extends StatelessWidget {
 
   const _AchievementsTab({required this.achievements});
 
-  static const List<Map<String, dynamic>> _mockAchievements = [
-    {
-      'icon': Icons.star_rounded,
-      'color': Color(0xFF1565C0),
-      'title': 'First Match'
-    },
-    {
-      'icon': Icons.local_fire_department_rounded,
-      'color': Color(0xFFC62828),
-      'title': 'Hot Streak'
-    },
-    {
-      'icon': Icons.military_tech_rounded,
-      'color': Color(0xFF6A1B9A),
-      'title': 'Champion'
-    },
-    {
-      'icon': Icons.bolt_rounded,
-      'color': Color(0xFFE65100),
-      'title': 'Quick 50'
-    },
-    {
-      'icon': Icons.shield_rounded,
-      'color': Color(0xFF2E7D32),
-      'title': 'Best Defense'
-    },
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final total = achievements.length + _mockAchievements.length;
+    if (achievements.isEmpty) {
+      return const Center(
+        child: Text(
+          'No achievements yet',
+          style: TextStyle(color: Color(0xFF999999), fontWeight: FontWeight.w600),
+        ),
+      );
+    }
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -1165,23 +1210,14 @@ class _AchievementsTab extends StatelessWidget {
         mainAxisSpacing: 12,
         childAspectRatio: 0.85,
       ),
-      itemCount: total,
+      itemCount: achievements.length,
       itemBuilder: (context, index) {
-        if (index < achievements.length) {
-          final a = achievements[index];
-          return _AchievementCard(
-            icon: Icons.emoji_events_rounded,
-            color: Colors.amber,
-            title: a['name'] ?? 'Achievement',
-            description: a['description'] ?? '',
-          );
-        }
-        final mock = _mockAchievements[index - achievements.length];
+        final a = achievements[index];
         return _AchievementCard(
-          icon: mock['icon'] as IconData,
-          color: mock['color'] as Color,
-          title: mock['title'] as String,
-          description: '',
+          icon: Icons.emoji_events_rounded,
+          color: Colors.amber,
+          title: a['name'] ?? a['title'] ?? 'Achievement',
+          description: a['description'] ?? '',
         );
       },
     );
@@ -1262,10 +1298,29 @@ class _AchievementCard extends StatelessWidget {
 // ─── Insights Tab ─────────────────────────────────────────────────────────────
 
 class _InsightsTab extends StatelessWidget {
-  const _InsightsTab();
+  final Map<String, dynamic>? cricketStats;
+
+  const _InsightsTab({required this.cricketStats});
+
+  num _num(String key) {
+    final value = cricketStats?[key] ?? cricketStats?['stats']?[key];
+    if (value is num) return value;
+    return num.tryParse(value?.toString() ?? '') ?? 0;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final matches = _num('matches');
+    final runs = _num('runs');
+    final wickets = _num('wickets');
+    final strikeRate = _num('strikeRate');
+    final average = _num('average');
+    final profileViews = _num('profileViews');
+    final primarySkill = wickets > runs / 30
+        ? 'Bowling impact'
+        : runs > 0
+            ? 'Batting impact'
+            : 'Build your profile';
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       child: Column(
@@ -1307,20 +1362,24 @@ class _InsightsTab extends StatelessWidget {
           const _SectionLabel(label: 'Insights'),
           const SizedBox(height: 12),
           _InsightCard(
-            title: 'Best Performance',
-            description: 'Your best performance was on Sunday matches',
+            title: primarySkill,
+            description: matches > 0
+                ? 'Based on $matches matches, $runs runs and $wickets wickets.'
+                : 'Play matches to unlock performance insights.',
             icon: Icons.trending_up_rounded,
             color: const Color(0xFF2E7D32),
           ),
           _InsightCard(
-            title: 'Consistency',
-            description: 'You maintain a 75% win rate in tournaments',
+            title: 'Batting rhythm',
+            description: runs > 0
+                ? 'Average ${average.toStringAsFixed(1)}, strike rate ${strikeRate.toStringAsFixed(1)}.'
+                : 'Runs and strike rate will update from live scorecards.',
             icon: Icons.analytics_rounded,
             color: const Color(0xFF1565C0),
           ),
           _InsightCard(
-            title: 'Most Runs',
-            description: 'You score most of your runs in overs 10-20',
+            title: 'Profile reach',
+            description: '$profileViews profile views from backend activity.',
             icon: Icons.timer_rounded,
             color: const Color(0xFFE65100),
           ),

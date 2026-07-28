@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/enums.dart';
 import '../../core/widgets/custom_appbar.dart';
@@ -8,6 +9,7 @@ import '../../data/models/team_model.dart';
 import '../../data/models/player_model.dart';
 import '../../data/services/team_service.dart';
 import '../../data/services/player_service.dart';
+import '../../core/config/api_config.dart';
 import '../players/find_player_screen.dart';
 
 class TeamDetailScreen extends StatefulWidget {
@@ -27,9 +29,15 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
   List<Player> _players = [];
   List<Player> _filteredPlayers = [];
   final TextEditingController _playerSearchController = TextEditingController();
+  final TextEditingController _contactNameController = TextEditingController();
+  final TextEditingController _contactEmailController = TextEditingController();
+  final TextEditingController _contactPhoneController = TextEditingController();
   bool _isLoading = true;
   bool _isPlayersLoading = false;
+  bool _isAddingByContact = false;
+  bool _isGeneratingInvite = false;
   String? _error;
+  String _contactRole = 'batsman';
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -64,6 +72,9 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
   void dispose() {
     _animationController.dispose();
     _playerSearchController.dispose();
+    _contactNameController.dispose();
+    _contactEmailController.dispose();
+    _contactPhoneController.dispose();
     super.dispose();
   }
 
@@ -101,6 +112,8 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
     setState(() {
       _filteredPlayers = _players.where((player) =>
         player.name.toLowerCase().contains(query) ||
+        (player.email?.toLowerCase().contains(query) ?? false) ||
+        (player.phone?.toLowerCase().contains(query) ?? false) ||
         (player.role?.toLowerCase().contains(query) ?? false)
       ).toList();
     });
@@ -607,6 +620,13 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
             if (result == true && mounted) _loadTeam();
           },
         ),
+        const SizedBox(height: 10),
+        _buildFullWidthButton(
+          label: 'Add by Mobile / Email',
+          icon: Icons.contact_phone_rounded,
+          color: _primary,
+          onTap: _showAddByContactSheet,
+        ),
       ],
     );
   }
@@ -751,6 +771,353 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
     );
   }
 
+  Future<void> _showAddByContactSheet() async {
+    _contactNameController.clear();
+    _contactEmailController.clear();
+    _contactPhoneController.clear();
+    _contactRole = 'batsman';
+
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(18, 18, 18, 24 + MediaQuery.of(context).viewInsets.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: _accent.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: const Icon(Icons.contact_phone_rounded, color: _accent, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Add Player by Contact',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _contactNameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: _contactInputDecoration('Player name', Icons.person_outline_rounded),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _contactPhoneController,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]'))],
+                    decoration: _contactInputDecoration('Mobile number', Icons.phone_android_rounded),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _contactEmailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: _contactInputDecoration('Email address', Icons.email_outlined),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _contactRole,
+                    decoration: _contactInputDecoration('Role', Icons.sports_cricket_rounded),
+                    items: const [
+                      DropdownMenuItem(value: 'batsman', child: Text('Batsman')),
+                      DropdownMenuItem(value: 'bowler', child: Text('Bowler')),
+                      DropdownMenuItem(value: 'all-rounder', child: Text('All-rounder')),
+                      DropdownMenuItem(value: 'wicket-keeper', child: Text('Wicket keeper')),
+                    ],
+                    onChanged: (value) => setSheetState(() => _contactRole = value ?? 'batsman'),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _accent,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                      ),
+                      onPressed: _isAddingByContact
+                          ? null
+                          : () {
+                              final name = _contactNameController.text.trim();
+                              final email = _contactEmailController.text.trim();
+                              final phone = _contactPhoneController.text.trim();
+                              if (name.isEmpty || (email.isEmpty && phone.isEmpty)) {
+                                _showMessage('Name and mobile/email required', isError: true);
+                                return;
+                              }
+                              Navigator.pop(context, {
+                                'name': name,
+                                'email': email,
+                                'phone': phone,
+                                'role': _contactRole,
+                              });
+                            },
+                      icon: _isAddingByContact
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                      label: Text(_isAddingByContact ? 'Adding...' : 'Add Player'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+    await _addPlayerByContact(result);
+  }
+
+  InputDecoration _contactInputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, size: 18, color: _textSecondary),
+      filled: true,
+      fillColor: _bg,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+        borderSide: const BorderSide(color: _border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+        borderSide: const BorderSide(color: _border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+        borderSide: const BorderSide(color: _accent, width: 1.4),
+      ),
+    );
+  }
+
+  Future<void> _addPlayerByContact(Map<String, String> data) async {
+    setState(() => _isAddingByContact = true);
+    try {
+      await _teamService.addPlayerByContact(
+        widget.teamId,
+        name: data['name'] ?? '',
+        email: data['email'],
+        phone: data['phone'],
+        role: data['role'] ?? 'batsman',
+      );
+      await _loadTeam();
+      _showMessage('Player added to team');
+    } catch (e) {
+      _showMessage(e.toString().replaceFirst('Exception: ', ''), isError: true);
+    } finally {
+      if (mounted) setState(() => _isAddingByContact = false);
+    }
+  }
+
+  Future<void> _showInviteLinkSheet() async {
+    var expiresInDays = 7;
+    var maxUses = 0;
+    final config = await showModalBottomSheet<Map<String, int>>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: _primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: const Icon(Icons.link_rounded, color: _primary, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Team Invite Link',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<int>(
+                    value: expiresInDays,
+                    decoration: _contactInputDecoration('Link expires in', Icons.timer_outlined),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('1 day')),
+                      DropdownMenuItem(value: 3, child: Text('3 days')),
+                      DropdownMenuItem(value: 7, child: Text('7 days')),
+                      DropdownMenuItem(value: 30, child: Text('30 days')),
+                      DropdownMenuItem(value: 90, child: Text('90 days')),
+                    ],
+                    onChanged: (value) => setSheetState(() => expiresInDays = value ?? 7),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    value: maxUses,
+                    decoration: _contactInputDecoration('Join limit', Icons.group_add_outlined),
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('Unlimited')),
+                      DropdownMenuItem(value: 1, child: Text('1 player')),
+                      DropdownMenuItem(value: 5, child: Text('5 players')),
+                      DropdownMenuItem(value: 11, child: Text('11 players')),
+                      DropdownMenuItem(value: 25, child: Text('25 players')),
+                    ],
+                    onChanged: (value) => setSheetState(() => maxUses = value ?? 0),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                      ),
+                      onPressed: () => Navigator.pop(context, {
+                        'expiresInDays': expiresInDays,
+                        'maxUses': maxUses,
+                      }),
+                      icon: const Icon(Icons.link_rounded, size: 18),
+                      label: const Text('Generate Link'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (config == null) return;
+    await _generateInviteLink(config);
+  }
+
+  Future<void> _generateInviteLink(Map<String, int> config) async {
+    setState(() => _isGeneratingInvite = true);
+    try {
+      final invite = await _teamService.createInviteLink(
+        widget.teamId,
+        expiresInDays: config['expiresInDays'] ?? 7,
+        maxUses: config['maxUses'] ?? 0,
+      );
+      final rawUrl = invite['inviteUrl']?.toString() ?? '';
+      final inviteUrl = rawUrl.startsWith('http')
+          ? rawUrl
+          : '${ApiConfig.baseUrl.replaceFirst('/api/v1', '')}$rawUrl';
+      await Clipboard.setData(ClipboardData(text: inviteUrl));
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        builder: (context) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Invite link copied',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textPrimary),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Player link open karke apna naam, mobile/email daal kar team join kar sakta hai.',
+                  style: TextStyle(color: _textSecondary, fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _bg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: SelectableText(
+                    inviteUrl,
+                    style: const TextStyle(fontSize: 13, color: _textPrimary, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _accent,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+                    ),
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: inviteUrl));
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                    label: const Text('Copy Again'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      _showMessage('Invite link copied');
+    } catch (e) {
+      _showMessage(e.toString().replaceFirst('Exception: ', ''), isError: true);
+    } finally {
+      if (mounted) setState(() => _isGeneratingInvite = false);
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? _danger : _success,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _showPlayerDetails(Player player) async {
     await Navigator.push(
       context,
@@ -796,7 +1163,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                 icon: Icons.person_add_rounded,
                 color: _cardBg,
                 textColor: _textPrimary,
-                onTap: () {},
+                onTap: _isGeneratingInvite ? () {} : _showInviteLinkSheet,
                 isBordered: true,
               ),
             ),

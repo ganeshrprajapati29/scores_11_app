@@ -1,6 +1,5 @@
 import '../../core/services/api_client.dart';
 
-/// Pagination response wrapper for community posts
 class PaginatedPosts {
   final List<Map<String, dynamic>> posts;
   final int page;
@@ -22,7 +21,6 @@ class PaginatedPosts {
 class CommunityService {
   final ApiClient _apiClient = ApiClient();
 
-  /// Get posts with pagination support
   Future<PaginatedPosts> getPosts({
     int page = 1,
     int limit = 20,
@@ -31,22 +29,22 @@ class CommunityService {
       'page': page,
       'limit': limit,
     });
-    final List<dynamic> data = response.data['data'] ?? [];
-    final pagination = response.data['pagination'] ?? {};
-    
-    final posts = List<Map<String, dynamic>>.from(data);
-    
+
+    final posts = _extractPosts(response.data).map(_normalizePost).toList();
+    final pagination = _extractPagination(response.data);
+    final totalPages = _readInt(pagination['pages'] ?? pagination['totalPages'], 1);
+    final total = _readInt(pagination['total'], posts.length);
+
     return PaginatedPosts(
       posts: posts,
-      page: pagination['page'] ?? page,
-      limit: pagination['limit'] ?? limit,
-      total: pagination['total'] ?? data.length,
-      totalPages: pagination['pages'] ?? 1,
-      hasMore: page < (pagination['pages'] ?? 1),
+      page: _readInt(pagination['page'], page),
+      limit: _readInt(pagination['limit'], limit),
+      total: total,
+      totalPages: totalPages,
+      hasMore: pagination.isNotEmpty ? page < totalPages : posts.length >= limit,
     );
   }
 
-  /// Legacy method for backward compatibility
   Future<List<Map<String, dynamic>>> getPostsList({
     int page = 1,
     int limit = 20,
@@ -57,67 +55,187 @@ class CommunityService {
 
   Future<Map<String, dynamic>> getPostById(String id) async {
     final response = await _apiClient.get('/community/posts/$id');
-    return response.data['data'] ?? {};
+    final post = _extractPost(response.data);
+    return post == null ? {} : _normalizePost(post);
   }
 
   Future<Map<String, dynamic>> createPost(Map<String, dynamic> postData) async {
-    final response = await _apiClient.post('/community/posts', data: postData);
-    return response.data['data'] ?? {};
+    final response = await _apiClient.post('/community', data: postData);
+    final post = _extractPost(response.data);
+    return post == null ? {} : _normalizePost(post);
   }
 
   Future<Map<String, dynamic>> updatePost(String id, Map<String, dynamic> postData) async {
-    final response = await _apiClient.put('/community/posts/$id', data: postData);
-    return response.data['data'] ?? {};
+    final response = await _apiClient.put('/community/$id', data: postData);
+    final post = _extractPost(response.data);
+    return post == null ? {} : _normalizePost(post);
   }
 
   Future<void> deletePost(String id) async {
-    await _apiClient.delete('/community/posts/$id');
+    await _apiClient.delete('/community/$id');
   }
 
-  Future<void> likePost(String postId) async {
-    await _apiClient.post('/community/posts/$postId/like');
+  Future<Map<String, dynamic>> likePost(String postId) async {
+    final response = await _apiClient.post('/community/$postId/like');
+    final post = _extractPost(response.data);
+    return post == null ? {} : _normalizePost(post);
   }
 
-  Future<void> unlikePost(String postId) async {
-    await _apiClient.delete('/community/posts/$postId/like');
+  Future<Map<String, dynamic>> sharePost(String postId) async {
+    final response = await _apiClient.post('/community/$postId/share');
+    final post = _extractPost(response.data);
+    return post == null ? {} : _normalizePost(post);
   }
 
   Future<List<Map<String, dynamic>>> getComments(String postId, {int page = 1, int limit = 20}) async {
-    final response = await _apiClient.get('/community/posts/$postId/comments', queryParameters: {
-      'page': page.toString(),
-      'limit': limit.toString(),
-    });
-    final List<dynamic> data = response.data['data'] ?? [];
-    return List<Map<String, dynamic>>.from(data);
+    final post = await getPostById(postId);
+    final comments = post['commentItems'] ?? post['comments'];
+    if (comments is List) {
+      return comments.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    }
+    return [];
   }
 
   Future<Map<String, dynamic>> addComment(String postId, Map<String, dynamic> commentData) async {
-    final response = await _apiClient.post('/community/posts/$postId/comments', data: commentData);
-    return response.data['data'] ?? {};
+    final response = await _apiClient.post('/community/$postId/comments', data: commentData);
+    final post = _extractPost(response.data);
+    return post == null ? {} : _normalizePost(post);
   }
 
   Future<void> deleteComment(String postId, String commentId) async {
-    await _apiClient.delete('/community/posts/$postId/comments/$commentId');
+    await _apiClient.delete('/community/$postId/comments/$commentId');
   }
 
   Future<void> reportPost(String postId, Map<String, dynamic> reportData) async {
-    await _apiClient.post('/community/posts/$postId/report', data: reportData);
+    await _apiClient.post('/community/$postId/report', data: reportData);
   }
 
-  Future<void> sharePost(String postId) async {
-    await _apiClient.post('/community/posts/$postId/share');
+  List<Map<String, dynamic>> _extractPosts(dynamic data) {
+    if (data is List) {
+      return data.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    }
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      for (final key in const ['data', 'posts', 'items', 'results', 'docs']) {
+        final value = map[key];
+        if (value is List) {
+          return value.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+        }
+        if (value is Map) {
+          final nested = _extractPosts(value);
+          if (nested.isNotEmpty) return nested;
+        }
+      }
+    }
+    return [];
   }
 
-  Future<List<Map<String, dynamic>>> getReportedPosts({int page = 1, int limit = 20}) async {
-    final response = await _apiClient.get('/community/reported', queryParameters: {
-      'page': page.toString(),
-      'limit': limit.toString(),
-    });
-    final List<dynamic> data = response.data['data'] ?? [];
-    return List<Map<String, dynamic>>.from(data);
+  Map<String, dynamic>? _extractPost(dynamic data) {
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      for (final key in const ['data', 'post', 'item', 'result']) {
+        final value = map[key];
+        if (value is Map) return Map<String, dynamic>.from(value);
+      }
+      return map;
+    }
+    return null;
   }
 
-  Future<void> moderatePost(String postId, String action) async {
-    await _apiClient.post('/community/moderate/$postId', data: {'action': action});
+  Map<String, dynamic> _extractPagination(dynamic data) {
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      final pagination = map['pagination'];
+      if (pagination is Map) return Map<String, dynamic>.from(pagination);
+      final nested = map['data'];
+      if (nested is Map && nested['pagination'] is Map) {
+        return Map<String, dynamic>.from(nested['pagination'] as Map);
+      }
+    }
+    return {};
+  }
+
+  Map<String, dynamic> _normalizePost(Map<String, dynamic> post) {
+    final user = post['user'] is Map ? Map<String, dynamic>.from(post['user'] as Map) : null;
+    final imageUrls = <String>[];
+
+    final image = post['image'];
+    if (image is Map && (image['url']?.toString().isNotEmpty ?? false)) {
+      imageUrls.add(image['url'].toString());
+    } else if (image is String && image.isNotEmpty) {
+      imageUrls.add(image);
+    }
+
+    final images = post['images'];
+    if (images is List) {
+      for (final item in images) {
+        if (item is Map && (item['url']?.toString().isNotEmpty ?? false)) {
+          imageUrls.add(item['url'].toString());
+        } else if (item is String && item.isNotEmpty) {
+          imageUrls.add(item);
+        }
+      }
+    }
+
+    final likes = post['likes'];
+    final comments = post['comments'];
+    final authorId = (post['userId'] ?? user?['_id'] ?? user?['id'] ?? '').toString();
+    final userName =
+        (post['userName'] ?? post['name'] ?? user?['name'] ?? user?['fullName'] ?? 'Scores11 User')
+            .toString();
+    final userAvatar = _readImageUrl(
+      post['userAvatar'] ?? post['avatar'] ?? user?['avatar'] ?? user?['profileImage'],
+    );
+    final timeAgo = _timeAgo(post['createdAt'] ?? post['updatedAt']);
+
+    return {
+      ...post,
+      'id': (post['_id'] ?? post['id'] ?? '').toString(),
+      'authorId': authorId,
+      'userId': authorId,
+      'userName': userName,
+      'user': userName,
+      'userAvatar': userAvatar,
+      'avatar': userAvatar,
+      'content': (post['content'] ?? '').toString(),
+      'images': imageUrls.toSet().toList(),
+      'likes': _readInt(post['likesCount'], likes is List ? likes.length : _readInt(likes, 0)),
+      'comments': _readInt(post['commentsCount'], comments is List ? comments.length : _readInt(comments, 0)),
+      'commentItems': comments is List ? comments.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : const [],
+      'shares': _readInt(post['sharesCount'], _readInt(post['shares'], 0)),
+      'isLiked': post['isLiked'] == true,
+      'isFollowingAuthor': post['isFollowingAuthor'] == true,
+      'canFollowAuthor': post['canFollowAuthor'] == true,
+      'timeAgo': timeAgo,
+      'time': timeAgo,
+    };
+  }
+
+  String? _readImageUrl(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value.isEmpty ? null : value;
+    if (value is Map) {
+      final url = value['url'] ?? value['secureUrl'] ?? value['path'];
+      final text = url?.toString() ?? '';
+      return text.isEmpty ? null : text;
+    }
+    final text = value.toString();
+    return text.isEmpty ? null : text;
+  }
+
+  int _readInt(dynamic value, int fallback) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
+
+  String _timeAgo(dynamic value) {
+    final date = DateTime.tryParse(value?.toString() ?? '');
+    if (date == null) return '';
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${date.day}/${date.month}/${date.year}';
   }
 }

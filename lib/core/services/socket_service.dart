@@ -80,6 +80,29 @@ class SocketService {
     off('liveScoreUpdate');
   }
 
+  void authenticateUser(String userId) {
+    if (userId.trim().isEmpty) return;
+    emit('authenticate', userId);
+  }
+
+  void onNotification(Function(dynamic) callback) {
+    on('notification', callback);
+    on('notification:new', callback);
+  }
+
+  void offNotification() {
+    off('notification');
+    off('notification:new');
+  }
+
+  void onNotificationCount(Function(dynamic) callback) {
+    on('notification:count', callback);
+  }
+
+  void offNotificationCount() {
+    off('notification:count');
+  }
+
   // Tournament events
   void joinTournamentRoom(String tournamentId) {
     emit('join_tournament', {'tournamentId': tournamentId});

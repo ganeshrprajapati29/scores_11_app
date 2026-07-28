@@ -1,8 +1,10 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_appbar.dart';
+import '../../core/services/user_service.dart';
 import '../../data/services/community_service.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -127,6 +129,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       backgroundColor: Colors.white,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
+      leading: Navigator.canPop(context)
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_rounded,
+                  color: _kTextPrimary, size: 22),
+              onPressed: () => Navigator.pop(context),
+            )
+          : null,
       title: Row(
         children: [
           Container(
@@ -192,7 +201,10 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     return FloatingActionButton.extended(
       heroTag:
           'community_feed_post_${DateTime.now().millisecondsSinceEpoch}',
-      onPressed: () => Navigator.pushNamed(context, '/create-post'),
+      onPressed: () async {
+        final created = await Navigator.pushNamed(context, '/create-post');
+        if (created == true) _loadPosts();
+      },
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
       elevation: 3,
@@ -344,11 +356,115 @@ class _FeedTabState extends State<_FeedTab> {
 
 // ─── Post Card ────────────────────────────────────────────────────────────────
 
-class _PostCard extends StatelessWidget {
+class _PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
   final int index;
 
   const _PostCard({required this.post, required this.index});
+
+  @override
+  State<_PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends State<_PostCard> {
+  final CommunityService _communityService = CommunityService();
+  final UserService _userService = UserService();
+  late Map<String, dynamic> post;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    post = Map<String, dynamic>.from(widget.post);
+  }
+
+  Future<void> _run(Future<Map<String, dynamic>> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final updated = await action();
+      if (updated.isNotEmpty && mounted) {
+        setState(() => post = updated);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _toggleLike() async {
+    final id = post['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    await _run(() => _communityService.likePost(id));
+  }
+
+  Future<void> _sharePost() async {
+    final id = post['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    final content = (post['content'] ?? 'Scores11 community post').toString();
+    await Share.share(content.trim().isEmpty ? 'Scores11 community post' : content);
+    await _run(() => _communityService.sharePost(id));
+  }
+
+  Future<void> _addComment() async {
+    final id = post['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    final controller = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add comment'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(hintText: 'Write your comment'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Post'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (text == null || text.isEmpty) return;
+    await _run(() => _communityService.addComment(id, {'content': text}));
+  }
+
+  Future<void> _toggleFollow() async {
+    final authorId = post['authorId']?.toString() ?? post['userId']?.toString() ?? '';
+    if (authorId.isEmpty || _busy) return;
+    setState(() => _busy = true);
+    try {
+      if (post['isFollowingAuthor'] == true) {
+        await _userService.unfollowUser(authorId);
+      } else {
+        await _userService.followUser(authorId);
+      }
+      if (mounted) {
+        setState(() => post['isFollowingAuthor'] = post['isFollowingAuthor'] != true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -398,14 +514,20 @@ class _PostCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.more_horiz_rounded,
-                      color: _kTextHint, size: 20),
-                  onPressed: () {},
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                      minWidth: 32, minHeight: 32),
-                ),
+                if (post['canFollowAuthor'] == true)
+                  TextButton(
+                    onPressed: _busy ? null : _toggleFollow,
+                    child: Text(post['isFollowingAuthor'] == true ? 'Following' : 'Follow'),
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.more_horiz_rounded,
+                        color: _kTextHint, size: 20),
+                    onPressed: () {},
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                        minWidth: 32, minHeight: 32),
+                  ),
               ],
             ),
           ),
@@ -451,18 +573,22 @@ class _PostCard extends StatelessWidget {
                   activeIcon: Icons.thumb_up_rounded,
                   label: '${post['likes'] ?? 0}',
                   activeColor: AppColors.primary,
+                  active: post['isLiked'] == true,
+                  onTap: _toggleLike,
                 ),
                 _ActionBtn(
                   icon: Icons.chat_bubble_outline_rounded,
                   activeIcon: Icons.chat_bubble_rounded,
                   label: '${post['comments'] ?? 0}',
                   activeColor: const Color(0xFF3B82F6),
+                  onTap: _addComment,
                 ),
                 _ActionBtn(
                   icon: Icons.share_outlined,
                   activeIcon: Icons.share_rounded,
                   label: '${post['shares'] ?? 0}',
                   activeColor: const Color(0xFF16A34A),
+                  onTap: _sharePost,
                 ),
               ],
             ),
@@ -471,21 +597,35 @@ class _PostCard extends StatelessWidget {
       ),
     )
         .animate()
-        .fadeIn(duration: 280.ms, delay: (index * 50).ms)
-        .slideY(begin: 0.05, end: 0, duration: 280.ms, delay: (index * 50).ms);
+        .fadeIn(duration: 280.ms, delay: (widget.index * 50).ms)
+        .slideY(begin: 0.05, end: 0, duration: 280.ms, delay: (widget.index * 50).ms);
   }
 }
 
 // ─── User Avatar ──────────────────────────────────────────────────────────────
 
 class _UserAvatar extends StatelessWidget {
-  final String? avatarUrl;
+  final dynamic avatarUrl;
   final String name;
 
   const _UserAvatar({this.avatarUrl, required this.name});
 
+  String? get _url {
+    if (avatarUrl is String) {
+      final value = avatarUrl as String;
+      return value.isEmpty ? null : value;
+    }
+    if (avatarUrl is Map) {
+      final value = avatarUrl['url'] ?? avatarUrl['secureUrl'] ?? avatarUrl['path'];
+      final text = value?.toString() ?? '';
+      return text.isEmpty ? null : text;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final url = _url;
     return Container(
       width: 40,
       height: 40,
@@ -494,10 +634,10 @@ class _UserAvatar extends StatelessWidget {
         color: AppColors.primary.withOpacity(0.1),
         border: Border.all(color: _kBorder),
       ),
-      child: avatarUrl != null
+      child: url != null
           ? ClipOval(
               child: Image.network(
-                avatarUrl!,
+                url,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _initials(name),
               ),
@@ -572,31 +712,28 @@ class _MultiImage extends StatelessWidget {
 
 // ─── Action button ────────────────────────────────────────────────────────────
 
-class _ActionBtn extends StatefulWidget {
+class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final IconData activeIcon;
   final String label;
   final Color activeColor;
+  final bool active;
+  final VoidCallback onTap;
 
   const _ActionBtn({
     required this.icon,
     required this.activeIcon,
     required this.label,
     required this.activeColor,
+    required this.onTap,
+    this.active = false,
   });
-
-  @override
-  State<_ActionBtn> createState() => _ActionBtnState();
-}
-
-class _ActionBtnState extends State<_ActionBtn> {
-  bool _active = false;
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() => _active = !_active),
+        onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -604,17 +741,17 @@ class _ActionBtnState extends State<_ActionBtn> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                _active ? widget.activeIcon : widget.icon,
+                active ? activeIcon : icon,
                 size: 18,
-                color: _active ? widget.activeColor : _kTextHint,
+                color: active ? activeColor : _kTextHint,
               ),
               const SizedBox(width: 5),
               Text(
-                widget.label,
+                label,
                 style: TextStyle(
-                  color: _active ? widget.activeColor : _kTextHint,
+                  color: active ? activeColor : _kTextHint,
                   fontSize: 12,
-                  fontWeight: _active
+                  fontWeight: active
                       ? FontWeight.w600
                       : FontWeight.w500,
                 ),

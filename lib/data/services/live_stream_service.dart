@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
-import '../../core/services/auth_service.dart';
 import '../models/live_stream_model.dart';
 
 class LiveStreamService {
@@ -45,6 +44,27 @@ class LiveStreamService {
       return _fallbackStreamFromInput(data, _extractId(streamData.toString()));
     }
     return stream;
+  }
+
+  static Future<Map<String, dynamic>> getYoutubeStatus() async {
+    final res = await _apiClient.get('/live-streams/youtube/status');
+    final payload = _extractPayload(res.data);
+    if (payload is Map<String, dynamic>) return payload;
+    if (payload is Map) return Map<String, dynamic>.from(payload);
+    return {};
+  }
+
+  static Future<String> getYoutubeAuthUrl() async {
+    final res = await _apiClient.get('/live-streams/youtube/auth-url');
+    final payload = _extractPayload(res.data);
+    if (payload is Map) {
+      return payload['authUrl']?.toString() ?? '';
+    }
+    return '';
+  }
+
+  static Future<void> disconnectYoutube() async {
+    await _apiClient.post('/live-streams/youtube/disconnect');
   }
 
   static Future<List<LiveStreamModel>> getLiveStreams({
@@ -164,6 +184,7 @@ class LiveStreamService {
     return LiveStreamModel(
       id: streamId,
       userId: data['userId']?.toString() ?? '',
+      matchId: data['matchId']?.toString(),
       title: data['title']?.toString() ?? 'Live Stream',
       description: data['description']?.toString(),
       streamType: data['streamType']?.toString() ?? 'mobile',
@@ -173,6 +194,9 @@ class LiveStreamService {
       provider: data['provider']?.toString() ?? 'zenstream',
       youtubeUrl: data['youtubeUrl']?.toString(),
       youtubeVideoId: data['youtubeVideoId']?.toString(),
+      youtubeBroadcastId: data['youtubeBroadcastId']?.toString(),
+      youtubeStreamId: data['youtubeStreamId']?.toString(),
+      youtubeIngestionAddress: data['youtubeIngestionAddress']?.toString(),
       status: 'pending',
       viewerCount: 0,
       likes: 0,
@@ -189,7 +213,7 @@ class LiveStreamService {
   }
 
   static Future<void> initSocket() async {
-    final token = await AuthService.getToken();
+    final token = await _apiClient.getAccessToken();
     _socket = IO.io(
       ApiConfig.socketUrl,
       IO.OptionBuilder()

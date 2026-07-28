@@ -44,7 +44,10 @@ class ApiClient {
         return handler.next(options);
       },
       onError: (error, handler) async {
-        if (error.response?.statusCode == 401) {
+        final isRefreshRequest =
+            error.requestOptions.extra['skipAuthRefresh'] == true ||
+            error.requestOptions.path.contains('/refresh-token');
+        if (error.response?.statusCode == 401 && !isRefreshRequest) {
           final refreshed = await _refreshToken();
           if (refreshed) {
             final opts = error.requestOptions;
@@ -69,24 +72,22 @@ class ApiClient {
 
   Future<bool> _refreshToken() async {
     try {
-      final refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
-      if (refreshToken == null) return false;
+      final refreshToken = await _readTokenFromAnyStore(AppConstants.refreshTokenKey);
+      final normalizedRefreshToken = _normalizeToken(refreshToken);
+      if (normalizedRefreshToken == null || normalizedRefreshToken.isEmpty) return false;
 
       final response = await _dio.post(
         '${ApiConfig.auth}/refresh-token',
-        data: {'refreshToken': refreshToken},
-        options: Options(headers: {}),
+        data: {'refreshToken': normalizedRefreshToken},
+        options: Options(headers: {}, extra: {'skipAuthRefresh': true}),
       );
 
       if (response.statusCode == 200) {
-        await _storage.write(
-          key: AppConstants.accessTokenKey,
-          value: response.data['data']['accessToken'],
-        );
-        await _storage.write(
-          key: AppConstants.refreshTokenKey,
-          value: response.data['data']['refreshToken'],
-        );
+        final data = response.data is Map ? response.data['data'] : null;
+        final accessToken = data is Map ? data['accessToken'] : null;
+        final newRefreshToken = data is Map ? data['refreshToken'] : null;
+        if (accessToken == null || newRefreshToken == null) return false;
+        await setTokens(accessToken.toString(), newRefreshToken.toString());
         return true;
       }
       return false;
@@ -216,7 +217,7 @@ String? _normalizeToken(String? token) {
   return trimmed.replaceFirst(RegExp(r'^Bearer\s+', caseSensitive: false), '').trim();
 }
 
-Future<Map<String, dynamic>> executeWithRetry(
+Future<dynamic> executeWithRetry(
   Future<Response> Function() request,
   {int maxRetries = 3}
 ) async {
@@ -238,7 +239,7 @@ Future<Map<String, dynamic>> executeWithRetry(
   throw Exception('Max retries exceeded');
 }
 
-Map<String, dynamic> _parseApiResponse(Response response) {
+dynamic _parseApiResponse(Response response) {
   final data = response.data;
   if (data is Map<String, dynamic> && data['success'] == true) {
     return data['data'] ?? {};
@@ -258,7 +259,7 @@ String parseDioError(
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Connection timeout. Please check your internet connection.';
+        return 'Backend connection timed out. Make sure the backend server is running and your phone is on the same network.';
       case DioExceptionType.connectionError:
         debugPrint('🌐 ConnectionError detected - checking if truly offline');
         return 'Connection issue. Please check your internet connection and try again.';

@@ -63,6 +63,20 @@ class DashboardProvider extends ChangeNotifier {
   bool get hasDashboardCarouselMatches =>
       _carouselLiveMatches.isNotEmpty || _recentCompletedMatches.isNotEmpty;
 
+  /// Clears cached dashboard data on logout so a different account signing
+  /// in on the same app instance doesn't briefly see the previous user's data.
+  void reset() {
+    _dashboardData = null;
+    _isLoading = false;
+    _isMockData = false;
+    _error = null;
+    _recentBlogs = [];
+    _recentPosts = [];
+    _carouselLiveMatches = [];
+    _recentCompletedMatches = [];
+    notifyListeners();
+  }
+
   /// Load dashboard data (main method)
   Future<void> loadDashboard() async {
     await fetchDashboardData();
@@ -81,9 +95,12 @@ class DashboardProvider extends ChangeNotifier {
     }
   }
 
-  /// Fetch dashboard data from API
-  Future<void> fetchDashboardData() async {
-    _isLoading = true;
+  /// Fetch dashboard data from API.
+  /// [silent] skips the loading-overlay flag - used for background polling
+  /// (e.g. catching a match that just completed) where a full-screen
+  /// spinner popping up unprompted would be a jarring UX regression.
+  Future<void> fetchDashboardData({bool silent = false}) async {
+    if (!silent) _isLoading = true;
     _error = null;
     notifyListeners();
 

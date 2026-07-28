@@ -352,14 +352,45 @@ class TeamService {
   }
 
   /// Add player to team (legacy method)
-  Future<Team> addPlayer(String teamId, String playerId, {String? matchId}) async {
+  Future<Team> addPlayer(String teamId, String playerId, {String? matchId, String? identifier}) async {
+    return addPlayerWithDetails(
+      teamId,
+      playerId: playerId,
+      identifier: identifier,
+      matchId: matchId,
+    );
+  }
+
+  Future<Team> addPlayerWithDetails(
+    String teamId, {
+    required String playerId,
+    String? identifier,
+    String? name,
+    String? email,
+    String? phone,
+    String? role,
+    String? battingStyle,
+    String? bowlingStyle,
+    int? jerseyNumber,
+    String? matchId,
+  }) async {
     try {
+      final payload = <String, dynamic>{
+        'playerId': playerId,
+        if (identifier != null && identifier.trim().isNotEmpty) 'identifier': identifier.trim(),
+        if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+        if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+        if (role != null && role.trim().isNotEmpty) 'role': role.trim(),
+        if (battingStyle != null && battingStyle.trim().isNotEmpty) 'battingStyle': battingStyle.trim(),
+        if (bowlingStyle != null && bowlingStyle.trim().isNotEmpty) 'bowlingStyle': bowlingStyle.trim(),
+        if (jerseyNumber != null && jerseyNumber > 0) 'jerseyNumber': jerseyNumber,
+        if (matchId != null && matchId.isNotEmpty) 'matchId': matchId,
+      };
+
       final response = await _apiClient.post(
         '${ApiConfig.baseUrl}/teams/$teamId/players',
-        data: {
-          'playerId': playerId,
-          if (matchId != null && matchId.isNotEmpty) 'matchId': matchId,
-        },
+        data: payload,
       );
       if (response.statusCode == 200) {
         _cacheService.clearMatchesCache();
@@ -367,6 +398,113 @@ class TeamService {
         return Team.fromJson(teamData);
       }
       throw Exception(response.data['message'] ?? 'Failed to add player');
+    } on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  Future<Team> addPlayerByIdentifier(String teamId, String identifier, {String? matchId}) {
+    return addPlayer(teamId, identifier, matchId: matchId, identifier: identifier);
+  }
+
+  Future<Team> addPlayerByContact(
+    String teamId, {
+    required String name,
+    String? email,
+    String? phone,
+    String role = 'batsman',
+    String? matchId,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.baseUrl}/teams/$teamId/players',
+        data: {
+          'name': name,
+          if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+          if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+          'role': role,
+          if (matchId != null && matchId.isNotEmpty) 'matchId': matchId,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _cacheService.clearMatchesCache();
+        final teamData = response.data['data'] ?? response.data;
+        return Team.fromJson(teamData);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to add player');
+    } on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  Future<Map<String, dynamic>> createInviteLink(
+    String teamId, {
+    int expiresInDays = 7,
+    int maxUses = 0,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.baseUrl}/teams/$teamId/invite',
+        data: {
+          'expiresInDays': expiresInDays,
+          'maxUses': maxUses,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return Map<String, dynamic>.from(response.data['data'] ?? response.data);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to create invite link');
+    } on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  Future<Map<String, dynamic>> getInviteInfo(String code) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.baseUrl}/teams/invite/$code');
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(response.data['data'] ?? response.data);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to load invite');
+    } on DioException catch (e) {
+      final message = _apiClient.parseDioError(e);
+      throw Exception(message);
+    } catch (e) {
+      throw Exception(e.toString());
+    }
+  }
+
+  Future<Map<String, dynamic>> joinByInvite(
+    String code, {
+    required String name,
+    String? email,
+    String? phone,
+    String role = 'batsman',
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.baseUrl}/teams/invite/$code/join',
+        data: {
+          'name': name,
+          if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+          if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+          'role': role,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _cacheService.clearMatchesCache();
+        return Map<String, dynamic>.from(response.data['data'] ?? response.data);
+      }
+      throw Exception(response.data['message'] ?? 'Failed to join team');
     } on DioException catch (e) {
       final message = _apiClient.parseDioError(e);
       throw Exception(message);

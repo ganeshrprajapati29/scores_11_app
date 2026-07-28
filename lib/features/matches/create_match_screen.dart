@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/custom_appbar.dart';
-import '../../../core/widgets/custom_textfield.dart';
-import '../../../core/widgets/custom_button.dart';
-import '../../../data/services/match_service.dart';
-import '../../../data/services/team_service.dart';
-import '../../../data/services/tournament_service_safe.dart' as TournamentServiceSafe;
-import '../../../data/models/team_model.dart';
-import '../../../data/models/tournament_model.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/widgets/custom_appbar.dart';
+import '../../core/widgets/custom_textfield.dart';
+import '../../core/widgets/custom_button.dart';
+import '../../data/services/match_service.dart';
+import '../../data/services/team_service.dart';
+import '../../data/services/tournament_service_safe.dart'
+    as TournamentServiceSafe;
+import '../../data/models/team_model.dart';
+import '../../data/models/tournament_model.dart';
+import '../../providers/auth_provider.dart';
+import '../teams/create_team_screen.dart';
+import 'package:provider/provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _kRadius = 14.0;
@@ -22,6 +26,65 @@ const _kTextSecondary = Color(0xFF6B7280);
 const _kTextHint = Color(0xFF9CA3AF);
 const _kShadow = Color(0x0A000000);
 
+class _BallCategoryData {
+  final String value;
+  final String title;
+  final String format;
+  final String category;
+  final String description;
+  final IconData icon;
+  final Color color;
+
+  const _BallCategoryData({
+    required this.value,
+    required this.title,
+    required this.format,
+    required this.category,
+    required this.description,
+    required this.icon,
+    required this.color,
+  });
+}
+
+const _ballCategories = [
+  _BallCategoryData(
+    value: 'tennis',
+    title: 'Tennis Ball',
+    format: 'Casual / gully',
+    category: 'casual',
+    description: 'Soft-ball local cricket format',
+    icon: Icons.sports_baseball_rounded,
+    color: Color(0xFF16A34A),
+  ),
+  _BallCategoryData(
+    value: 'leather',
+    title: 'Leather Ball',
+    format: 'Standard / professional',
+    category: 'standard',
+    description: 'Default professional cricket rules',
+    icon: Icons.circle_rounded,
+    color: AppColors.primary,
+  ),
+  _BallCategoryData(
+    value: 'rubber',
+    title: 'Rubber Ball',
+    format: 'Child / indoor',
+    category: 'child',
+    description: 'Child/indoor scoring rules enabled',
+    icon: Icons.radio_button_checked_rounded,
+    color: Color(0xFFF97316),
+  ),
+  _BallCategoryData(
+    value: 'custom',
+    title: 'Custom',
+    format: 'Organiser decided',
+    category: 'custom',
+    description: 'Use organiser-defined match format',
+    icon: Icons.tune_rounded,
+    color: Color(0xFF7C3AED),
+  ),
+];
+
 InputDecoration _fieldDecoration({
   required String label,
   required IconData icon,
@@ -34,8 +97,7 @@ InputDecoration _fieldDecoration({
       suffixIcon: suffix,
       filled: true,
       fillColor: const Color(0xFFF8F9FA),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(_kRadius),
         borderSide: const BorderSide(color: _kBorder),
@@ -54,8 +116,7 @@ InputDecoration _fieldDecoration({
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(_kRadius),
-        borderSide:
-            const BorderSide(color: Color(0xFFE53E3E), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFFE53E3E), width: 1.5),
       ),
     );
 
@@ -90,6 +151,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
   String? _matchType = 'league';
   String? _tossDecision = 'bat';
   String? _ballType = 'leather';
+  String? _matchCategory = 'standard';
   String? _pitchType = 'hard';
   String? _weatherCondition = 'sunny';
   String? _selectedTournamentId;
@@ -119,12 +181,13 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
   bool _isTeam1Selected = false;
   bool _isTeam2Selected = false;
   bool _showAdvancedOptions = false;
+  bool _redirectingGuest = false;
 
   @override
   void initState() {
     super.initState();
-    _scheduledDate = DateTime.now().add(const Duration(days: 1));
-    _selectedTime = const TimeOfDay(hour: 14, minute: 0);
+    // Schedule is optional - left blank so the backend defaults to "now"
+    // rather than silently forcing every match to next-day 2 PM.
     _tossDate = DateTime.now().add(const Duration(days: 1));
     _tossTime = const TimeOfDay(hour: 13, minute: 30);
     _loadAllTeams();
@@ -154,7 +217,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
       _fetchError = null;
     });
     try {
-      final allTeams = await _teamService.getAllTeams();
+      final allTeams = await _teamService.getMyTeams();
       setState(() {
         _allTeams = allTeams;
         _filteredTeams1 = allTeams;
@@ -162,21 +225,29 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
         _loadingTeams = false;
       });
     } catch (e) {
-      try {
-        final myTeams = await _teamService.getMyTeams();
-        setState(() {
-          _allTeams = myTeams;
-          _filteredTeams1 = myTeams;
-          _filteredTeams2 = myTeams;
-          _loadingTeams = false;
-        });
-      } catch (e2) {
-        setState(() {
-          _fetchError = 'Failed to load teams: $e2';
-          _loadingTeams = false;
-        });
-      }
+      setState(() {
+        _fetchError = 'Failed to load your teams: $e';
+        _loadingTeams = false;
+      });
     }
+  }
+
+  Future<void> _createTeamAndRefresh() async {
+    final createdTeam = await Navigator.of(context).push<Team>(
+      MaterialPageRoute(
+        builder: (_) => const CreateTeamScreen(returnOnCreate: true),
+      ),
+    );
+    if (!mounted || createdTeam == null) return;
+    await _loadAllTeams();
+    if (!mounted) return;
+    setState(() {
+      _selectedTeam1 = createdTeam;
+      _selectedTeam1Id = createdTeam.id;
+      _team1SearchController.text = createdTeam.name;
+      _isTeam1Selected = true;
+    });
+    _filterTeams2();
   }
 
   Future<void> _loadTournaments() async {
@@ -217,10 +288,23 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
     });
   }
 
+  void _selectBallCategory(_BallCategoryData category) {
+    setState(() {
+      _ballType = category.value;
+      _matchCategory = category.category;
+    });
+  }
+
+  _BallCategoryData get _selectedBallCategory {
+    return _ballCategories.firstWhere(
+      (category) => category.value == _ballType,
+      orElse: () => _ballCategories[1],
+    );
+  }
+
   // ── Date/time pickers ───────────────────────────────────────────────────────
 
-  Future<void> _pickDate(
-      {required bool isToss}) async {
+  Future<void> _pickDate({required bool isToss}) async {
     final picked = await showDatePicker(
       context: context,
       initialDate: (isToss ? _tossDate : _scheduledDate) ??
@@ -275,20 +359,16 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
 
   // ── Validation / submit ─────────────────────────────────────────────────────
 
-  bool _isValidObjectId(String id) =>
-      RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(id);
+  bool _isValidObjectId(String id) => RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(id);
 
-Future<void> _createMatch() async {
+  Future<void> _createMatch() async {
     if (_selectedTeam1Id == null || _selectedTeam2Id == null) {
       _snack('Minimum 2 teams required to start a match', isError: true);
       return;
     }
-    if (_scheduledDate == null) {
-      _snack('Please select match date', isError: true);
-      return;
-    }
-    if (_selectedTime == null) {
-      _snack('Please select match time', isError: true);
+    if ((_scheduledDate == null) != (_selectedTime == null)) {
+      _snack('Please select both a match date and time, or leave both blank',
+          isError: true);
       return;
     }
     if (_venueNameController.text.trim().isEmpty) {
@@ -317,17 +397,20 @@ Future<void> _createMatch() async {
         if (_venueCityController.text.trim().isNotEmpty)
           'city': _venueCityController.text.trim(),
       };
-      final scheduledDateTime = DateTime(
-        _scheduledDate!.year,
-        _scheduledDate!.month,
-        _scheduledDate!.day,
-        _selectedTime!.hour,
-        _selectedTime!.minute,
-      );
-      if (scheduledDateTime.isBefore(DateTime.now())) {
-        _snack('Please select a future match time', isError: true);
-        setState(() => _isLoading = false);
-        return;
+      DateTime? scheduledDateTime;
+      if (_scheduledDate != null && _selectedTime != null) {
+        scheduledDateTime = DateTime(
+          _scheduledDate!.year,
+          _scheduledDate!.month,
+          _scheduledDate!.day,
+          _selectedTime!.hour,
+          _selectedTime!.minute,
+        );
+        if (scheduledDateTime.isBefore(DateTime.now())) {
+          _snack('Please select a future match time', isError: true);
+          setState(() => _isLoading = false);
+          return;
+        }
       }
 // Create the match
       final newMatch = await _matchService.createMatchSimple(
@@ -336,8 +419,11 @@ Future<void> _createMatch() async {
         venue: venueMap,
         scheduledDate: scheduledDateTime,
         format: _format!,
+        overs: overs,
+        ballType: _ballType ?? 'leather',
+        matchCategory: _matchCategory ?? 'standard',
       );
-      
+
       if (mounted) {
         _snack('Match created successfully!', isError: false);
 
@@ -364,7 +450,9 @@ Future<void> _createMatch() async {
         content: Row(
           children: [
             Icon(
-              isError ? Icons.error_outline_rounded : Icons.check_circle_rounded,
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_rounded,
               color: Colors.white,
               size: 18,
             ),
@@ -375,8 +463,7 @@ Future<void> _createMatch() async {
         backgroundColor:
             isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
       ),
@@ -387,6 +474,18 @@ Future<void> _createMatch() async {
 
   @override
   Widget build(BuildContext context) {
+    if (context.watch<AuthProvider>().isGuestUser) {
+      if (!_redirectingGuest) {
+        _redirectingGuest = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+        });
+      }
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: _kBg,
       appBar: _buildAppBar(),
@@ -395,9 +494,8 @@ Future<void> _createMatch() async {
           : Form(
               key: _formKey,
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.fromLTRB(16, 12, 16, 32),
-child: Column(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildPageHeader(),
@@ -434,6 +532,7 @@ child: Column(
                         _filterTeams2();
                       },
                       onRetry: _loadAllTeams,
+                      onCreateTeam: _createTeamAndRefresh,
                     ),
 
                     const SizedBox(height: 14),
@@ -465,6 +564,7 @@ child: Column(
                         });
                       },
                       onRetry: _loadAllTeams,
+                      onCreateTeam: _createTeamAndRefresh,
                     ),
 
                     // Match Details (shown after both teams selected)
@@ -588,8 +688,7 @@ child: Column(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
-              strokeWidth: 2.5, color: AppColors.primary),
+          CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primary),
           const SizedBox(height: 16),
           const Text('Loading teams…',
               style: TextStyle(color: _kTextSecondary, fontSize: 14)),
@@ -616,8 +715,7 @@ child: Column(
           Expanded(
             child: Text(
               'Please ensure both teams are selected before creating a match',
-              style: const TextStyle(
-                  color: Color(0xFF1E40AF), fontSize: 12),
+              style: const TextStyle(color: Color(0xFF1E40AF), fontSize: 12),
             ),
           ),
         ],
@@ -667,12 +765,17 @@ child: Column(
                   icon: Icons.category_rounded,
                   items: const [
                     DropdownMenuItem(value: 'league', child: Text('League')),
-                    DropdownMenuItem(value: 'knockout', child: Text('Knockout')),
-                    DropdownMenuItem(value: 'quarter_final', child: Text('Quarter Final')),
-                    DropdownMenuItem(value: 'semi_final', child: Text('Semi Final')),
+                    DropdownMenuItem(
+                        value: 'knockout', child: Text('Knockout')),
+                    DropdownMenuItem(
+                        value: 'quarter_final', child: Text('Quarter Final')),
+                    DropdownMenuItem(
+                        value: 'semi_final', child: Text('Semi Final')),
                     DropdownMenuItem(value: 'final', child: Text('Final')),
-                    DropdownMenuItem(value: 'practice', child: Text('Practice')),
-                    DropdownMenuItem(value: 'friendly', child: Text('Friendly')),
+                    DropdownMenuItem(
+                        value: 'practice', child: Text('Practice')),
+                    DropdownMenuItem(
+                        value: 'friendly', child: Text('Friendly')),
                   ],
                   onChanged: (v) => setState(() => _matchType = v),
                 ),
@@ -688,8 +791,8 @@ child: Column(
             icon: Icons.emoji_events_rounded,
             items: [
               const DropdownMenuItem(value: null, child: Text('No Tournament')),
-              ..._tournaments.map((t) =>
-                  DropdownMenuItem(value: t.id, child: Text(t.name))),
+              ..._tournaments.map(
+                  (t) => DropdownMenuItem(value: t.id, child: Text(t.name))),
             ],
             onChanged: (v) => setState(() => _selectedTournamentId = v),
           ),
@@ -710,25 +813,28 @@ child: Column(
           ),
           const SizedBox(height: _kFieldGap),
 
+          _buildBallCategorySection(),
+          const SizedBox(height: _kFieldGap),
+
           // Date + Time
           Row(
             children: [
               Expanded(
                 child: _DateTimeField(
-                  label: 'Match Date *',
+                  label: 'Match Date (optional)',
                   icon: Icons.calendar_today_rounded,
                   value: _scheduledDate != null
                       ? DateFormat('dd MMM yyyy').format(_scheduledDate!)
-                      : '',
+                      : 'Not set - starts now',
                   onTap: () => _pickDate(isToss: false),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _DateTimeField(
-                  label: 'Match Time *',
+                  label: 'Match Time (optional)',
                   icon: Icons.access_time_rounded,
-                  value: _selectedTime?.format(context) ?? '',
+                  value: _selectedTime?.format(context) ?? 'Not set - starts now',
                   onTap: () => _pickTime(isToss: false),
                 ),
               ),
@@ -741,8 +847,9 @@ child: Column(
             controller: _venueNameController,
             labelText: 'Venue Name *',
             prefixIcon: Icons.location_on_rounded,
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Please enter venue name' : null,
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? 'Please enter venue name'
+                : null,
           ),
           const SizedBox(height: 10),
 
@@ -757,13 +864,105 @@ child: Column(
           // Advanced toggle
           _AdvancedToggle(
             expanded: _showAdvancedOptions,
-            onTap: () => setState(() => _showAdvancedOptions = !_showAdvancedOptions),
+            onTap: () =>
+                setState(() => _showAdvancedOptions = !_showAdvancedOptions),
           ),
 
           if (_showAdvancedOptions) ...[
             const SizedBox(height: 14),
             _buildAdvancedSection(),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBallCategorySection() {
+    final selected = _selectedBallCategory;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_kCardRadius),
+        border: Border.all(color: _kBorder),
+        boxShadow: const [
+          BoxShadow(color: _kShadow, blurRadius: 12, offset: Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: selected.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(selected.icon, color: selected.color, size: 19),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Ball Category *',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: _kTextPrimary)),
+                    SizedBox(height: 2),
+                    Text('Select before match start for consistent rules',
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            color: _kTextSecondary,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _ballCategories.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 1.62,
+            ),
+            itemBuilder: (context, index) {
+              final category = _ballCategories[index];
+              final isSelected = category.value == _ballType;
+              return _BallCategoryTile(
+                category: category,
+                selected: isSelected,
+                onTap: () => _selectBallCategory(category),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: selected.color.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: selected.color.withOpacity(0.20)),
+            ),
+            child: Text(
+              '${selected.title}: ${selected.format}. Category saved as "${_matchCategory ?? selected.category}" and scoring rules will use this ball type.',
+              style: TextStyle(
+                  color: selected.color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  height: 1.3),
+            ),
+          ),
         ],
       ),
     );
@@ -794,15 +993,18 @@ child: Column(
           ),
           const SizedBox(height: 10),
           _StyledDropdown<String>(
-            value: _ballType,
-            label: 'Ball Type',
-            icon: Icons.circle_rounded,
+            value: _matchCategory,
+            label: 'Match Category Override',
+            icon: Icons.family_restroom_rounded,
             items: const [
-              DropdownMenuItem(value: 'leather', child: Text('Leather Ball')),
-              DropdownMenuItem(value: 'tennis', child: Text('Tennis Ball')),
-              DropdownMenuItem(value: 'rubber', child: Text('Rubber Ball')),
+              DropdownMenuItem(
+                  value: 'standard', child: Text('Standard Match')),
+              DropdownMenuItem(value: 'casual', child: Text('Casual / Gully')),
+              DropdownMenuItem(value: 'child', child: Text('Child Match')),
+              DropdownMenuItem(value: 'indoor', child: Text('Indoor Match')),
+              DropdownMenuItem(value: 'custom', child: Text('Custom Rules')),
             ],
-            onChanged: (v) => setState(() => _ballType = v),
+            onChanged: (v) => setState(() => _matchCategory = v),
           ),
           const SizedBox(height: 10),
           _StyledDropdown<String>(
@@ -891,8 +1093,7 @@ child: Column(
           const SizedBox(width: 10),
           Expanded(
             child: Text(_fetchError!,
-                style: const TextStyle(
-                    color: Color(0xFF92400E), fontSize: 12)),
+                style: const TextStyle(color: Color(0xFF92400E), fontSize: 12)),
           ),
           GestureDetector(
             onTap: _loadAllTeams,
@@ -935,8 +1136,7 @@ child: Column(
                   SizedBox(width: 10),
                   Text(
                     'Create Match',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -950,8 +1150,7 @@ child: Column(
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('How to Create a Match',
             style: TextStyle(
                 fontSize: 16,
@@ -960,8 +1159,7 @@ child: Column(
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _helpStep('1', 'Select Teams',
-                'Choose both teams for the match'),
+            _helpStep('1', 'Select Teams', 'Choose both teams for the match'),
             const SizedBox(height: 12),
             _helpStep('2', 'Fill Basic Details',
                 'Enter format, overs, date, time and venue'),
@@ -969,8 +1167,8 @@ child: Column(
             _helpStep('3', 'Advanced Options (Optional)',
                 'Add umpire, toss details, pitch type etc.'),
             const SizedBox(height: 12),
-            _helpStep('4', 'Create Match',
-                'Click the create button to schedule'),
+            _helpStep(
+                '4', 'Create Match', 'Click the create button to schedule'),
           ],
         ),
         actions: [
@@ -978,8 +1176,7 @@ child: Column(
             onPressed: () => Navigator.pop(ctx),
             child: Text('Got it',
                 style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600)),
+                    color: AppColors.primary, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -993,8 +1190,8 @@ child: Column(
         Container(
           width: 24,
           height: 24,
-          decoration: BoxDecoration(
-              color: AppColors.primary, shape: BoxShape.circle),
+          decoration:
+              BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
           child: Center(
             child: Text(num,
                 style: const TextStyle(
@@ -1014,8 +1211,7 @@ child: Column(
                       fontSize: 13,
                       color: _kTextPrimary)),
               Text(desc,
-                  style: const TextStyle(
-                      color: _kTextSecondary, fontSize: 12)),
+                  style: const TextStyle(color: _kTextSecondary, fontSize: 12)),
             ],
           ),
         ),
@@ -1083,6 +1279,78 @@ class _SectionCard extends StatelessWidget {
 }
 
 /// Styled dropdown that matches the white theme
+class _BallCategoryTile extends StatelessWidget {
+  final _BallCategoryData category;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _BallCategoryTile({
+    required this.category,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: selected
+              ? category.color.withOpacity(0.09)
+              : const Color(0xFFF8F9FA),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? category.color : _kBorder,
+            width: selected ? 1.6 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(category.icon, color: category.color, size: 18),
+                const Spacer(),
+                Icon(
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: selected ? category.color : _kTextHint,
+                  size: 18,
+                ),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              category.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  color: _kTextPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              category.format,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  color: _kTextSecondary,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StyledDropdown<T> extends StatelessWidget {
   final T? value;
   final String label;
@@ -1260,6 +1528,7 @@ class _TeamSelectorCard extends StatelessWidget {
   final void Function(Team) onSelect;
   final VoidCallback onClear;
   final VoidCallback onRetry;
+  final VoidCallback onCreateTeam;
 
   const _TeamSelectorCard({
     required this.title,
@@ -1271,6 +1540,7 @@ class _TeamSelectorCard extends StatelessWidget {
     required this.onSelect,
     required this.onClear,
     required this.onRetry,
+    required this.onCreateTeam,
   });
 
   @override
@@ -1282,9 +1552,7 @@ class _TeamSelectorCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(_kCardRadius),
         border: Border.all(
-          color: isSelected
-              ? AppColors.primary.withOpacity(0.3)
-              : _kBorder,
+          color: isSelected ? AppColors.primary.withOpacity(0.3) : _kBorder,
           width: isSelected ? 1.5 : 1,
         ),
         boxShadow: const [
@@ -1316,6 +1584,21 @@ class _TeamSelectorCard extends StatelessWidget {
                             onPressed: onClear,
                           )
                         : null,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                OutlinedButton.icon(
+                  onPressed: onCreateTeam,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Create a new team'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: BorderSide(color: AppColors.primary.withOpacity(0.3)),
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1364,7 +1647,8 @@ class _CardHeaderStrip extends StatelessWidget {
         color: isSelected
             ? AppColors.primary.withOpacity(0.06)
             : const Color(0xFFF8F9FA),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(_kCardRadius - 1)),
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(_kCardRadius - 1)),
         border: const Border(bottom: BorderSide(color: _kBorder)),
       ),
       child: Row(
@@ -1373,9 +1657,7 @@ class _CardHeaderStrip extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.primary
-                  : const Color(0xFFEEEFF2),
+              color: isSelected ? AppColors.primary : const Color(0xFFEEEFF2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -1398,8 +1680,7 @@ class _CardHeaderStrip extends StatelessWidget {
               ),
               Text(
                 subtitle,
-                style: const TextStyle(
-                    color: _kTextHint, fontSize: 11),
+                style: const TextStyle(color: _kTextHint, fontSize: 11),
               ),
             ],
           ),
@@ -1521,8 +1802,7 @@ class _EmptyTeamsPlaceholder extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         children: [
-          const Icon(Icons.sports_cricket_rounded,
-              size: 38, color: _kTextHint),
+          const Icon(Icons.sports_cricket_rounded, size: 38, color: _kTextHint),
           const SizedBox(height: 8),
           const Text('No teams available',
               style: TextStyle(color: _kTextSecondary, fontSize: 13)),
@@ -1533,8 +1813,8 @@ class _EmptyTeamsPlaceholder extends StatelessWidget {
             label: const Text('Retry'),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.primary,
-              textStyle: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600),
+              textStyle:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -1561,8 +1841,7 @@ class _TeamListView extends StatelessWidget {
       child: ListView.separated(
         shrinkWrap: true,
         itemCount: teams.length,
-        separatorBuilder: (_, __) =>
-            const Divider(height: 1, color: _kBorder),
+        separatorBuilder: (_, __) => const Divider(height: 1, color: _kBorder),
         itemBuilder: (ctx, i) {
           final team = teams[i];
           final isSelected = team.id == selectedId;
@@ -1570,8 +1849,7 @@ class _TeamListView extends StatelessWidget {
             onTap: () => onSelect(team),
             borderRadius: BorderRadius.circular(10),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 4, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
               child: Row(
                 children: [
                   Container(
@@ -1592,9 +1870,7 @@ class _TeamListView extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
-                          color: isSelected
-                              ? Colors.white
-                              : AppColors.primary,
+                          color: isSelected ? Colors.white : AppColors.primary,
                         ),
                       ),
                     ),
@@ -1607,13 +1883,11 @@ class _TeamListView extends StatelessWidget {
                         Text(
                           team.name,
                           style: TextStyle(
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w500,
                             fontSize: 13,
-                            color: isSelected
-                                ? AppColors.primary
-                                : _kTextPrimary,
+                            color:
+                                isSelected ? AppColors.primary : _kTextPrimary,
                           ),
                         ),
                         if (team.city != null)

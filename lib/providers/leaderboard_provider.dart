@@ -30,7 +30,23 @@ class LeaderboardProvider extends ChangeNotifier {
   bool get isLoadingBowlers => _isLoadingBowlers;
   bool get isLoadingMoreBatsmen => _isLoadingMoreBatsmen;
   String? get error => _error;
-  
+
+  /// Clears cached leaderboard data on logout so a different account
+  /// signing in on the same app instance doesn't briefly see stale data.
+  void reset() {
+    _topBatsmen = [];
+    _topBowlers = [];
+    _mvpRankings = [];
+    _teamRankings = [];
+    _playerRanking = null;
+    _teamRanking = null;
+    _isLoadingBatsmen = false;
+    _isLoadingBowlers = false;
+    _isLoadingMoreBatsmen = false;
+    _error = null;
+    notifyListeners();
+  }
+
   /// Load top batsmen (T20 default)
   Future<void> loadTopBatsmen({String timeframe = 'T20', bool refresh = true, int page = 1, int limit = 20}) async {
     try {

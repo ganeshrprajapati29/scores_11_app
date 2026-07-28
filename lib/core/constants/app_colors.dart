@@ -5,39 +5,39 @@ class AppColors {
   AppColors._();
   
   // ==================== PRIMARY COLORS ====================
-  static const Color primary = Color(0xFF1E88E5);
-  static const Color primaryLight = Color(0xFF6AB7FF);
-  static const Color primaryDark = Color(0xFF005CB2);
+  static const Color primary = Color(0xFF185FA5);
+  static const Color primaryLight = Color(0xFFE6F1FB);
+  static const Color primaryDark = Color(0xFF0F477F);
   
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF1E88E5), Color(0xFF1565C0)],
+    colors: [Color(0xFF185FA5), Color(0xFF0F477F)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   // ==================== SECONDARY COLORS ====================
-  static const Color secondary = Color(0xFFFF6F00);
-  static const Color secondaryLight = Color(0xFFFFA040);
-  static const Color secondaryDark = Color(0xFFC43E00);
+  static const Color secondary = Color(0xFF16A34A);
+  static const Color secondaryLight = Color(0xFFEAF8EF);
+  static const Color secondaryDark = Color(0xFF0F7A36);
   
   static const LinearGradient secondaryGradient = LinearGradient(
-    colors: [Color(0xFFFF6F00), Color(0xFFE65100)],
+    colors: [Color(0xFF16A34A), Color(0xFF0F7A36)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   // ==================== BACKGROUND COLORS ====================
-  static const Color background = Color(0xFFF5F5F5);
+  static const Color background = Color(0xFFF7F8FA);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color cardBackground = Color(0xFFFFFFFF);
   static const Color cardBackgroundDark = Color(0xFF2C2C2C);
   static const Color surfaceDark = Color(0xFF1E1E1E);
   
   // ==================== TEXT COLORS ====================
-  static const Color textPrimary = Color(0xFF212121);
-  static const Color textSecondary = Color(0xFF757575);
-  static const Color textHint = Color(0xFFBDBDBD);
-  static const Color textDisabled = Color(0xFFE0E0E0);
+  static const Color textPrimary = Color(0xFF111827);
+  static const Color textSecondary = Color(0xFF667085);
+  static const Color textHint = Color(0xFF98A2B3);
+  static const Color textDisabled = Color(0xFFD0D5DD);
   static const Color textOnPrimary = Color(0xFFFFFFFF);
   
   static const Color textPrimaryDark = Color(0xFFF5F5F5);
@@ -45,11 +45,11 @@ class AppColors {
   static const Color textHintDark = Color(0xFF6B6B6B);
   
   // ==================== STATUS COLORS ====================
-  static const Color success = Color(0xFF4CAF50);
-  static const Color error = Color(0xFFF44336);
-  static const Color errorLight = Color(0xFFFFCDD2);
-  static const Color warning = Color(0xFFFF9800);
-  static const Color info = Color(0xFF2196F3);
+  static const Color success = Color(0xFF16A34A);
+  static const Color error = Color(0xFFDC2626);
+  static const Color errorLight = Color(0xFFFEE2E2);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color info = Color(0xFF185FA5);
   
   static const LinearGradient successGradient = LinearGradient(
     colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
@@ -64,10 +64,10 @@ class AppColors {
   );
   
   // ==================== MATCH STATUS COLORS ====================
-  static const Color live = Color(0xFFE53935);
-  static const Color scheduled = Color(0xFF9E9E9E);
-  static const Color cancelled = Color(0xFFFF9800);
-  static const Color completed = Color(0xFF43A047);
+  static const Color live = Color(0xFFE11D48);
+  static const Color scheduled = Color(0xFF64748B);
+  static const Color cancelled = Color(0xFFF59E0B);
+  static const Color completed = Color(0xFF16A34A);
   
   static const LinearGradient liveGradient = LinearGradient(
     colors: [Color(0xFFE53935), Color(0xFFB71C1C)],
@@ -120,8 +120,8 @@ class AppColors {
   static const Color gt = Color(0xFFF57C00);   // Gujarat Titans - Orange
   
   // ==================== MISC COLORS ====================
-  static const Color divider = Color(0xFFE0E0E0);
-  static const Color shadow = Color(0x1A000000);
+  static const Color divider = Color(0xFFE4E7EC);
+  static const Color shadow = Color(0x0F000000);
   static const Color overlay = Color(0x80000000);
   
   // ==================== HELPER METHODS ====================

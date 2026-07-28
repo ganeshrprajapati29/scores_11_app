@@ -78,6 +78,8 @@ factory Tournament.fromJson(dynamic rawJson) {
       // Safe ID extraction
       final id = json['_id']?.toString() ?? json['id']?.toString() ?? '';
       final venueMap = _safeMap(json['venue']);
+      final logoMap = _safeMap(json['logo']);
+      final bannerMap = _safeMap(json['banner']);
 
       // Safe list extraction with filtering
       List<String> safeTeams = [];
@@ -119,9 +121,9 @@ factory Tournament.fromJson(dynamic rawJson) {
         name: json['name']?.toString() ?? '',
         shortName: json['shortName']?.toString(),
         description: json['description']?.toString(),
-        logo: json['logo']?.toString(),
-        banner: json['banner']?.toString(),
-        organizer: _safeString(json['organizer']),
+        logo: _mediaUrl(json['logo']),
+        banner: _mediaUrl(json['banner']),
+        organizer: _displayName(json['organizer']),
         format: (json['format']?.toString() ?? 'T20').toUpperCase(),
         type: (json['type']?.toString() ?? 'LEAGUE').toUpperCase(),
         status: _normalizeStatus(json['status']),
@@ -146,8 +148,8 @@ factory Tournament.fromJson(dynamic rawJson) {
         isActive: json['isActive']?.toString() == 'true' || (json['isActive'] ?? true) == true,
         createdAt: _safeDateTime(json['createdAt']) ?? DateTime.now(),
         updatedAt: _safeDateTime(json['updatedAt']) ?? DateTime.now(),
-        bannerUrl: json['bannerUrl']?.toString(),
-        logoUrl: json['logoUrl']?.toString(),
+        bannerUrl: json['bannerUrl']?.toString() ?? bannerMap['url']?.toString(),
+        logoUrl: json['logoUrl']?.toString() ?? logoMap['url']?.toString(),
         registeredTeams: int.tryParse(json['registeredTeams']?.toString() ?? '0'),
        
         maxTeams: int.tryParse(json['maxTeams']?.toString() ?? '0'),
@@ -218,6 +220,30 @@ factory Tournament.fromJson(dynamic rawJson) {
     if (value is String) return value;
     if (value is Map) return value['_id']?.toString() ?? value['id']?.toString() ?? value.toString();
     return value?.toString() ?? '';
+  }
+
+  static String _displayName(dynamic value) {
+    if (value is String) return value;
+    if (value is Map) {
+      return value['name']?.toString() ??
+          value['fullName']?.toString() ??
+          value['username']?.toString() ??
+          value['email']?.toString() ??
+          value['_id']?.toString() ??
+          '';
+    }
+    return value?.toString() ?? '';
+  }
+
+  static String? _mediaUrl(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value.isEmpty ? null : value;
+    if (value is Map) {
+      final url = value['url'] ?? value['secureUrl'] ?? value['path'];
+      final text = url?.toString() ?? '';
+      return text.isEmpty ? null : text;
+    }
+    return null;
   }
 
   static DateTime? _safeDateTime(dynamic value) {

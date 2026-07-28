@@ -141,6 +141,9 @@ return UserModel(
       lastLogin: data['lastLogin'] != null 
           ? DateTime.tryParse(data['lastLogin'].toString()) 
           : null,
+      cricketProfile: data['cricketProfile'] is Map
+          ? Map<String, dynamic>.from(data['cricketProfile'] as Map)
+          : null,
       createdAt: parsedCreatedAt ?? DateTime.now(),
       updatedAt: parsedUpdatedAt ?? DateTime.now(),
       playingStyle: data['playingStyle'] ?? data['cricketProfile']?['playingStyle'] ?? 'All Rounder',

@@ -9,6 +9,18 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # Superseded prototypes kept only as historical references.
+    - lib/data/services/association_service.dart
+    - lib/data/services/award_service.dart
+    - lib/data/services/club_service.dart
+    - lib/data/services/contest_service.dart
+    - lib/features/dashboard/home_tab_screen.dart
+    - lib/features/dashboard/widgets/dashboard_home_tab.dart
+    - lib/features/matches/match_detail_screen_methods.dart
+    - lib/features/matches/match_detail_screen_refactored.dart
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

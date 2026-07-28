@@ -318,7 +318,16 @@ Future<void> _addPlayerToTeam(Team team, PublicPlayer player) async {
     setState(() => _isAddingPlayer = true);
 
     try {
-      await _teamService.addPlayer(team.id, player.playerIdForTeam);
+      await _teamService.addPlayerWithDetails(
+        team.id,
+        playerId: player.playerIdForTeam,
+        identifier: player.connectionUserId,
+        name: player.fullName,
+        email: player.email,
+        role: player.playerType,
+        battingStyle: player.cricketProfile?.battingStyle,
+        bowlingStyle: player.cricketProfile?.bowlingStyle,
+      );
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -375,6 +384,7 @@ class _PlayerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatarUrl = _safeUrl(player.avatar?.url);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -388,10 +398,10 @@ class _PlayerCard extends StatelessWidget {
             CircleAvatar(
               radius: 28,
               backgroundColor: AppColors.primary,
-              backgroundImage: player.avatar?.url != null
-                  ? NetworkImage(player.avatar!.url!)
+              backgroundImage: avatarUrl != null
+                  ? NetworkImage(avatarUrl)
                   : null,
-              child: player.avatar?.url == null
+              child: avatarUrl == null
                   ? Text(
                       player.fullName.isNotEmpty
                           ? player.fullName[0].toUpperCase()
@@ -471,6 +481,14 @@ class _PlayerCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String? _safeUrl(String? value) {
+    final url = value?.trim();
+    if (url == null || url.isEmpty || url == 'default-avatar-url') return null;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !(uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty)) return null;
+    return url;
   }
 }
 
@@ -599,6 +617,7 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
   @override
   Widget build(BuildContext context) {
     final profile = widget.player.cricketProfile;
+    final avatarUrl = _safeUrl(widget.player.avatar?.url);
     final location = [
       widget.player.city,
       widget.player.state,
@@ -617,10 +636,10 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
                   CircleAvatar(
                     radius: 42,
                     backgroundColor: AppColors.primary,
-                    backgroundImage: widget.player.avatar?.url != null && widget.player.avatar!.url!.isNotEmpty
-                        ? NetworkImage(widget.player.avatar!.url!)
+                    backgroundImage: avatarUrl != null
+                        ? NetworkImage(avatarUrl)
                         : null,
-                    child: widget.player.avatar?.url == null || widget.player.avatar!.url!.isEmpty
+                    child: avatarUrl == null
                         ? Text(
                             widget.player.fullName.isNotEmpty ? widget.player.fullName[0].toUpperCase() : '?',
                             style: const TextStyle(
@@ -731,6 +750,14 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
         ],
       ),
     );
+  }
+
+  String? _safeUrl(String? value) {
+    final url = value?.trim();
+    if (url == null || url.isEmpty || url == 'default-avatar-url') return null;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !(uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty)) return null;
+    return url;
   }
 }
 

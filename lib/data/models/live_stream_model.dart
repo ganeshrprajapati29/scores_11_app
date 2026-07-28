@@ -1,6 +1,7 @@
 class LiveStreamModel {
   final String id;
   final String userId;
+  final String? matchId;
   final String title;
   final String? description;
   final String streamType;
@@ -14,6 +15,9 @@ class LiveStreamModel {
   final String? youtubeUrl;
   final String? youtubeVideoId;
   final String? youtubeEmbedUrl;
+  final String? youtubeBroadcastId;
+  final String? youtubeStreamId;
+  final String? youtubeIngestionAddress;
   String status;
   int viewerCount;
   int likes;
@@ -37,6 +41,7 @@ class LiveStreamModel {
   LiveStreamModel({
     required this.id,
     required this.userId,
+    this.matchId,
     required this.title,
     this.description,
     required this.streamType,
@@ -50,6 +55,9 @@ class LiveStreamModel {
     this.youtubeUrl,
     this.youtubeVideoId,
     this.youtubeEmbedUrl,
+    this.youtubeBroadcastId,
+    this.youtubeStreamId,
+    this.youtubeIngestionAddress,
     required this.status,
     required this.viewerCount,
     required this.likes,
@@ -77,6 +85,9 @@ class LiveStreamModel {
       userId: json['userId'] is Map
           ? (json['userId']['_id'] ?? json['userId']['id'] ?? '').toString()
           : (json['userId'] ?? '').toString(),
+      matchId: json['matchId'] is Map
+          ? (json['matchId']['_id'] ?? json['matchId']['id'] ?? '').toString()
+          : (json['matchId'] ?? json['match']?['_id'] ?? json['match']?['id'])?.toString(),
       title: (json['title'] ?? 'Live Stream').toString(),
       description: json['description']?.toString(),
       streamType: (json['streamType'] ?? 'mobile').toString(),
@@ -90,6 +101,9 @@ class LiveStreamModel {
       youtubeUrl: json['youtubeUrl']?.toString(),
       youtubeVideoId: (json['youtubeVideoId'] ?? json['youtubeId'])?.toString(),
       youtubeEmbedUrl: json['youtubeEmbedUrl']?.toString(),
+      youtubeBroadcastId: json['youtubeBroadcastId']?.toString(),
+      youtubeStreamId: json['youtubeStreamId']?.toString(),
+      youtubeIngestionAddress: json['youtubeIngestionAddress']?.toString(),
       status: (json['status'] ?? 'pending').toString(),
       viewerCount: int.tryParse((json['viewerCount'] ?? json['viewers'] ?? 0).toString()) ?? 0,
       likes: int.tryParse((json['likes'] ?? 0).toString()) ?? 0,
