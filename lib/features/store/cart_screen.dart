@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
+import '../../data/services/store_service.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -12,29 +14,78 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  List<Map<String, dynamic>> _cartItems = [
-    {'id': '1', 'name': 'Cricket Bat - Pro', 'price': 2999, 'originalPrice': 4999, 'quantity': 1, 'image': 'https://picsum.photos/100/100'},
-    {'id': '2', 'name': 'Cricket Ball Pack', 'price': 499, 'originalPrice': 799, 'quantity': 2, 'image': 'https://picsum.photos/100/100'},
-    {'id': '3', 'name': 'Cricket Gloves', 'price': 899, 'originalPrice': 1499, 'quantity': 1, 'image': 'https://picsum.photos/100/100'},
-  ];
+  final StoreService _storeService = StoreService();
+  List<Map<String, dynamic>> _cartItems = [];
+  bool _isLoading = false;
 
   double get _subtotal => _cartItems.fold(0, (sum, item) => sum + (item['price'] * item['quantity']));
   double get _discount => _cartItems.fold(0, (sum, item) => sum + ((item['originalPrice'] - item['price']) * item['quantity']));
   double get _shipping => _subtotal > 1000 ? 0 : 99;
   double get _total => _subtotal + _shipping;
 
-  void _updateQuantity(String id, int change) {
-    setState(() {
-      final index = _cartItems.indexWhere((item) => item['id'] == id);
-      if (index != -1) {
-        final newQty = _cartItems[index]['quantity'] + change;
-        if (newQty <= 0) {
-          _showRemoveDialog(id);
-        } else if (newQty <= 10) {
-          _cartItems[index]['quantity'] = newQty;
-        }
-      }
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadCart();
+  }
+
+  Future<void> _loadCart() async {
+    setState(() => _isLoading = true);
+    try {
+      final cart = await _storeService.getCart();
+      final items = cart['items'] is List ? cart['items'] as List : const [];
+      if (!mounted) return;
+      setState(() {
+        _cartItems = items.whereType<Map>().map((item) => _normalizeCartItem(Map<String, dynamic>.from(item))).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(e, fallback: 'Cart load nahi ho paaya.'))),
+      );
+    }
+  }
+
+  Map<String, dynamic> _normalizeCartItem(Map<String, dynamic> item) {
+    final product = item['product'] is Map ? Map<String, dynamic>.from(item['product'] as Map) : <String, dynamic>{};
+    final images = product['images'] is List ? product['images'] as List : const [];
+    final imageUrl = images.isNotEmpty
+        ? (images.first is Map ? images.first['url']?.toString() : images.first?.toString())
+        : '';
+    final price = (product['price'] as num?)?.toDouble() ?? (item['price'] as num?)?.toDouble() ?? 0;
+    final originalPrice = (product['originalPrice'] as num?)?.toDouble() ?? price;
+    return {
+      ...item,
+      'id': (item['_id'] ?? item['id'] ?? product['_id'] ?? product['id']).toString(),
+      'productId': (product['_id'] ?? product['id'] ?? item['productId']).toString(),
+      'name': product['name']?.toString() ?? item['name']?.toString() ?? 'Product',
+      'price': price,
+      'originalPrice': originalPrice <= 0 ? price : originalPrice,
+      'quantity': item['quantity'] ?? 1,
+      'image': imageUrl ?? '',
+    };
+  }
+
+  Future<void> _updateQuantity(String id, int change) async {
+    final index = _cartItems.indexWhere((item) => item['id'] == id);
+    if (index == -1) return;
+    final newQty = (_cartItems[index]['quantity'] as num).toInt() + change;
+    if (newQty <= 0) {
+      _showRemoveDialog(id);
+      return;
+    }
+    if (newQty > 10) return;
+    try {
+      await _storeService.updateCartItem(id, newQty);
+      await _loadCart();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(e, fallback: 'Cart update nahi ho paaya.'))),
+      );
+    }
   }
 
   void _showRemoveDialog(String id) {
@@ -49,10 +100,9 @@ class _CartScreenState extends State<CartScreen> {
             child: Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                _cartItems.removeWhere((item) => item['id'] == id);
-              });
+            onPressed: () async {
+              await _storeService.removeFromCart(id);
+              await _loadCart();
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Item removed from cart')),
@@ -87,8 +137,9 @@ class _CartScreenState extends State<CartScreen> {
                         child: Text('Cancel'),
                       ),
                       TextButton(
-                        onPressed: () {
-                          setState(() => _cartItems.clear());
+                        onPressed: () async {
+                          await _storeService.clearCart();
+                          await _loadCart();
                           Navigator.pop(context);
                         },
                         child: Text('Clear', style: TextStyle(color: AppColors.error)),
@@ -101,7 +152,9 @@ class _CartScreenState extends State<CartScreen> {
             ),
         ],
       ),
-      body: _cartItems.isEmpty
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _cartItems.isEmpty
           ? _buildEmptyCart()
           : Column(
               children: [

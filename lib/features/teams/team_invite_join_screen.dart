@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../data/services/team_service.dart';
+import '../../core/utils/friendly_error.dart';
 
 class TeamInviteJoinScreen extends StatefulWidget {
   final String code;
@@ -52,7 +53,7 @@ class _TeamInviteJoinScreenState extends State<TeamInviteJoinScreen> {
       final invite = await _teamService.getInviteInfo(widget.code);
       setState(() => _invite = invite);
     } catch (e) {
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _error = friendlyError(e, fallback: 'Invite load nahi ho paaya.'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -80,7 +81,7 @@ class _TeamInviteJoinScreenState extends State<TeamInviteJoinScreen> {
       _showMessage('Team joined successfully');
       Navigator.pop(context, true);
     } catch (e) {
-      _showMessage(e.toString().replaceFirst('Exception: ', ''), isError: true);
+      _showMessage(friendlyError(e, fallback: 'Team join nahi ho paaya.'), isError: true);
     } finally {
       if (mounted) setState(() => _isJoining = false);
     }

@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_loader.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/subscription_service.dart';
 
 class SubscriptionScreen extends StatefulWidget {
@@ -40,7 +41,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Subscription details load nahi ho paaye.');
         _isLoading = false;
       });
     }

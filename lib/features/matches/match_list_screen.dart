@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../../core/widgets/match_status_badge.dart';
 import '../../data/models/match_model.dart';
 import '../../data/services/match_service.dart';
@@ -300,7 +301,11 @@ class _MatchListScreenState extends State<MatchListScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'More matches load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     }
@@ -336,7 +341,11 @@ class _MatchListScreenState extends State<MatchListScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'More matches load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     }
@@ -372,7 +381,11 @@ class _MatchListScreenState extends State<MatchListScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'More matches load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     }

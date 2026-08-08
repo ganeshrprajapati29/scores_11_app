@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/community_service.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -51,7 +52,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Post load nahi ho paaya.');
         _loading = false;
       });
     }
@@ -92,7 +93,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      _snack(e.toString());
+      _snack(friendlyError(e, fallback: 'Action complete nahi ho paaya.'));
     }
   }
 
@@ -103,7 +104,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       final updated = await action();
       return updated.isEmpty ? null : updated;
     } catch (e) {
-      if (mounted) _snack(e.toString());
+      if (mounted) _snack(friendlyError(e, fallback: 'Comment add nahi ho paaya.'));
       return null;
     }
   }

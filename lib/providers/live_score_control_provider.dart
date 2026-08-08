@@ -5,6 +5,7 @@ import '../data/services/player_service.dart';
 import '../data/models/match_model.dart';
 import '../data/models/player_model.dart';
 import '../core/services/socket_service.dart';
+import '../core/utils/friendly_error.dart';
 import 'scorecard_provider.dart';
 import 'package:dio/dio.dart';
 
@@ -437,7 +438,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await _loadLiveData();
       await _setupSocketListeners();
     } catch (e) {
-      _error = 'Failed to initialize: $e';
+      _error = friendlyError(e, fallback: 'Match scoring open nahi ho paayi.');
       debugPrint('❌ Init error: $e');
     } finally {
       _isLoading = false;
@@ -476,7 +477,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       _hydrateTossAndLineups();
       await refreshLiveData();
     } catch (e) {
-      _error = 'Failed to refresh: $e';
+      _error = friendlyError(e, fallback: 'Match data refresh nahi ho paaya.');
       debugPrint('❌ Refresh error: $e');
     }
     notifyListeners();
@@ -738,7 +739,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     try {
       await _loadLiveData();
     } catch (e) {
-      _error = 'Live refresh failed: $e';
+      _error = friendlyError(e, fallback: 'Live score refresh nahi ho paaya.');
       debugPrint('Refresh error: $e');
       notifyListeners();
     }
@@ -818,7 +819,9 @@ class LiveScoreControlProvider extends ChangeNotifier {
       _hydrateTossAndLineups();
     } catch (e) {
       await refreshMatchData();
-      _error = tossDone ? null : 'Toss update failed: $e';
+      _error = tossDone
+          ? null
+          : friendlyError(e, fallback: 'Toss update nahi ho paaya.');
     } finally {
       _isTossSaving = false;
     }
@@ -986,7 +989,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await refreshMatchData();
       _error = null;
     } catch (e) {
-      _error = 'Match initialize failed: $e';
+      _error = friendlyError(e, fallback: 'Match initialize nahi ho paaya.');
       rethrow;
     } finally {
       _isInitializing = false;
@@ -1004,7 +1007,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await initializeMatch();
       _error = null;
     } catch (e) {
-      _error = 'Match initialize failed: $e';
+      _error = friendlyError(e, fallback: 'Match initialize nahi ho paaya.');
       rethrow;
     }
   }
@@ -1025,7 +1028,10 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await _matchService.setStriker(_matchId!, player.id);
       _error = null;
     } catch (e) {
-      _error = 'Striker saved locally. Server sync failed: $e';
+      _error = friendlyError(
+        e,
+        fallback: 'Striker saved locally. Server sync nahi ho paaya.',
+      );
     }
     notifyListeners();
   }
@@ -1045,7 +1051,10 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await _matchService.setNonStriker(_matchId!, player.id);
       _error = null;
     } catch (e) {
-      _error = 'Non-striker saved locally. Server sync failed: $e';
+      _error = friendlyError(
+        e,
+        fallback: 'Non-striker saved locally. Server sync nahi ho paaya.',
+      );
     }
     notifyListeners();
   }
@@ -1058,7 +1067,10 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await _matchService.setBowler(_matchId!, player.id);
       _error = null;
     } catch (e) {
-      _error = 'Bowler saved locally. Server sync failed: $e';
+      _error = friendlyError(
+        e,
+        fallback: 'Bowler saved locally. Server sync nahi ho paaya.',
+      );
     }
     notifyListeners();
   }
@@ -1071,7 +1083,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       }
       return error.message ?? 'Unable to sync score with server';
     }
-    return error.toString().replaceFirst('Exception: ', '');
+    return friendlyError(error, fallback: 'Unable to sync score with server');
   }
 
   Future<void> _recoverFromScoreSyncFailure(Object error) async {
@@ -1388,11 +1400,11 @@ class LiveScoreControlProvider extends ChangeNotifier {
     if (error is DioException) {
       final data = error.response?.data;
       if (data is Map && data['message'] != null)
-        return data['message'].toString();
+        return friendlyError(data['message']);
       if (error.message != null && error.message!.isNotEmpty)
-        return error.message!;
+        return friendlyError(error.message);
     }
-    return error.toString().replaceFirst('Exception: ', '');
+    return friendlyError(error);
   }
 
   bool _isFreeHitWicketAllowed(String wicketType) {
@@ -1406,7 +1418,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await _ensureScoringReady();
       await refreshMatchData();
     } catch (e) {
-      _error = 'Match start failed: $e';
+      _error = friendlyError(e, fallback: 'Match start nahi ho paaya.');
     }
     notifyListeners();
   }
@@ -1451,7 +1463,10 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await _matchService.endMatch(_matchId!);
       await refreshMatchData();
     } catch (e) {
-      _error = 'Result ready locally. Server publish failed: $e';
+      _error = friendlyError(
+        e,
+        fallback: 'Result ready locally. Server publish nahi ho paaya.',
+      );
       notifyListeners();
     } finally {
       _autoCompletingMatch = false;

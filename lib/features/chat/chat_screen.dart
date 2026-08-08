@@ -4,6 +4,7 @@ import 'dart:async';
 import '../../core/theme/app_colors.dart';
 import '../../core/services/user_service.dart';
 import '../../core/widgets/custom_appbar.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/chat_service.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -65,7 +66,11 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading messages: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Messages load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     } finally {
@@ -110,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send message: $e')),
+          SnackBar(content: Text(friendlyError(e, fallback: 'Message send nahi ho paaya.'))),
         );
         _messageController.text = text; // Restore
       }

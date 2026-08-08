@@ -3,6 +3,7 @@ import '../../data/services/player_service.dart';
 import '../../data/services/user_service.dart';
 import '../../data/models/player_model.dart';
 import '../../data/models/match_model.dart';
+import '../../core/utils/friendly_error.dart';
 
 String? _safeUrl(String? value) {
   final url = value?.trim();
@@ -111,7 +112,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Player profile load nahi ho paayi.');
         _isLoading = false;
       });
     }
@@ -128,7 +129,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(friendlyError(e, fallback: 'Unable to update this match.'))),
       );
     }
   }
@@ -1110,7 +1111,11 @@ class _ActionRowState extends State<_ActionRow> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Action failed: $e')));
+          .showSnackBar(SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Action complete nahi ho paaya.'),
+            ),
+          ));
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }

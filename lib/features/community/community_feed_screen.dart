@@ -7,6 +7,7 @@ import '../../core/widgets/custom_appbar.dart';
 import '../../core/services/user_service.dart';
 import '../../data/services/community_service.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _kBg = Color(0xFFF8F9FA);
@@ -389,7 +390,7 @@ class _PostCardState extends State<_PostCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(friendlyError(e, fallback: 'Post update nahi ho paaya.'))),
         );
       }
     } finally {
@@ -458,7 +459,7 @@ class _PostCardState extends State<_PostCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(friendlyError(e, fallback: 'Action complete nahi ho paaya.'))),
         );
       }
     } finally {

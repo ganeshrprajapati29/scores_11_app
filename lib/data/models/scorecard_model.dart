@@ -768,6 +768,30 @@ class FullScorecard extends Equatable {
       }).toList();
     }
 
+    if (safeBatting.isEmpty && json['innings'] is List) {
+      safeBatting = (json['innings'] as List).map<List<BatsmanStats>>((raw) {
+        if (raw is! Map) return <BatsmanStats>[];
+        final rows = raw['battingScorecard'] ?? raw['batting'];
+        if (rows is! List) return <BatsmanStats>[];
+        return rows
+            .whereType<Map>()
+            .map((p) => BatsmanStats.fromJson(Map<String, dynamic>.from(p)))
+            .toList();
+      }).toList();
+    }
+
+    if (safeBowling.isEmpty && json['innings'] is List) {
+      safeBowling = (json['innings'] as List).map<List<BowlerStats>>((raw) {
+        if (raw is! Map) return <BowlerStats>[];
+        final rows = raw['bowlingScorecard'] ?? raw['bowling'];
+        if (rows is! List) return <BowlerStats>[];
+        return rows
+            .whereType<Map>()
+            .map((p) => BowlerStats.fromJson(Map<String, dynamic>.from(p)))
+            .toList();
+      }).toList();
+    }
+
     List<FallOfWicket> safeFallOfWickets = [];
     List<List<FallOfWicket>> safeFallOfWicketsByInnings = [];
     final cachedFowByInnings = json['fallOfWicketsByInnings'];

@@ -7,12 +7,19 @@ class NotificationService {
   final ApiClient _apiClient = ApiClient();
 
   /// Get all notifications
-  Future<PaginatedNotifications> getNotifications({int page = 1, int limit = 20}) async {
+  Future<PaginatedNotifications> getNotifications({
+    int page = 1,
+    int limit = 20,
+    String? type,
+    bool unreadOnly = false,
+  }) async {
     final response = await _apiClient.get(
       '${ApiConfig.notifications}', 
       queryParameters: {
         'page': page.toString(),
         'limit': limit.toString(),
+        if (type != null && type.isNotEmpty && type != 'all') 'type': type,
+        if (unreadOnly) 'unread': 'true',
       },
     );
     final raw = response.data;

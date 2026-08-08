@@ -1,9 +1,11 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/theme/app_colors.dart';
+import '../../data/services/store_service.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String productId;
@@ -15,49 +17,88 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  final StoreService _storeService = StoreService();
   int _quantity = 1;
   int _selectedImageIndex = 0;
   bool _isAddingToCart = false;
+  bool _isLoading = false;
+  String? _error;
   
-  final Map<String, dynamic> _product = {
-    'id': '1',
-    'name': 'Cricket Bat - Pro Grade',
-    'description': 'Premium quality cricket bat made from English willow. Perfect balance and pickup. Ideal for professional players.',
-    'price': 2999,
-    'originalPrice': 4999,
-    'rating': 4.5,
-    'reviews': 128,
-    'inStock': true,
-    'stockCount': 15,
-    'images': [
-      'https://picsum.photos/600/600',
-      'https://picsum.photos/600/601',
-      'https://picsum.photos/600/602',
-    ],
-    'features': [
-      'Premium English Willow',
-      'Semi-round handle',
-      '7-8 grains',
-      'Weight: 1.2-1.4 kg',
-      'Full spine',
-    ],
-    'specifications': {
-      'Brand': 'Cric11 Pro',
-      'Material': 'English Willow',
-      'Handle': 'Cork Core',
-      'Weight': '1.2-1.4 kg',
-      'Warranty': '6 months',
-    },
-    'seller': {
-      'name': 'Cric11 Store',
-      'rating': 4.8,
-      'products': 250,
-    },
-  };
+  Map<String, dynamic> _product = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProduct();
+  }
+
+  Future<void> _loadProduct() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final product = await _storeService.getProductById(widget.productId);
+      if (!mounted) return;
+      setState(() {
+        _product = _normalizeProduct(product);
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Unable to load product';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Map<String, dynamic> _normalizeProduct(Map<String, dynamic> product) {
+    final rawImages = product['images'] is List ? product['images'] as List : const [];
+    final images = rawImages
+        .map((image) => image is Map ? image['url']?.toString() : image?.toString())
+        .whereType<String>()
+        .where((url) => url.isNotEmpty)
+        .toList();
+    final price = (product['price'] as num?)?.toDouble() ?? 0;
+    final originalPrice = (product['originalPrice'] as num?)?.toDouble() ?? price;
+    return {
+      ...product,
+      'id': (product['_id'] ?? product['id'] ?? widget.productId).toString(),
+      'name': product['name']?.toString() ?? 'Product',
+      'description': product['description']?.toString() ?? '',
+      'price': price,
+      'originalPrice': originalPrice <= 0 ? price : originalPrice,
+      'rating': (product['rating'] as num?)?.toDouble() ?? 0,
+      'reviews': product['reviews'] ?? 0,
+      'inStock': (product['stock'] as num? ?? 0) > 0,
+      'stockCount': product['stock'] ?? 0,
+      'images': images,
+      'features': product['features'] is List ? product['features'] : const [],
+      'specifications': {
+        if (product['brand'] != null) 'Brand': product['brand'],
+        if (product['category'] != null) 'Category': product['category'],
+        if (product['weight'] != null) 'Weight': product['weight'],
+        if (product['color'] != null) 'Color': product['color'],
+      },
+      'seller': {'name': 'Scores11 Store', 'rating': 0, 'products': 0},
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    final discount = ((_product['originalPrice'] - _product['price']) / _product['originalPrice'] * 100).round();
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_error != null || _product.isEmpty) {
+      return Scaffold(
+        appBar: CustomAppBar(title: 'Product'),
+        body: Center(child: Text(_error ?? 'Product not found')),
+      );
+    }
+    final originalPrice = (_product['originalPrice'] as num?)?.toDouble() ?? 0;
+    final price = (_product['price'] as num?)?.toDouble() ?? 0;
+    final discount = originalPrice > 0 ? ((originalPrice - price) / originalPrice * 100).round() : 0;
     
     return Scaffold(
       body: CustomScrollView(
@@ -465,10 +506,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Future<void> _addToCart() async {
     setState(() => _isAddingToCart = true);
-    
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
-    
+    try {
+      await _storeService.addToCart(_product['id'].toString(), _quantity);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isAddingToCart = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            friendlyError(e, fallback: 'Cart me add nahi ho paaya.'),
+          ),
+        ),
+      );
+      return;
+    }
+
     if (mounted) {
       setState(() => _isAddingToCart = false);
       ScaffoldMessenger.of(context).showSnackBar(

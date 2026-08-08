@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_routes.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/models/match_model.dart';
 import '../../data/services/match_service.dart';
 import '../../providers/auth_provider.dart';
@@ -77,7 +78,7 @@ class _TeamSelectionScreenState extends State<TeamSelectionScreen>
       _slideController.forward();
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Team selection load nahi ho paayi.');
         _isLoading = false;
       });
     }

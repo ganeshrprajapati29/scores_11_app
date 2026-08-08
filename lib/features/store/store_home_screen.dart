@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/store_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -52,7 +53,11 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Products load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     }
@@ -82,7 +87,11 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'More products load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     }

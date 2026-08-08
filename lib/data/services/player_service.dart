@@ -440,8 +440,8 @@ class PlayerService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         _cacheService.clearAll();
         final playerData = response.data['data'] ?? response.data;
-        if (playerData is Map<String, dynamic>) {
-          return Player.fromJson(playerData);
+        if (playerData is Map) {
+          return Player.fromJson(Map<String, dynamic>.from(playerData));
         }
         throw Exception('Invalid player data format');
       }
@@ -450,7 +450,7 @@ class PlayerService {
       final message = _apiClient.parseDioError(e);
       throw Exception(message);
     } catch (e) {
-      throw Exception('Failed to create player: $e');
+      throw Exception(e.toString());
     }
   }
 
@@ -465,14 +465,17 @@ class PlayerService {
       if (response.statusCode == 200) {
         _cacheService.clearAll();
         final playerData = response.data['data'] ?? response.data;
-        return Player.fromJson(playerData);
+        if (playerData is Map) {
+          return Player.fromJson(Map<String, dynamic>.from(playerData));
+        }
+        throw Exception('Invalid player data format');
       }
       throw Exception(response.data['message'] ?? 'Failed to update player');
     } on DioException catch (e) {
       final message = _apiClient.parseDioError(e);
       throw Exception(message);
     } catch (e) {
-      throw Exception('Failed to update player: $e');
+      throw Exception(e.toString());
     }
   }
 

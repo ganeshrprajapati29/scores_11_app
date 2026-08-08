@@ -8,6 +8,7 @@ import '../../core/widgets/custom_loader.dart';
 import '../../data/models/team_model.dart';
 import '../../data/models/player_model.dart';
 import '../../data/services/team_service.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/player_service.dart';
 import '../../core/config/api_config.dart';
 import '../players/find_player_screen.dart';
@@ -100,7 +101,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
       _animationController.forward();
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Team details load nahi ho paayi.');
         _isLoading = false;
         _isPlayersLoading = false;
       });
@@ -924,7 +925,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
       await _loadTeam();
       _showMessage('Player added to team');
     } catch (e) {
-      _showMessage(e.toString().replaceFirst('Exception: ', ''), isError: true);
+      _showMessage(friendlyError(e, fallback: 'Player add nahi ho paaya.'), isError: true);
     } finally {
       if (mounted) setState(() => _isAddingByContact = false);
     }
@@ -1101,7 +1102,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
       );
       _showMessage('Invite link copied');
     } catch (e) {
-      _showMessage(e.toString().replaceFirst('Exception: ', ''), isError: true);
+      _showMessage(friendlyError(e, fallback: 'Invite link create nahi ho paaya.'), isError: true);
     } finally {
       if (mounted) setState(() => _isGeneratingInvite = false);
     }

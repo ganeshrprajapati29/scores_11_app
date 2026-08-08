@@ -7,29 +7,6 @@ import '../../core/widgets/empty_state.dart';
 import '../../data/models/blog_model.dart';
 import '../../data/services/blog_service.dart';
 
-final List<BlogModel> _fallbackBlogs = [
-  BlogModel(
-    id: 'fallback1',
-    title: 'India vs Australia: Top 5 Moments from the Test Series',
-    author: 'Scores11 Team',
-    excerpt:
-        'The Border-Gavaskar Trophy delivered breathtaking cricket. Here are the five moments that defined the series.',
-    content:
-        'The Border-Gavaskar Trophy delivered breathtaking cricket, pressure moments, and brilliant individual performances. This article highlights the five moments that shaped the series and kept fans hooked until the end.',
-    createdAt: DateTime.now().subtract(const Duration(days: 1)),
-  ),
-  BlogModel(
-    id: 'fallback2',
-    title: 'IPL 2024: Which Teams Are the Title Contenders?',
-    author: 'Scores11 Team',
-    excerpt:
-        'A quick look at the strongest squads, key players, and tactical edges heading into the tournament.',
-    content:
-        'With balanced squads and several match winners, the IPL title race is wide open. We look at team combinations, powerplay impact, death bowling, and the players who could decide the season.',
-    createdAt: DateTime.now().subtract(const Duration(days: 3)),
-  ),
-];
-
 class BlogsScreen extends StatefulWidget {
   const BlogsScreen({super.key});
 
@@ -59,14 +36,14 @@ class _BlogsScreenState extends State<BlogsScreen> {
       final loadedBlogs = await _blogService.getBlogs(page: 1, limit: 20);
       if (!mounted) return;
       setState(() {
-        blogs = loadedBlogs.isNotEmpty ? loadedBlogs : _fallbackBlogs;
+        blogs = loadedBlogs;
       });
     } catch (e) {
-      debugPrint('Blogs API error: $e - using fallback data');
+      debugPrint('Blogs API error: $e');
       if (!mounted) return;
       setState(() {
-        blogs = _fallbackBlogs;
-        error = null;
+        blogs = [];
+        error = 'Unable to load blogs';
       });
     } finally {
       if (mounted) {

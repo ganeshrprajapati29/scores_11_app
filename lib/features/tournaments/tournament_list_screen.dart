@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/config/theme_config.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/tournament_service.dart';
 import '../../data/models/tournament_model.dart';
 import 'tournament_detail_screen.dart';
@@ -92,11 +93,10 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   }
 
   String _cleanError(Object error) {
-    final message = error.toString().replaceFirst('Exception: ', '');
-    if (message.contains('DioException')) {
-      return 'Tournaments load nahi ho paaye. Network/server check karke retry karein.';
-    }
-    return message;
+    return friendlyError(
+      error,
+      fallback: 'Tournaments load nahi ho paaye. Please retry.',
+    );
   }
 
   Future<void> _loadMoreLive() async {
@@ -118,7 +118,11 @@ class _TournamentListScreenState extends State<TournamentListScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'More tournaments load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     }
@@ -143,7 +147,11 @@ class _TournamentListScreenState extends State<TournamentListScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'More tournaments load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     }
@@ -168,7 +176,11 @@ class _TournamentListScreenState extends State<TournamentListScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'More tournaments load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     }

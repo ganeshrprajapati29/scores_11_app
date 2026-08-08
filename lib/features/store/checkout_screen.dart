@@ -2,6 +2,8 @@
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
+import '../../data/services/store_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -14,11 +16,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _selectedPayment = 'card';
   String _selectedAddress = 'home';
   bool _isProcessing = false;
+  bool _isLoading = false;
+  final StoreService _storeService = StoreService();
   
-  final List<Map<String, dynamic>> _cartItems = [
-    {'name': 'Cricket Bat - Pro', 'price': 2999, 'quantity': 1, 'image': 'https://picsum.photos/60/60'},
-    {'name': 'Cricket Ball Pack', 'price': 499, 'quantity': 2, 'image': 'https://picsum.photos/60/60'},
-  ];
+  List<Map<String, dynamic>> _cartItems = [];
 
   final Map<String, dynamic> _address = {
     'name': 'John Doe',
@@ -33,6 +34,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double get _total => _subtotal + _shipping + _tax;
 
   @override
+  void initState() {
+    super.initState();
+    _loadCart();
+  }
+
+  Future<void> _loadCart() async {
+    setState(() => _isLoading = true);
+    try {
+      final cart = await _storeService.getCart();
+      final items = cart['items'] is List ? cart['items'] as List : const [];
+      if (!mounted) return;
+      setState(() {
+        _cartItems = items.whereType<Map>().map((item) => _normalizeCartItem(Map<String, dynamic>.from(item))).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(e, fallback: 'Checkout load nahi ho paaya.'))),
+      );
+    }
+  }
+
+  Map<String, dynamic> _normalizeCartItem(Map<String, dynamic> item) {
+    final product = item['product'] is Map ? Map<String, dynamic>.from(item['product'] as Map) : <String, dynamic>{};
+    final images = product['images'] is List ? product['images'] as List : const [];
+    final imageUrl = images.isNotEmpty
+        ? (images.first is Map ? images.first['url']?.toString() : images.first?.toString())
+        : '';
+    final price = (product['price'] as num?)?.toDouble() ?? (item['price'] as num?)?.toDouble() ?? 0;
+    return {
+      ...item,
+      'id': (item['_id'] ?? item['id']).toString(),
+      'productId': (product['_id'] ?? product['id'] ?? item['productId']).toString(),
+      'name': product['name']?.toString() ?? item['name']?.toString() ?? 'Product',
+      'price': price,
+      'quantity': item['quantity'] ?? 1,
+      'image': imageUrl ?? '',
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -40,7 +84,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -242,7 +288,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(8)),
       child: Row(children: [
-        ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(item['image'], width: 50, height: 50, fit: BoxFit.cover)),
+        ClipRRect(borderRadius: BorderRadius.circular(8), child: _itemImage(item['image']?.toString())),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(item['name'], style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -266,9 +312,62 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Widget _itemImage(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return Container(
+        width: 50,
+        height: 50,
+        color: Colors.grey[100],
+        child: Icon(Icons.shopping_bag_outlined, color: Colors.grey[400]),
+      );
+    }
+    return Image.network(
+      imageUrl,
+      width: 50,
+      height: 50,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(
+        width: 50,
+        height: 50,
+        color: Colors.grey[100],
+        child: Icon(Icons.shopping_bag_outlined, color: Colors.grey[400]),
+      ),
+    );
+  }
+
   Future<void> _placeOrder() async {
+    if (_cartItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your cart is empty')),
+      );
+      return;
+    }
     setState(() => _isProcessing = true);
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      await _storeService.checkout({
+        'items': _cartItems.map((item) {
+          final productId = item['productId'];
+          return {
+            'product': productId?.toString(),
+            'quantity': item['quantity'] ?? 1,
+          };
+        }).toList(),
+        'paymentMethod': _selectedPayment,
+        'shippingAddress': {
+          'type': _selectedAddress,
+          'name': _address['name'],
+          'phone': _address['phone'],
+          'address': _address[_selectedAddress],
+        },
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(e, fallback: 'Order place nahi ho paaya.'))),
+      );
+      return;
+    }
     if (mounted) {
       setState(() => _isProcessing = false);
       showDialog(

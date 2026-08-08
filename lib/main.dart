@@ -56,6 +56,7 @@ import 'features/settings/preferences_screen.dart';
 import 'features/settings/security_screen.dart';
 import 'features/settings/privacy_policy_screen.dart';
 import 'features/settings/help_support_screen.dart';
+import 'features/settings/terms_of_service_screen.dart';
 import 'features/dashboard/testing_screen.dart';
 import 'features/wallet/wallet_screen.dart';
 import 'features/subscription/subscription_screen.dart';
@@ -351,26 +352,36 @@ class Cric11App extends StatelessWidget {
           '/go-live': (context) => const GoLiveScreen(),
           '/live-player': (context) => const LivePlayerScreen(streamId: ''),
           '/discover': (context) => const DiscoveryScreen(),
-          '/stats': (context) => const HomeScreen(),
-          '/history': (context) => const HomeScreen(),
-          '/activity': (context) => const HomeScreen(),
+          '/stats': (context) => const CricketProfileScreen(),
+          '/history': (context) =>
+              const ScheduledMatchesScreen(initialTabIndex: 1),
+          '/activity': (context) => const NotificationsScreen(),
           '/edit-profile': (context) => const ProfileScreen(),
           '/my-performance': (context) => const CricketProfileScreen(),
           '/settings': (context) => const AppSettingsScreen(),
           '/settings/notifications': (context) =>
               const NotificationSettingsScreen(),
+          '/notification-preferences': (context) =>
+              const NotificationSettingsScreen(),
           '/settings/privacy': (context) => const PrivacySettingsScreen(),
           '/settings/preferences': (context) => const PreferencesScreen(),
+          '/language': (context) => const PreferencesScreen(),
           '/settings/security': (context) => const SecurityScreen(),
           '/privacy-policy': (context) => const PrivacyPolicyScreen(),
           '/help-support': (context) => const HelpSupportScreen(),
+          '/help': (context) => const HelpSupportScreen(),
+          '/terms': (context) => const TermsOfServiceScreen(),
+          '/terms-of-service': (context) => const TermsOfServiceScreen(),
+          '/purchase-history': (context) => const OrdersScreen(),
+          '/followers': (context) => const ConnectionsScreen(),
+          '/following': (context) => const ConnectionsScreen(),
           '/testing': (context) => const TestingScreen(),
-          '/support': (context) => const AppSettingsScreen(),
+          '/support': (context) => const HelpSupportScreen(),
           '/notifications': (context) => const NotificationsScreen(),
           '/connections': (context) => const ConnectionsScreen(),
           '/chats': (context) => const ChatListScreen(),
           '/chat': (context) => const ChatListScreen(),
-          '/my-cricket': (context) => const HomeScreen(),
+          '/my-cricket': (context) => const CricketProfileScreen(),
           '/blogs': (context) => const BlogsScreen(),
           '/discovery': (context) => const DiscoveryScreen(),
         },

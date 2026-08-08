@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/constants/app_routes.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/profile_avatar.dart';
 import '../../data/services/notification_service.dart';
 import '../../../data/services/community_service.dart';
@@ -387,7 +388,11 @@ class _HomeTabState extends State<HomeTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load posts: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Posts load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     } finally {
@@ -411,7 +416,11 @@ class _HomeTabState extends State<HomeTab> {
       _postsPage--;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Load more failed: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'More posts load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     } finally {

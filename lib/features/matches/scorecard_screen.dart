@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/scorecard_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/friendly_error.dart';
 import '../../../core/widgets/custom_appbar.dart';
 import '../../../data/models/scorecard_model.dart';
 import '../../../data/models/match_model.dart';
@@ -79,7 +80,12 @@ class _ScorecardScreenState extends State<ScorecardScreen>
       setState(() => _scorecardMatches = matches);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _matchListError = 'Scorecards load nahi ho paaye: $e');
+      setState(
+        () => _matchListError = friendlyError(
+          e,
+          fallback: 'Scorecards load nahi ho paaye.',
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isMatchListLoading = false);
     }
@@ -108,8 +114,8 @@ class _ScorecardScreenState extends State<ScorecardScreen>
             onPressed: () => Navigator.maybePop(context),
           ),
           title: const Text(
-            'Individual match',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 27),
+            'Match Centre',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20),
           ),
           actions: [
             IconButton(
@@ -425,9 +431,9 @@ class _ScorecardScreenState extends State<ScorecardScreen>
         dividerColor: Colors.transparent,
         labelColor: _ink,
         unselectedLabelColor: Colors.black38,
-        labelPadding: const EdgeInsets.symmetric(horizontal: 22),
-        labelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 22),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 21),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         tabs: const [
           Tab(text: 'Info'),
           Tab(text: 'Live'),
@@ -482,17 +488,31 @@ class _ScorecardScreenState extends State<ScorecardScreen>
 
   Widget _buildLiveTab(FullScorecard scorecard, ScorecardProvider provider) {
     final match = provider.match ?? scorecard.match;
-    final innings = scorecard.innings.isNotEmpty ? scorecard.innings.last : null;
-    final batting = scorecard.batting.isNotEmpty ? scorecard.batting.last : <BatsmanStats>[];
-    final bowling = scorecard.bowling.isNotEmpty ? scorecard.bowling.last : <BowlerStats>[];
-    final activeBatters = batting.where((b) => !b.isOut && _hasBatted(b)).take(2).toList();
-    final activeBowlers = bowling.where(_hasBowled).toList()
+    final inningsIndex = _activeInningsIndex(scorecard, match);
+    final innings = inningsIndex == null ? null : scorecard.innings[inningsIndex];
+    final batting = inningsIndex != null && scorecard.batting.length > inningsIndex
+        ? scorecard.batting[inningsIndex]
+        : <BatsmanStats>[];
+    final bowling = inningsIndex != null && scorecard.bowling.length > inningsIndex
+        ? scorecard.bowling[inningsIndex]
+        : <BowlerStats>[];
+    final activeBatters = batting
+        .where((b) => _isRealPlayerName(b.playerName) && !b.isOut && _hasBatted(b))
+        .take(2)
+        .toList();
+    final activeBowlers = bowling.where((b) => _isRealPlayerName(b.playerName) && _hasBowled(b)).toList()
       ..sort((a, b) => b.overs.compareTo(a.overs));
+    final battingTeam = innings == null
+        ? (match.currentInnings == 2 ? _teamName(match, 2) : _teamName(match, 1))
+        : _displayTeamName(
+            innings.battingTeam,
+            fallback: match.currentInnings == 2 ? _teamName(match, 2) : _teamName(match, 1),
+          );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _LiveMatchPulseCard(match: match, innings: innings),
+        _LiveMatchPulseCard(match: match, innings: innings, battingTeam: battingTeam),
         const SizedBox(height: 16),
         if (activeBatters.isNotEmpty)
           _MiniPlayerPanel(
@@ -822,7 +842,6 @@ class _ScorecardScreenState extends State<ScorecardScreen>
     final maxRows = [
       team1Players.length,
       team2Players.length,
-      11,
     ].reduce((a, b) => a > b ? a : b);
 
     return Container(
@@ -850,9 +869,18 @@ class _ScorecardScreenState extends State<ScorecardScreen>
             child: const Text(
               'Playing Squad',
               textAlign: TextAlign.center,
-              style: TextStyle(color: _ink, fontSize: 18, fontWeight: FontWeight.w600),
+              style: TextStyle(color: _ink, fontSize: 15, fontWeight: FontWeight.w700),
             ),
           ),
+          if (maxRows == 0)
+            const Padding(
+              padding: EdgeInsets.all(18),
+              child: Text(
+                'Playing squad will appear after team selection.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _muted, fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
           ...List.generate(maxRows, (index) {
             final left = index < team1Players.length ? team1Players[index] : '';
             final right = index < team2Players.length ? team2Players[index] : '';
@@ -866,7 +894,8 @@ class _ScorecardScreenState extends State<ScorecardScreen>
   List<String> _squadForTeam(FullScorecard scorecard, int teamIndex) {
     final names = <String>[];
     if (scorecard.match.battingOrder.length > teamIndex) {
-      names.addAll(scorecard.match.battingOrder[teamIndex].players);
+      final order = scorecard.match.battingOrder[teamIndex];
+      names.addAll(order.playerNames.isNotEmpty ? order.playerNames : order.players);
     }
     if (scorecard.batting.length > teamIndex) {
       names.addAll(scorecard.batting[teamIndex].map((player) => player.playerName));
@@ -877,10 +906,20 @@ class _ScorecardScreenState extends State<ScorecardScreen>
     final cleaned = <String>[];
     final seen = <String>{};
     for (var i = 0; i < names.length; i++) {
-      final name = _displayPlayerName(names[i], fallback: 'Player ${i + 1}');
+      final name = _displayPlayerName(names[i], fallback: '');
+      if (!_isRealPlayerName(name)) continue;
       if (seen.add(name)) cleaned.add(name);
     }
     return cleaned;
+  }
+
+  int? _activeInningsIndex(FullScorecard scorecard, Match match) {
+    if (scorecard.innings.isEmpty) return null;
+    final wanted = (match.currentInnings - 1)
+        .clamp(0, scorecard.innings.length - 1)
+        .toInt();
+    if (wanted < scorecard.innings.length) return wanted;
+    return scorecard.innings.length - 1;
   }
 
   Widget _buildProfessionalScoreHeader(
@@ -1144,13 +1183,84 @@ Widget _buildMatchHeader(FullScorecard scorecard) {
 
   String _resultText(Match match) {
     final result = match.result;
-    if (result?.message?.trim().isNotEmpty == true) return result!.message!.trim();
-    final winner = _displayTeamName(result?.winner, fallback: '');
+    final professional = _professionalResultText(match);
+    if (professional.isNotEmpty) return professional;
+    final message = result?.message?.trim() ?? '';
+    if (message.isNotEmpty && !_looksGenericResult(message)) return message;
+    final winner = _resultWinnerName(match);
     if (winner.isNotEmpty && result?.margin?.trim().isNotEmpty == true) {
       return '$winner won by ${result!.margin}';
     }
     if (result?.margin?.isNotEmpty == true) return result!.margin!;
     return match.isLive ? 'LIVE' : match.status;
+  }
+
+  String _professionalResultText(Match match) {
+    if (!match.isCompleted && !_hasMeaningfulResult(match.result)) return '';
+    final result = match.result;
+    var winner = _resultWinnerName(match);
+    var loser = '';
+    var margin = result?.margin?.trim() ?? '';
+
+    final team1Runs = match.score.team1.runs;
+    final team2Runs = match.score.team2.runs;
+    if (winner.isEmpty && (team1Runs > 0 || team2Runs > 0) && match.isCompleted) {
+      if (team1Runs > team2Runs) {
+        winner = _teamName(match, 1);
+        loser = _teamName(match, 2);
+        margin = margin.isNotEmpty ? margin : '${team1Runs - team2Runs} runs';
+      } else if (team2Runs > team1Runs) {
+        winner = _teamName(match, 2);
+        loser = _teamName(match, 1);
+        final wickets = (10 - match.score.team2.wickets).clamp(0, 10);
+        margin = margin.isNotEmpty ? margin : '$wickets wickets';
+      } else {
+        return 'Match tied';
+      }
+    }
+
+    if (winner.isEmpty) return '';
+    loser = loser.isNotEmpty ? loser : _loserName(match, winner);
+    final buffer = StringBuffer(winner);
+    buffer.write(loser.isNotEmpty ? ' beat $loser' : ' won');
+    if (margin.isNotEmpty && margin.toLowerCase() != 'tie') {
+      buffer.write(' by $margin');
+    }
+    return buffer.toString();
+  }
+
+  bool _hasMeaningfulResult(MatchResult? result) {
+    if (result == null) return false;
+    return [
+      result.winner,
+      result.margin,
+      result.method,
+      result.message,
+      result.playerOfMatch,
+    ].any((value) => value != null && value.trim().isNotEmpty);
+  }
+
+  bool _looksGenericResult(String value) {
+    final lower = value.toLowerCase();
+    return lower.contains('defended successfully') ||
+        lower.contains('target chased') ||
+        lower.startsWith('won by ');
+  }
+
+  String _resultWinnerName(Match match) {
+    final value = match.result?.winner?.trim() ?? '';
+    if (value.isEmpty) return '';
+    if (value == match.team1Id || value == match.team1) return _teamName(match, 1);
+    if (value == match.team2Id || value == match.team2) return _teamName(match, 2);
+    return _displayTeamName(value, fallback: '');
+  }
+
+  String _loserName(Match match, String winner) {
+    final team1 = _teamName(match, 1);
+    final team2 = _teamName(match, 2);
+    if (winner == team1) return team2;
+    if (winner == team2) return team1;
+    return '';
   }
 
   String _teamName(Match match, int teamNumber) {
@@ -1176,6 +1286,16 @@ Widget _buildMatchHeader(FullScorecard scorecard) {
       return fallback;
     }
     return text;
+  }
+
+  bool _isRealPlayerName(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty || _looksLikeId(text)) return false;
+    final lower = text.toLowerCase();
+    return lower != 'unknown' &&
+        lower != 'player' &&
+        lower != 'batter' &&
+        lower != 'bowler';
   }
 
   bool _hasBatted(BatsmanStats player) {
@@ -1323,12 +1443,18 @@ Widget _buildStatsRow(FullScorecard scorecard) {
   }
 
   Widget _buildLeaders(FullScorecard scorecard) {
-    final allBatters = scorecard.batting.expand((e) => e).toList()
+    final allBatters = scorecard.batting
+        .expand((e) => e)
+        .where((player) => _isRealPlayerName(player.playerName) && _hasBatted(player))
+        .toList()
       ..sort((a, b) {
         final runCompare = b.runs.compareTo(a.runs);
         return runCompare != 0 ? runCompare : b.strikeRate.compareTo(a.strikeRate);
       });
-    final allBowlers = scorecard.bowling.expand((e) => e).toList()
+    final allBowlers = scorecard.bowling
+        .expand((e) => e)
+        .where((player) => _isRealPlayerName(player.playerName) && _hasBowled(player))
+        .toList()
       ..sort((a, b) {
         final wicketCompare = b.wickets.compareTo(a.wickets);
         return wicketCompare != 0 ? wicketCompare : a.economy.compareTo(b.economy);
@@ -1411,8 +1537,11 @@ Widget _buildStatsRow(FullScorecard scorecard) {
   }
 
   Widget _buildEnhancedBattingTable(List<dynamic> batting, Innings innings) {
-    final List<BatsmanStats> batsmanStats = batting
+    final List<BatsmanStats> allBatters = batting
         .whereType<BatsmanStats>()
+        .where((player) => _isRealPlayerName(player.playerName))
+        .toList();
+    final List<BatsmanStats> batsmanStats = allBatters
         .where(_hasBatted)
         .toList();
     if (batsmanStats.isEmpty) {
@@ -1430,16 +1559,16 @@ Widget _buildStatsRow(FullScorecard scorecard) {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             color: _softHeader,
             child: const Row(
               children: [
-                Expanded(flex: 5, child: Text('Batters', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(child: Text('R', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(child: Text('B', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(child: Text('4s', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(child: Text('6s', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(flex: 2, child: Text('SR', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
+                Expanded(flex: 5, child: Text('Batters', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(child: Text('R', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(child: Text('B', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(child: Text('4s', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(child: Text('6s', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(flex: 2, child: Text('SR', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
               ],
             ),
           ),
@@ -1447,7 +1576,7 @@ Widget _buildStatsRow(FullScorecard scorecard) {
             final index = entry.key;
             final player = entry.value;
             return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: _panelBorder.withOpacity(0.85))),
             ),
@@ -1464,7 +1593,7 @@ Widget _buildStatsRow(FullScorecard scorecard) {
                             : () => Navigator.pushNamed(context, '/player-profile/${player.playerId}'),
                         child: Text(
                           '${_displayPlayerName(player.playerName, fallback: 'Batter ${index + 1}')}${!player.isOut ? '*' : ''}',
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: _cyan),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _cyan),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
@@ -1474,7 +1603,7 @@ Widget _buildStatsRow(FullScorecard scorecard) {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 11,
                           color: Colors.black45,
                           fontWeight: FontWeight.w400,
                         ),
@@ -1482,16 +1611,16 @@ Widget _buildStatsRow(FullScorecard scorecard) {
                     ],
                   ),
                 ),
-                Expanded(child: Text(player.runs.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, color: _ink))),
-                Expanded(child: Text(player.balls.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 18))),
-                Expanded(child: Text(player.fours.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 18))),
-                Expanded(child: Text(player.sixes.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 18))),
+                Expanded(child: Text(player.runs.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: _ink))),
+                Expanded(child: Text(player.balls.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14))),
+                Expanded(child: Text(player.fours.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14))),
+                Expanded(child: Text(player.sixes.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14))),
                 Expanded(
                   flex: 2,
                   child: Text(
                     player.strikeRate > 0 ? player.strikeRate.toStringAsFixed(1) : '-',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 18),
+                    style: const TextStyle(fontSize: 14),
                   ),
                 ),
               ],
@@ -1504,7 +1633,7 @@ Widget _buildStatsRow(FullScorecard scorecard) {
             value: '${innings.totalRuns}/${innings.totalWickets} (${innings.oversDisplay} Ov)    CRR ${innings.runRate.toStringAsFixed(2)}',
             isTotal: true,
           ),
-          _buildToBatRow(batsmanStats),
+          _buildToBatRow(allBatters, innings),
         ],
       ),
     );
@@ -1513,7 +1642,7 @@ Widget _buildStatsRow(FullScorecard scorecard) {
   Widget _buildEnhancedBowlingTable(List<dynamic> bowling, Innings innings) {
     final List<BowlerStats> bowlerStats = bowling
         .whereType<BowlerStats>()
-        .where(_hasBowled)
+        .where((player) => _isRealPlayerName(player.playerName) && _hasBowled(player))
         .toList();
     if (bowlerStats.isEmpty) {
       return _EmptyScoreSection(
@@ -1527,16 +1656,16 @@ Widget _buildStatsRow(FullScorecard scorecard) {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             color: _softHeader,
             child: const Row(
               children: [
-                Expanded(flex: 4, child: Text('Bowlers', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(child: Text('O', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(child: Text('M', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(child: Text('R', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(child: Text('W', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
-                Expanded(child: Text('Eco', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16))),
+                Expanded(flex: 4, child: Text('Bowlers', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(child: Text('O', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(child: Text('M', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(child: Text('R', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(child: Text('W', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                Expanded(child: Text('Eco', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
               ],
             ),
           ),
@@ -1544,7 +1673,7 @@ Widget _buildStatsRow(FullScorecard scorecard) {
             final index = entry.key;
             final bowler = entry.value;
             return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: _panelBorder.withOpacity(0.85))),
             ),
@@ -1563,7 +1692,7 @@ Widget _buildStatsRow(FullScorecard scorecard) {
                           _displayPlayerName(bowler.playerName, fallback: 'Bowler ${index + 1}'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w600, color: _cyan, fontSize: 18),
+                          style: const TextStyle(fontWeight: FontWeight.w700, color: _cyan, fontSize: 14),
                         ),
                         if (bowler.wicketDetails.isNotEmpty) ...[
                           const SizedBox(height: 3),
@@ -1583,11 +1712,11 @@ Widget _buildStatsRow(FullScorecard scorecard) {
                     ),
                   ),
                 ),
-                Expanded(child: Text(bowler.oversDisplay, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18))),
-                Expanded(child: Text(bowler.maidens.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 18))),
-                Expanded(child: Text(bowler.runs.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 18))),
-                Expanded(child: Text(bowler.wickets.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 18))),
-                Expanded(child: Text(bowler.economy.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(fontSize: 18))),
+                Expanded(child: Text(bowler.oversDisplay, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14))),
+                Expanded(child: Text(bowler.maidens.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14))),
+                Expanded(child: Text(bowler.runs.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14))),
+                Expanded(child: Text(bowler.wickets.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14))),
+                Expanded(child: Text(bowler.economy.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14))),
               ],
             ),
           );
@@ -1607,10 +1736,12 @@ Widget _buildStatsRow(FullScorecard scorecard) {
     return parts.isEmpty ? '' : '(${parts.join(', ')})';
   }
 
-  Widget _buildToBatRow(List<BatsmanStats> batters) {
+  Widget _buildToBatRow(List<BatsmanStats> batters, Innings innings) {
+    if (!innings.isCompleted) return const SizedBox.shrink();
     final waiting = batters
         .where((player) => !_hasBatted(player))
         .map((player) => _displayPlayerName(player.playerName, fallback: 'Player'))
+        .where(_isRealPlayerName)
         .where((name) => name.trim().isNotEmpty)
         .take(8)
         .join(', ');
@@ -1624,7 +1755,7 @@ Widget _buildStatsRow(FullScorecard scorecard) {
           style: const TextStyle(color: Colors.black54, fontSize: 16, height: 1.25),
           children: [
             const TextSpan(
-              text: 'To bat:\n',
+              text: 'Yet to bat:\n',
               style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
             ),
             TextSpan(text: waiting),
@@ -2007,7 +2138,11 @@ Widget _buildTeamsHeader(ScorecardProvider provider) {
   }
 
   Widget _buildBattingTable(List<dynamic> batting, Innings innings) {
-    final List<BatsmanStats> batsmanStats = batting.cast<BatsmanStats>(); // Safe cast
+    final List<BatsmanStats> batsmanStats = batting
+        .whereType<BatsmanStats>()
+        .where((player) => _isRealPlayerName(player.playerName) && _hasBatted(player))
+        .toList();
+    if (batsmanStats.isEmpty) return const SizedBox.shrink();
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -2116,7 +2251,10 @@ Widget _buildTeamsHeader(ScorecardProvider provider) {
   }
 
   Widget _buildBowlingTable(List<dynamic> bowling, Innings innings) {
-    final List<BowlerStats> bowlerStats = bowling.cast<BowlerStats>(); // Safe cast
+    final List<BowlerStats> bowlerStats = bowling
+        .whereType<BowlerStats>()
+        .where((player) => _isRealPlayerName(player.playerName) && _hasBowled(player))
+        .toList();
     if (bowlerStats.isEmpty) return const SizedBox.shrink();
     if (bowling.isEmpty) return const SizedBox.shrink();
     
@@ -2667,13 +2805,20 @@ class _InfoTile extends StatelessWidget {
 class _LiveMatchPulseCard extends StatelessWidget {
   final Match match;
   final Innings? innings;
-  const _LiveMatchPulseCard({required this.match, required this.innings});
+  final String battingTeam;
+  const _LiveMatchPulseCard({
+    required this.match,
+    required this.innings,
+    required this.battingTeam,
+  });
 
   @override
   Widget build(BuildContext context) {
     final score = innings == null
         ? '${match.score.team1.runs}/${match.score.team1.wickets}'
         : '${innings!.totalRuns}/${innings!.totalWickets} (${innings!.oversDisplay})';
+    final runRate = innings == null ? '0.00' : innings!.runRate.toStringAsFixed(2);
+    final overs = innings?.oversDisplay ?? '0.0';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -2683,30 +2828,69 @@ class _LiveMatchPulseCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE8EEF8)),
         boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.06), blurRadius: 18, offset: const Offset(0, 7))],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.09),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.circle, color: Colors.red, size: 12),
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.09),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.circle, color: Colors.red, size: 10),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  match.isLive ? '$battingTeam batting' : match.status.replaceAll('_', ' '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w900),
+                ),
+              ),
+              Text(match.format.toUpperCase(), style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w900)),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(match.isLive ? 'Live now' : match.status, style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 4),
-                Text(score, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 22, fontWeight: FontWeight.w900)),
-              ],
-            ),
+          const SizedBox(height: 12),
+          Text(score, style: const TextStyle(color: Color(0xFF0F172A), fontSize: 24, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _LiveChip(label: 'Overs $overs'),
+              _LiveChip(label: 'RR $runRate'),
+              _LiveChip(label: 'Inn ${match.currentInnings}'),
+            ],
           ),
-          Text(match.format.toUpperCase(), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900)),
         ],
+      ),
+    );
+  }
+}
+
+class _LiveChip extends StatelessWidget {
+  final String label;
+  const _LiveChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F4F7),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF475467),
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -2950,7 +3134,7 @@ class _SquadTeamHeader extends StatelessWidget {
         textAlign: alignRight ? TextAlign.right : TextAlign.left,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: _ScorecardScreenState._ink, fontSize: 16, fontWeight: FontWeight.w600),
+        style: const TextStyle(color: _ScorecardScreenState._ink, fontSize: 14, fontWeight: FontWeight.w700),
       ),
     );
     return Padding(
@@ -3030,7 +3214,7 @@ class _SquadPerson extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: reverse ? TextAlign.right : TextAlign.left,
-            style: const TextStyle(color: _ScorecardScreenState._ink, fontSize: 17, fontWeight: FontWeight.w500),
+            style: const TextStyle(color: _ScorecardScreenState._ink, fontSize: 14, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 3),
           Text(
@@ -3038,7 +3222,7 @@ class _SquadPerson extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: reverse ? TextAlign.right : TextAlign.left,
-            style: const TextStyle(color: Colors.black38, fontSize: 13),
+            style: const TextStyle(color: Colors.black38, fontSize: 11),
           ),
         ],
       ),

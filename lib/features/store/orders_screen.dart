@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
+import '../../data/services/store_service.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -13,24 +15,65 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
-  final List<Map<String, dynamic>> _orders = [
-    {'id': 'CRIC123456', 'date': '15 Mar 2024', 'status': 'Delivered', 'items': 2, 'total': 3997, 'image': 'https://picsum.photos/60/60'},
-    {'id': 'CRIC123457', 'date': '18 Mar 2024', 'status': 'Shipped', 'items': 1, 'total': 2999, 'image': 'https://picsum.photos/60/60'},
-    {'id': 'CRIC123458', 'date': '20 Mar 2024', 'status': 'Processing', 'items': 3, 'total': 2499, 'image': 'https://picsum.photos/60/60'},
-    {'id': 'CRIC123459', 'date': '22 Mar 2024', 'status': 'Out for Delivery', 'items': 1, 'total': 899, 'image': 'https://picsum.photos/60/60'},
-  ];
+  final StoreService _storeService = StoreService();
+  List<Map<String, dynamic>> _orders = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _loadOrders();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() => _isLoading = true);
+    try {
+      final orders = await _storeService.getOrders(limit: 50);
+      if (!mounted) return;
+      setState(() {
+        _orders = orders.map(_normalizeOrder).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(e, fallback: 'Orders load nahi ho paaye.'))),
+      );
+    }
+  }
+
+  Map<String, dynamic> _normalizeOrder(Map<String, dynamic> order) {
+    final items = order['items'] is List ? order['items'] as List : const [];
+    final firstProduct = items.isNotEmpty && items.first is Map
+        ? (items.first['product'] is Map ? items.first['product'] as Map : const {})
+        : const {};
+    final images = firstProduct['images'] is List ? firstProduct['images'] as List : const [];
+    return {
+      'id': (order['orderNumber'] ?? order['_id'] ?? order['id'] ?? '').toString(),
+      'date': (order['createdAt'] ?? '').toString().split('T').first,
+      'status': _titleCase((order['orderStatus'] ?? order['status'] ?? 'processing').toString()),
+      'items': items.length,
+      'total': order['totalAmount'] ?? order['total'] ?? 0,
+      'image': images.isNotEmpty ? images.first.toString() : '',
+      'raw': order,
+    };
+  }
+
+  String _titleCase(String value) {
+    if (value.isEmpty) return value;
+    return value
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((word) => word.isEmpty ? word : word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .join(' ');
   }
 
   @override
@@ -71,6 +114,10 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
   }
 
   Widget _buildOrderList(String filter) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final filteredOrders = _orders.where((order) {
       if (filter == 'all') return true;
       return order['status'] == filter;
@@ -166,12 +213,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        order['image'],
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                      ),
+                      child: _orderImage(order['image']?.toString()),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -240,6 +282,16 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     );
   }
 
+  String _firstProductName(Map<String, dynamic> order) {
+    final raw = order['raw'];
+    final items = raw is Map && raw['items'] is List ? raw['items'] as List : const [];
+    if (items.isEmpty || items.first is! Map) return '${order['items']} items';
+    final firstItem = items.first as Map;
+    final product = firstItem['product'];
+    if (product is Map && product['name'] != null) return product['name'].toString();
+    return '${order['items']} items';
+  }
+
   void _showOrderDetails(Map<String, dynamic> order) {
     showModalBottomSheet(
       context: context,
@@ -300,10 +352,10 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12)),
                   child: Row(
                     children: [
-                      ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(order['image'], width: 60, height: 60, fit: BoxFit.cover)),
+                      ClipRRect(borderRadius: BorderRadius.circular(8), child: _orderImage(order['image']?.toString())),
                       const SizedBox(width: 12),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Cricket Bat - Pro', style: TextStyle(fontWeight: FontWeight.w500)),
+                        Text(_firstProductName(order), style: TextStyle(fontWeight: FontWeight.w500)),
                         Text('Qty: ${order['items']}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                       ])),
                       Text('â‚¹${order['total']}', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -371,6 +423,29 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _orderImage(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return Container(
+        width: 60,
+        height: 60,
+        color: Colors.grey[100],
+        child: Icon(Icons.shopping_bag_outlined, color: Colors.grey[400]),
+      );
+    }
+    return Image.network(
+      imageUrl,
+      width: 60,
+      height: 60,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(
+        width: 60,
+        height: 60,
+        color: Colors.grey[100],
+        child: Icon(Icons.shopping_bag_outlined, color: Colors.grey[400]),
       ),
     );
   }

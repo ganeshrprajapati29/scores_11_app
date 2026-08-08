@@ -58,17 +58,19 @@ factory Player.fromJson(Map<String, dynamic> json) {
     } else if (teamValue is String) {
       teamId = teamValue;
     } else if (teamValue is Map<String, dynamic>) {
-      teamId = teamValue['_id'] as String?;
+      teamId = (teamValue['_id'] ?? teamValue['id'])?.toString();
+    } else if (teamValue is Map) {
+      teamId = (teamValue['_id'] ?? teamValue['id'])?.toString();
     } else {
       teamId = null;
     }
     
     final teamNameValue = json['team'];
     final String? teamLabel;
-    if (teamNameValue is Map<String, dynamic>) {
-      teamLabel = teamNameValue['name'] as String? ?? teamNameValue['shortName'] as String?;
+    if (teamNameValue is Map) {
+      teamLabel = teamNameValue['name']?.toString() ?? teamNameValue['shortName']?.toString();
     } else {
-      teamLabel = json['teamName'] as String?;
+      teamLabel = json['teamName']?.toString();
     }
     
     final cricketProfile = json['cricketProfile'] is Map<String, dynamic>
@@ -97,27 +99,35 @@ factory Player.fromJson(Map<String, dynamic> json) {
       userId = null;
     }
 
+    final userMap = userValue is Map ? userValue : const <String, dynamic>{};
+
     return Player(
       id: playerId?.isNotEmpty == true ? playerId! : (json['_id'] ?? json['id'] ?? '').toString(),
       userId: userId,
-      name: (json['playerName'] ?? json['user']?['name'] ?? json['fullName'] ?? json['name'] ?? '').toString(),
-      email: json['email']?.toString() ?? json['user']?['email']?.toString(),
-      phone: json['phone']?.toString() ?? json['user']?['phone']?.toString(),
+      name: (json['playerName'] ??
+              userMap['name'] ??
+              userMap['fullName'] ??
+              json['fullName'] ??
+              json['name'] ??
+              '')
+          .toString(),
+      email: json['email']?.toString() ?? userMap['email']?.toString(),
+      phone: json['phone']?.toString() ?? userMap['phone']?.toString(),
       photo: json['photo']?.toString() ?? avatar['url']?.toString(),
       profileImage: profileImageUrl ?? avatar['url']?.toString(),
-      dateOfBirth: json['dateOfBirth'] as String?,
-      gender: json['gender'] as String?,
-      nationality: json['nationality'] as String? ?? json['country'] as String?,
+      dateOfBirth: json['dateOfBirth']?.toString(),
+      gender: json['gender']?.toString(),
+      nationality: json['nationality']?.toString() ?? json['country']?.toString(),
       role: json['role'] == 'player'
           ? cricketProfile['playerType']?.toString()
           : json['role']?.toString(),
       battingStyle: json['battingStyle']?.toString() ?? cricketProfile['battingStyle']?.toString(),
       bowlingStyle: json['bowlingStyle']?.toString() ?? cricketProfile['bowlingStyle']?.toString(),
       playerRole: json['playerRole']?.toString() ?? cricketProfile['playerType']?.toString(),
-      jerseyNumber: (json['jerseyNumber'] as num?)?.toInt() ?? 0,
+      jerseyNumber: _toNullableInt(json['jerseyNumber']) ?? 0,
       team: teamId,
       teamName: teamLabel,
-      country: json['country'] as String?,
+      country: json['country']?.toString(),
       stats: json['stats'] is Map
           ? PlayerStats.fromJson(Map<String, dynamic>.from(json['stats'] as Map))
           : null,
@@ -125,6 +135,12 @@ factory Player.fromJson(Map<String, dynamic> json) {
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
     );
+  }
+
+  static int? _toNullableInt(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
   }
 
   Map<String, dynamic> toJson() {
@@ -216,24 +232,34 @@ class PlayerStats extends Equatable {
 
   factory PlayerStats.fromJson(Map<String, dynamic> json) {
       return PlayerStats(
-      matches: (json['matches'] as num?)?.toInt() ?? 0,
-      innings: (json['innings'] as num?)?.toInt() ?? 0,
-      runs: (json['runs'] as num?)?.toInt() ?? 0,
-      highestScore: (json['highestScore'] as num?)?.toInt() ?? 0,
-      average: (json['average'] as num?)?.toDouble() ?? 0.0,
-      strikeRate: (json['strikeRate'] as num?)?.toDouble() ?? 0.0,
-      hundreds: (json['hundreds'] as num?)?.toInt() ?? 0,
-      fifties: (json['fifties'] as num?)?.toInt() ?? 0,
-      fours: (json['fours'] as num?)?.toInt() ?? 0,
-      sixes: (json['sixes'] as num?)?.toInt() ?? 0,
-      wickets: (json['wickets'] as num?)?.toInt() ?? 0,
-      economy: (json['economy'] as num?)?.toDouble() ?? 0.0,
-      bestBowlingRuns: (json['bestBowlingRuns'] as num?)?.toInt() ?? 0,
-      bestBowlingWickets: (json['bestBowlingWickets'] as num?)?.toInt() ?? 0,
-      bowlingInnings: (json['bowlingInnings'] as num?)?.toInt() ?? 0,
-      bowlingOvers: (json['bowlingOvers'] as num?)?.toDouble() ?? 0.0,
-      runsConceded: (json['runsConceded'] as num?)?.toInt() ?? 0,
+      matches: _toInt(json['matches']),
+      innings: _toInt(json['innings']),
+      runs: _toInt(json['runs']),
+      highestScore: _toInt(json['highestScore']),
+      average: _toDouble(json['average']),
+      strikeRate: _toDouble(json['strikeRate']),
+      hundreds: _toInt(json['hundreds']),
+      fifties: _toInt(json['fifties']),
+      fours: _toInt(json['fours']),
+      sixes: _toInt(json['sixes']),
+      wickets: _toInt(json['wickets']),
+      economy: _toDouble(json['economy']),
+      bestBowlingRuns: _toInt(json['bestBowlingRuns']),
+      bestBowlingWickets: _toInt(json['bestBowlingWickets']),
+      bowlingInnings: _toInt(json['bowlingInnings']),
+      bowlingOvers: _toDouble(json['bowlingOvers']),
+      runsConceded: _toInt(json['runsConceded']),
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
   }
 
   Map<String, dynamic> toJson() {

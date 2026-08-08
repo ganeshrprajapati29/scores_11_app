@@ -110,8 +110,9 @@ class ScorecardProvider extends ChangeNotifier {
       }
 
       _scorecard = fullScorecard;
+      _match = fullScorecard.match;
       _hasData = true;
-      _isLive = _isLiveStatus(match.status);
+      _isLive = _isLiveStatus(_match?.status ?? match.status);
 
       // ✅ CACHE SAVE SAFE
       try {
@@ -170,6 +171,7 @@ class ScorecardProvider extends ChangeNotifier {
         final inningsList = <Innings>[];
         final battingByInnings = <List<BatsmanStats>>[];
         final bowlingByInnings = <List<BowlerStats>>[];
+        final fieldingByInnings = <List<FieldingStats>>[];
         final fallOfWickets = <FallOfWicket>[];
         final fallOfWicketsByInnings = <List<FallOfWicket>>[];
 
@@ -193,6 +195,14 @@ class ScorecardProvider extends ChangeNotifier {
                   .toList()
               : <BowlerStats>[]);
 
+          final fieldingRaw = inningsMap['fieldingScorecard'];
+          fieldingByInnings.add(fieldingRaw is List
+              ? fieldingRaw
+                  .whereType<Map>()
+                  .map((f) => FieldingStats.fromJson(Map<String, dynamic>.from(f)))
+                  .toList()
+              : <FieldingStats>[]);
+
           final fowRaw = inningsMap['fallOfWickets'];
           final inningsWickets = <FallOfWicket>[];
           if (fowRaw is List) {
@@ -209,6 +219,7 @@ class ScorecardProvider extends ChangeNotifier {
           innings: inningsList,
           batting: battingByInnings,
           bowling: bowlingByInnings,
+          fielding: fieldingByInnings,
           fallOfWickets: fallOfWickets,
           fallOfWicketsByInnings: fallOfWicketsByInnings,
           partnerships: List<Map<String, dynamic>>.from(data['partnerships'] ?? []),

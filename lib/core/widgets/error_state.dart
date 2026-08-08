@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../utils/friendly_error.dart';
 
 class ErrorState extends StatelessWidget {
   final String message;
@@ -18,7 +19,7 @@ class ErrorState extends StatelessWidget {
 Icon(Icons.error_outline, size: 64, color: AppColors.error),
             const SizedBox(height: 16),
             Text(
-              message,
+              friendlyError(message),
               style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),

@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:logger/logger.dart';
 import '../../core/services/api_client.dart';
+import '../core/utils/friendly_error.dart';
 import '../../data/services/auth_service.dart';
 import '../../core/services/user_service.dart';
 import '../../data/models/user_model.dart';
@@ -204,8 +205,8 @@ class AuthProvider extends ChangeNotifier {
         _safeNotifyListeners();
         return true;
       } else {
-        _errorMessage = response['message']?.toString() ??
-            'Login failed. Please check your credentials.';
+        _errorMessage = friendlyError(response['message'],
+            fallback: 'Login failed. Please check your credentials.');
         if (_errorMessage!.toLowerCase().contains('network') ||
             _errorMessage!.toLowerCase().contains('connect')) {
           _errorMessage = 'Network error - Check connection/server';
@@ -215,7 +216,7 @@ class AuthProvider extends ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e, fallback: 'Login failed. Please try again.');
       if (_errorMessage!.toLowerCase().contains('socket') ||
           _errorMessage!.toLowerCase().contains('connect')) {
         _errorMessage = 'Network error - Check connection/server';
@@ -325,7 +326,8 @@ class AuthProvider extends ChangeNotifier {
         _safeNotifyListeners();
         return true;
       } else {
-        _errorMessage = response['message'] ?? 'Registration failed';
+        _errorMessage = friendlyError(response['message'],
+            fallback: 'Registration failed. Please try again.');
         _status = AuthStatus.error;
         _safeNotifyListeners();
         return false;
@@ -372,7 +374,8 @@ class AuthProvider extends ChangeNotifier {
       return true;
     }
     _authActionCode = response['code']?.toString();
-    _errorMessage = response['message'] ?? 'Mobile login failed';
+    _errorMessage = friendlyError(response['message'],
+        fallback: 'Mobile login failed. Please try again.');
     _status = AuthStatus.error;
     _safeNotifyListeners();
     return false;
@@ -396,7 +399,8 @@ class AuthProvider extends ChangeNotifier {
         return true;
       }
       _authActionCode = response['code']?.toString();
-      _errorMessage = response['message'] ?? 'Failed to send OTP';
+      _errorMessage = friendlyError(response['message'],
+          fallback: 'OTP send nahi ho paaya.');
       _status = AuthStatus.error;
       _safeNotifyListeners();
       return false;
@@ -434,7 +438,8 @@ class AuthProvider extends ChangeNotifier {
         _safeNotifyListeners();
         return true;
       }
-      _errorMessage = response['message'] ?? 'OTP verification failed';
+      _errorMessage = friendlyError(response['message'],
+          fallback: 'OTP verify nahi ho paaya.');
       _status = AuthStatus.error;
       _safeNotifyListeners();
       return false;
@@ -459,13 +464,14 @@ class AuthProvider extends ChangeNotifier {
         _safeNotifyListeners();
         return true;
       } else {
-        _errorMessage = response['message'] ?? 'Failed to process request';
+        _errorMessage = friendlyError(response['message'],
+            fallback: 'Request complete nahi ho paayi.');
         _status = AuthStatus.error;
         _safeNotifyListeners();
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e, fallback: 'Request complete nahi ho paayi.');
       _status = AuthStatus.error;
       _safeNotifyListeners();
       return false;
@@ -487,13 +493,14 @@ class AuthProvider extends ChangeNotifier {
         _safeNotifyListeners();
         return true;
       } else {
-        _errorMessage = response['message'] ?? 'Failed to reset password';
+        _errorMessage = friendlyError(response['message'],
+            fallback: 'Password reset nahi ho paaya.');
         _status = AuthStatus.error;
         _safeNotifyListeners();
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e, fallback: 'Password reset nahi ho paaya.');
       _status = AuthStatus.error;
       _safeNotifyListeners();
       return false;

@@ -20,13 +20,13 @@ class BlogService {
       });
 
       final blogs = _parseBlogList(response.data);
-      return blogs.isNotEmpty ? blogs : _getFallbackBlogs();
+      return blogs;
     } on DioException catch (e) {
       debugPrint('BlogService error: ${e.message}');
-      return _getFallbackBlogs();
+      rethrow;
     } catch (e) {
       debugPrint('BlogService error: $e');
-      return _getFallbackBlogs();
+      rethrow;
     }
   }
 
@@ -102,26 +102,5 @@ class BlogService {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) return Map<String, dynamic>.from(value);
     return null;
-  }
-
-  List<BlogModel> _getFallbackBlogs() {
-    return [
-      BlogModel(
-        id: 'fallback1',
-        title: 'IPL 2024 Preview',
-        author: 'Scores11 Team',
-        excerpt: 'Get ready for the biggest cricket festival with fresh updates and match insights.',
-        content: 'Get ready for the biggest cricket festival with fresh updates, match insights, and team analysis from Scores11.',
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-      BlogModel(
-        id: 'fallback2',
-        title: 'T20 World Cup Analysis',
-        author: 'Scores11 Team',
-        excerpt: 'Complete analysis of the tournament, key players, and winning strategies.',
-        content: 'Complete analysis of the tournament, key players, and winning strategies for cricket fans.',
-        createdAt: DateTime.now().subtract(const Duration(days: 3)),
-      ),
-    ];
   }
 }

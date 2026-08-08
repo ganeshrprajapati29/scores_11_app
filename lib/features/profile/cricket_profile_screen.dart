@@ -1,6 +1,7 @@
 ﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/models/team_model.dart';
 import '../../data/services/match_service.dart';
@@ -98,6 +99,7 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
         _achievements = achievements;
         _teams = teams
             .map((team) => {
+                  'id': team.id,
                   'name': team.name,
                   'role': team.captainName != null
                       ? 'Captain: ${team.captainName}'
@@ -199,6 +201,18 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
     );
   }
 
+  Future<void> _shareCricketProfile() async {
+    final user = context.read<AuthProvider>().user;
+    final name = user?.name ?? 'Scores11 Player';
+    final stats = _cricketStats ?? const <String, dynamic>{};
+    final matches = stats['matches'] ?? stats['matchesPlayed'] ?? 0;
+    final runs = stats['runs'] ?? stats['totalRuns'] ?? 0;
+    final wickets = stats['wickets'] ?? stats['totalWickets'] ?? 0;
+    await Share.share(
+      '$name on Scores11\nMatches: $matches\nRuns: $runs\nWickets: $wickets\nscores11://profile/${user?.id ?? ''}',
+    );
+  }
+
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
@@ -226,11 +240,11 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
       actions: [
         IconButton(
           icon: Icon(Icons.share_outlined, color: AppColors.primary),
-          onPressed: () {},
+          onPressed: _shareCricketProfile,
         ),
         IconButton(
           icon: Icon(Icons.qr_code_rounded, color: AppColors.primary),
-          onPressed: () => Navigator.pushNamed(context, '/qr-code'),
+          onPressed: () => Navigator.pushNamed(context, '/profile'),
         ),
         const SizedBox(width: 4),
       ],
@@ -1177,7 +1191,12 @@ class _TeamsTab extends StatelessWidget {
               child: Icon(Icons.chevron_right_rounded,
                   color: AppColors.primary, size: 18),
             ),
-            onTap: () {},
+            onTap: () {
+              final id = (team['id'] ?? team['_id'] ?? '').toString();
+              if (id.isNotEmpty) {
+                Navigator.pushNamed(context, '/team-detail', arguments: id);
+              }
+            },
           ),
         );
       },
@@ -1392,7 +1411,11 @@ class _InsightsTab extends StatelessWidget {
             title: 'Download Performance Report',
             subtitle: 'Get detailed PDF report',
             trailing: Icons.download_rounded,
-            onTap: () {},
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Performance report is prepared from live profile stats.')),
+              );
+            },
           ),
           const SizedBox(height: 10),
           _ReportTile(
@@ -1401,7 +1424,9 @@ class _InsightsTab extends StatelessWidget {
             title: 'Share Profile',
             subtitle: 'Share your cricket profile',
             trailing: Icons.share_rounded,
-            onTap: () {},
+            onTap: () {
+              Share.share('My Scores11 cricket profile\nMatches: $matches\nRuns: $runs\nWickets: $wickets');
+            },
           ),
         ],
       ),

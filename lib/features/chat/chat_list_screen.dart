@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/services/user_service.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/chat_service.dart';
 import 'chat_screen.dart';
@@ -41,7 +42,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading chats: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Chats load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     } finally {

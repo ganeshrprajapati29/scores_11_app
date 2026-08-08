@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../data/services/community_service.dart';
 import '../../data/services/upload_service.dart';
@@ -55,10 +56,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         final data = uploadResult['data'];
         if (data is List) {
           for (final item in data) {
-            if (item is Map) uploadedImages.add(Map<String, dynamic>.from(item));
+            final image = _normalizeUploadedImage(item);
+            if (image != null) uploadedImages.add(image);
           }
         } else if (data is Map) {
-          uploadedImages.add(Map<String, dynamic>.from(data));
+          final image = _normalizeUploadedImage(data);
+          if (image != null) uploadedImages.add(image);
+        } else if (data is String) {
+          final image = _normalizeUploadedImage(data);
+          if (image != null) uploadedImages.add(image);
+        }
+
+        if (uploadedImages.length != _selectedImages.length) {
+          throw Exception('Photo upload failed');
         }
       }
 
@@ -67,7 +77,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         'category': 'community',
         'tags': ['cricket'],
         if (uploadedImages.isNotEmpty) 'image': uploadedImages.first,
-        if (uploadedImages.length > 1) 'images': uploadedImages,
+        if (uploadedImages.isNotEmpty) 'images': uploadedImages,
       });
 
       if (!mounted) return;
@@ -75,10 +85,33 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      _showSnack('Unable to create post. Please try again.', AppColors.error);
+      _showSnack(friendlyError(e, fallback: 'Post create nahi ho paaya. Photo ya text dobara check karein.'), AppColors.error);
     } finally {
       if (mounted) setState(() => _isPosting = false);
     }
+  }
+
+  Map<String, dynamic>? _normalizeUploadedImage(dynamic value) {
+    if (value is String) {
+      final url = value.trim();
+      return url.isEmpty ? null : {'url': url, 'publicId': 'manual'};
+    }
+    if (value is! Map) return null;
+    final map = Map<String, dynamic>.from(value);
+    final url = (map['url'] ??
+            map['secureUrl'] ??
+            map['secure_url'] ??
+            map['path'] ??
+            map['src'] ??
+            map['location'] ??
+            map['imageUrl'])
+        ?.toString()
+        .trim();
+    if (url == null || url.isEmpty) return null;
+    return {
+      'url': url,
+      'publicId': (map['publicId'] ?? map['public_id'] ?? map['id'] ?? 'manual').toString(),
+    };
   }
 
   void _showSnack(String message, Color color) {

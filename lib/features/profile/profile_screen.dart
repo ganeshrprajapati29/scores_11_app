@@ -1166,7 +1166,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         label: 'Followers',
                         value: _formatCount(_followers),
                         onTap: () =>
-                            Navigator.pushNamed(context, '/followers'),
+                            Navigator.pushNamed(context, '/connections'),
                       ),
                       Container(
                           width: 1, height: 32,
@@ -1175,7 +1175,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         label: 'Following',
                         value: _formatCount(_following),
                         onTap: () =>
-                            Navigator.pushNamed(context, '/following'),
+                            Navigator.pushNamed(context, '/connections'),
                       ),
                       Container(
                           width: 1, height: 32,
@@ -1183,7 +1183,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       _buildStatItem(
                         label: 'Profile Views',
                         value: _formatCount(_profileViews),
-                        onTap: () {},
+                        onTap: _loadProfileData,
                       ),
                     ],
                   ),
@@ -1396,21 +1396,20 @@ class _ProfileScreenState extends State<ProfileScreen>
               icon: Icons.notifications_outlined,
               title: 'Notifications',
               subtitle: 'Manage notification preferences',
-              onTap: () => Navigator.pushNamed(
-                  context, '/notification-preferences'),
+              onTap: () => Navigator.pushNamed(context, '/settings/notifications'),
             ),
             _buildMenuItem(
               icon: Icons.language_rounded,
               title: 'Language',
               subtitle: 'Change app language',
-              onTap: () => Navigator.pushNamed(context, '/language'),
+              onTap: () => Navigator.pushNamed(context, '/settings/preferences'),
             ),
             _buildMenuItem(
               icon: Icons.shopping_bag_outlined,
               title: 'Purchase History',
               subtitle: 'View your purchases',
               onTap: () =>
-                  Navigator.pushNamed(context, '/purchase-history'),
+                  Navigator.pushNamed(context, '/orders'),
               isLast: true,
             ),
           ]),
@@ -1447,17 +1446,17 @@ class _ProfileScreenState extends State<ProfileScreen>
             _buildMenuItem(
               icon: Icons.help_outline_rounded,
               title: 'Help & Support',
-              onTap: () => Navigator.pushNamed(context, '/help'),
+              onTap: () => Navigator.pushNamed(context, '/help-support'),
             ),
             _buildMenuItem(
               icon: Icons.privacy_tip_outlined,
               title: 'Privacy Policy',
-              onTap: () {},
+              onTap: () => Navigator.pushNamed(context, '/privacy-policy'),
             ),
             _buildMenuItem(
               icon: Icons.description_outlined,
               title: 'Terms of Service',
-              onTap: () {},
+              onTap: () => Navigator.pushNamed(context, '/terms'),
               isLast: true,
             ),
           ]),

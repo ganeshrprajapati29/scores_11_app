@@ -510,14 +510,34 @@ class Extras extends Equatable {
 class BattingOrder extends Equatable {
   final String? team;
   final List<String> players;
+  final List<String> playerNames;
 
-  const BattingOrder({this.team, this.players = const []});
+  const BattingOrder({
+    this.team,
+    this.players = const [],
+    this.playerNames = const [],
+  });
 
   factory BattingOrder.fromJson(Map<String, dynamic> json) {
+    final rawPlayers = json['players'];
     return BattingOrder(
       team: json['team'] is String ? json['team'] : json['team']?['_id'],
-      players: json['players'] != null 
-          ? (json['players'] as List).map((e) => e is String ? e : e['_id'] as String).toList()
+      players: rawPlayers is List
+          ? rawPlayers
+              .map((e) => e is String ? e : (e['_id'] ?? e['id'] ?? '').toString())
+              .where((id) => id.isNotEmpty)
+              .toList()
+          : [],
+      playerNames: rawPlayers is List
+          ? rawPlayers
+              .map((e) {
+                if (e is String) return '';
+                final name = e['playerName'] ?? e['name'] ?? e['fullName'] ?? e['displayName'];
+                final text = name?.toString().trim() ?? '';
+                return RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(text) ? '' : text;
+              })
+              .where((name) => name.isNotEmpty)
+              .toList()
           : [],
     );
   }
@@ -526,11 +546,12 @@ class BattingOrder extends Equatable {
     return {
       'team': team,
       'players': players,
+      'playerNames': playerNames,
     };
   }
 
   @override
-  List<Object?> get props => [team, players];
+  List<Object?> get props => [team, players, playerNames];
 }
 
 class MatchScore extends Equatable {

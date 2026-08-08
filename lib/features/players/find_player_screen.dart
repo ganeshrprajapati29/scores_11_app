@@ -6,6 +6,7 @@ import '../../data/services/player_service.dart';
 import '../../data/models/player_model.dart';
 import '../../data/services/team_service.dart';
 import '../../data/services/public_players_service.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/constants/enums.dart';
 import 'create_player_screen.dart';
 
@@ -163,6 +164,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
   Player _playerFromPublicPlayer(PublicPlayer publicPlayer) {
     return Player(
       id: publicPlayer.playerIdForTeam,
+      userId: publicPlayer.connectionUserId,
       name: publicPlayer.fullName,
       email: publicPlayer.email.isEmpty ? null : publicPlayer.email,
       role: publicPlayer.playerType,
@@ -185,6 +187,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
       await _teamService.addPlayerWithDetails(
         widget.teamId!,
         playerId: player.id,
+        identifier: player.userId ?? player.id,
         name: player.name,
         email: player.email,
         phone: player.phone,
@@ -199,7 +202,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
         setState(() => _addedPlayerIds.add(player.id));
       }
     } catch (e) {
-      final message = e.toString().replaceFirst('Exception: ', '');
+      final message = friendlyError(e, fallback: 'Player add nahi ho paaya.');
       final normalized = message.toLowerCase();
       if (normalized.contains('already') || normalized.contains('duplicate')) {
         if (mounted) {
@@ -221,7 +224,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
       final fullPlayer = await _playerService.getPlayerById(player.id);
       if (mounted) _showDetailsModal(fullPlayer);
     } catch (e) {
-      if (mounted) _showSnackBar('Failed to load details: $e', isError: true);
+      if (mounted) _showSnackBar(friendlyError(e, fallback: 'Details load nahi ho paayi.'), isError: true);
     } finally {
       if (mounted) setState(() => _isDetailLoading = false);
     }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+import '../../core/utils/friendly_error.dart';
 import '../../data/models/live_stream_model.dart';
 import '../../data/models/match_model.dart' as match_model;
 import '../../data/models/scorecard_model.dart' as scorecard_model;
@@ -77,7 +78,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Live stream load nahi ho paayi.');
         _isLoading = false;
       });
     }
@@ -122,7 +123,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _scorecardError = e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _scorecardError = friendlyError(e, fallback: 'Scorecard load nahi ho paaya.'));
     }
   }
 

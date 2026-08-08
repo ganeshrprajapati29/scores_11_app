@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/models/tournament_model.dart';
 import '../../data/models/team_model.dart';
 import '../../data/services/team_service.dart';
@@ -83,12 +84,12 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   }
 
   String _cleanError(Object error) {
-    final message = error.toString().replaceFirst('Exception: ', '');
+    final message = friendlyError(
+      error,
+      fallback: 'Tournament open nahi ho paaya. Please retry.',
+    );
     if (message.contains('No token provided')) {
       return 'Tournament details public mode me load ho rahe hain. Please refresh.';
-    }
-    if (message.contains('DioException')) {
-      return 'Tournament open nahi ho paaya. Network/server check karke retry karein.';
     }
     return message;
   }

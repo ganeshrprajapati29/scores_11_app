@@ -7,6 +7,7 @@ import '../../core/widgets/custom_appbar.dart';
 import '../../data/models/team_model.dart';
 import '../../data/services/chat_service.dart';
 import '../../data/services/public_players_service.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/team_service.dart';
 import '../chat/chat_screen.dart';
 
@@ -73,7 +74,7 @@ class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Players load nahi ho paaye.');
         _isLoading = false;
       });
     }
@@ -337,7 +338,7 @@ Future<void> _addPlayerToTeam(Team team, PublicPlayer player) async {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add player: $e')),
+          SnackBar(content: Text(friendlyError(e, fallback: 'Player add nahi ho paaya.'))),
         );
       }
     } finally {
@@ -538,7 +539,7 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _followError = e.toString();
+        _followError = friendlyError(e, fallback: 'Follow update nahi ho paaya.');
       });
     }
     if (!mounted) return;
@@ -581,7 +582,11 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Action failed: $e')),
+        SnackBar(
+          content: Text(
+            friendlyError(e, fallback: 'Action complete nahi ho paaya.'),
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -609,7 +614,11 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to open chat: $e')),
+        SnackBar(
+          content: Text(
+            friendlyError(e, fallback: 'Chat open nahi ho paayi.'),
+          ),
+        ),
       );
     }
   }

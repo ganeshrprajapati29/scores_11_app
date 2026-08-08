@@ -115,12 +115,12 @@ class StoreService {
 
   // Order operations
   Future<Map<String, dynamic>> checkout(Map<String, dynamic> checkoutData) async {
-    final response = await _apiClient.post('/store/checkout', data: checkoutData);
+    final response = await _apiClient.post('/store/orders', data: checkoutData);
     return response.data['data'] ?? {};
   }
 
   Future<List<Map<String, dynamic>>> getOrders({int page = 1, int limit = 20}) async {
-    final response = await _apiClient.get('/store/orders', queryParameters: {
+    final response = await _apiClient.get('/store/orders/my', queryParameters: {
       'page': page.toString(),
       'limit': limit.toString(),
     });

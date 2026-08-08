@@ -23,11 +23,32 @@ class LeaderboardService {
   final ApiClient _apiClient = ApiClient();
 
   List<Map<String, dynamic>> _entries(dynamic raw) {
-    final dynamic list = raw is List
-        ? raw
-        : raw is Map
-            ? raw['data'] ?? raw['items'] ?? raw['rankings'] ?? raw['results'] ?? []
-            : [];
+    dynamic findList(dynamic value) {
+      if (value is List) return value;
+      if (value is! Map) return const [];
+      for (final key in const [
+        'data',
+        'players',
+        'batsmen',
+        'bowlers',
+        'allRounders',
+        'teams',
+        'leaderboard',
+        'items',
+        'rankings',
+        'results',
+      ]) {
+        final candidate = value[key];
+        if (candidate is List) return candidate;
+        if (candidate is Map) {
+          final nested = findList(candidate);
+          if (nested is List && nested.isNotEmpty) return nested;
+        }
+      }
+      return const [];
+    }
+
+    final dynamic list = findList(raw);
     if (list is! List) return [];
     return list
         .whereType<Map>()

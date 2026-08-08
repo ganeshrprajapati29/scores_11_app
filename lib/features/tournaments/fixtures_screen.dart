@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/tournament_service.dart';
 
@@ -47,7 +48,7 @@ class _FixturesScreenState extends State<FixturesScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Fixtures load nahi ho paaye.');
         _isLoading = false;
       });
     }

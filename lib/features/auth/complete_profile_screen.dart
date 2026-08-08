@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_textfield.dart';
+import '../../data/services/user_service.dart';
 import '../../providers/auth_provider.dart';
 import 'auth_design.dart';
 
@@ -26,6 +27,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   String _selectedBattingStyle = 'right-hand';
   String _selectedBowlingStyle = 'right-arm-medium';
   bool _isLoading = false;
+  final UserService _userService = UserService();
 
   @override
   void dispose() {
@@ -40,10 +42,19 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
-      await Future.delayed(const Duration(seconds: 2));
+      final result = await _userService.updatePlayingStyle(_selectedPlayerType);
       
       if (mounted) {
         setState(() => _isLoading = false);
+        if (result['success'] != true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']?.toString() ?? 'Profile update failed'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          return;
+        }
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

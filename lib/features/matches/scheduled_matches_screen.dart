@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/match_status_badge.dart';
 import '../../data/models/match_model.dart';
@@ -66,7 +67,7 @@ class _ScheduledMatchesScreenState extends State<ScheduledMatchesScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = friendlyError(e, fallback: 'Matches load nahi ho paaye.');
         _isLoading = false;
       });
     }
@@ -120,7 +121,7 @@ class _ScheduledMatchesScreenState extends State<ScheduledMatchesScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = friendlyError(e, fallback: 'Matches load nahi ho paaye.');
         _isLoading = false;
       });
     }

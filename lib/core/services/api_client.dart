@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/api_config.dart';
 import '../constants/app_constants.dart';
+import '../utils/friendly_error.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -259,10 +260,10 @@ String parseDioError(
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Backend connection timed out. Make sure the backend server is running and your phone is on the same network.';
+        return friendlyError('timeout');
       case DioExceptionType.connectionError:
         debugPrint('🌐 ConnectionError detected - checking if truly offline');
-        return 'Connection issue. Please check your internet connection and try again.';
+        return friendlyError('connection error');
       case DioExceptionType.cancel:
         return 'Request cancelled.';
       case DioExceptionType.badCertificate:
@@ -284,27 +285,27 @@ String parseDioError(
 
         if (extractedMessage != null && extractedMessage.trim().isNotEmpty) {
           if (extractedMessage.toLowerCase().contains('no token provided')) {
-            return 'Login required. Please login again and retry.';
+            return friendlyError('login required');
           }
-          return extractedMessage;
+          return friendlyError(extractedMessage);
         }
 
-        if (statusCode == 400) return 'Invalid request.';
-        if (statusCode == 401) return 'Unauthorized. Please login again.';
-        if (statusCode == 403) return 'You do not have permission for this action.';
-        if (statusCode == 404) return 'Requested resource not found.';
-        if (statusCode == 409) return 'Conflict occurred. Please retry.';
-        if (statusCode == 422) return 'Validation failed. Please check input.';
+        if (statusCode == 400) return 'Please check the details and try again.';
+        if (statusCode == 401) return friendlyError('unauthorized');
+        if (statusCode == 403) return friendlyError('forbidden');
+        if (statusCode == 404) return friendlyError('not found');
+        if (statusCode == 409) return 'This already exists. Please try another one.';
+        if (statusCode == 422) return 'Please check the details and try again.';
         if (statusCode != null && statusCode >= 500) {
-          return 'Server error. Please try again later.';
+          return friendlyError('server error');
         }
         return defaultMessage;
       case DioExceptionType.unknown:
         if (e.error is SocketException) {
           debugPrint('🔌 SocketException: ${(e.error as SocketException).address}');
-          return 'No Internet Connection. Please check your network.';
+          return friendlyError('socketexception');
         }
-        return e.message ?? defaultMessage;
+        return friendlyError(e.message, fallback: defaultMessage);
     }
   }
 }

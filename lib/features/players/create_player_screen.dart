@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../data/services/player_service.dart';
@@ -174,9 +175,13 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
         _editingPlayer = player;
         _nameController.text = player.name;
         _phoneController.text = player.phone ?? '';
-        _role = player.role;
-        _battingStyle = player.battingStyle;
-        _bowlingStyle = player.bowlingStyle;
+        _role = roleOptions.containsKey(player.role) ? player.role : null;
+        _battingStyle = battingStyleOptions.containsKey(player.battingStyle)
+            ? player.battingStyle
+            : null;
+        _bowlingStyle = bowlingStyleOptions.containsKey(player.bowlingStyle)
+            ? player.bowlingStyle
+            : null;
         _teamId = player.team;
         _jerseyNumber = player.jerseyNumber;
         _jerseyController.text = player.jerseyNumber?.toString() ?? '';
@@ -184,7 +189,12 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
         _nationalityController.text = player.nationality ?? '';
       });
     } catch (e) {
-      if (mounted) _snack('Load error: $e', isError: true);
+      if (mounted) {
+        _snack(
+          friendlyError(e, fallback: 'Player details load nahi ho paaye.'),
+          isError: true,
+        );
+      }
     }
   }
 
@@ -213,34 +223,52 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
             : _nationalityController.text.trim(),
       );
 
+      var teamAttachFailed = false;
       if (_teamId != null && widget.editPlayerId == null) {
-        await _teamService.addPlayerWithDetails(
-          _teamId!,
-          playerId: player.id,
-          name: player.name,
-          phone: player.phone,
-          role: player.role,
-          battingStyle: player.battingStyle,
-          bowlingStyle: player.bowlingStyle,
-          jerseyNumber: player.jerseyNumber,
-        );
+        try {
+          await _teamService.addPlayerWithDetails(
+            _teamId!,
+            playerId: player.id,
+            name: player.name,
+            phone: player.phone,
+            role: player.role,
+            battingStyle: player.battingStyle,
+            bowlingStyle: player.bowlingStyle,
+            jerseyNumber: player.jerseyNumber,
+          );
+        } catch (_) {
+          teamAttachFailed = true;
+        }
       }
 
       if (mounted) {
         _snack(
           widget.editPlayerId != null
               ? 'Player updated successfully!'
-              : 'Player created successfully!',
-          isError: false,
+              : teamAttachFailed
+                  ? 'Player created. Team me add karne ke liye retry karein.'
+                  : 'Player created successfully!',
+          isError: teamAttachFailed,
         );
         Navigator.pop(context, true);
       }
     } on DioException catch (e) {
       if (mounted) {
-        _snack(e.response?.data['message'] ?? 'Action failed', isError: true);
+        _snack(
+          friendlyError(
+            e.response?.data['message'] ?? e,
+            fallback: 'Player save nahi ho paaya.',
+          ),
+          isError: true,
+        );
       }
     } catch (e) {
-      if (mounted) _snack('Error: $e', isError: true);
+      if (mounted) {
+        _snack(
+          friendlyError(e, fallback: 'Player save nahi ho paaya.'),
+          isError: true,
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

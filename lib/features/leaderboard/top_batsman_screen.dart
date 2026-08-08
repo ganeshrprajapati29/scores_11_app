@@ -217,7 +217,11 @@ class _RankEntry {
   final int wickets;
   final double average;
   final double strikeRate;
+  final double economy;
   final int points;
+  final int wins;
+  final int losses;
+  final int playersCount;
   final String? tournament;
 
   const _RankEntry({
@@ -231,7 +235,11 @@ class _RankEntry {
     required this.wickets,
     required this.average,
     required this.strikeRate,
+    required this.economy,
     required this.points,
+    required this.wins,
+    required this.losses,
+    required this.playersCount,
     this.tournament,
   });
 
@@ -241,18 +249,22 @@ class _RankEntry {
     final stats = _map(json['stats']) ?? json;
     return _RankEntry(
       rank: _int(json['rank'] ?? json['position']) ?? index + 1,
-      id: _text(player['_id'] ?? player['id'] ?? json['_id'] ?? json['id']),
+      id: _text(player['_id'] ?? player['id'] ?? teamMap?['_id'] ?? teamMap?['id'] ?? json['_id'] ?? json['id']),
       name: tab == _RankTab.teams
           ? _text(teamMap?['name'] ?? json['name'] ?? json['teamName'], fallback: 'Team')
           : _text(player['name'] ?? player['playerName'] ?? json['name'], fallback: 'Player'),
       team: _text(teamMap?['shortName'] ?? teamMap?['name'] ?? json['teamName'] ?? json['team']),
       role: _text(player['role'] ?? json['role'], fallback: tab.label),
-      matches: _int(stats['matches'] ?? stats['totalMatches'] ?? stats['played']) ?? 0,
+      matches: _int(json['matches'] ?? json['matchesPlayed'] ?? stats['matches'] ?? stats['matchesPlayed'] ?? stats['totalMatches'] ?? stats['played']) ?? 0,
       runs: _int(stats['runs'] ?? stats['totalRuns'] ?? json['runs']) ?? 0,
       wickets: _int(stats['wickets'] ?? stats['totalWickets'] ?? json['wickets']) ?? 0,
       average: _double(stats['average'] ?? stats['avg']) ?? 0,
       strikeRate: _double(stats['strikeRate'] ?? stats['sr']) ?? 0,
+      economy: _double(stats['economy'] ?? json['economy']) ?? 0,
       points: _int(json['points'] ?? stats['points'] ?? json['score']) ?? 0,
+      wins: _int(json['matchesWon'] ?? json['wins'] ?? stats['matchesWon'] ?? stats['wins']) ?? 0,
+      losses: _int(json['matchesLost'] ?? json['losses'] ?? stats['matchesLost'] ?? stats['losses']) ?? 0,
+      playersCount: _int(json['playersCount'] ?? stats['players'] ?? stats['playersCount']) ?? 0,
       tournament: _textOrNull(_map(json['tournament'])?['name'] ?? json['tournamentName']),
     );
   }
@@ -472,13 +484,13 @@ class _RankingCard extends StatelessWidget {
     return switch (tab) {
       _RankTab.batsmen => [
           _MetricData('Runs', '${entry.runs}'),
-          _MetricData('Avg', entry.average > 0 ? entry.average.toStringAsFixed(1) : '-'),
+          _MetricData('Pts', '${entry.points}'),
           _MetricData('SR', entry.strikeRate > 0 ? entry.strikeRate.toStringAsFixed(0) : '-'),
         ],
       _RankTab.bowlers => [
           _MetricData('Wkts', '${entry.wickets}'),
-          _MetricData('Mat', '${entry.matches}'),
-          _MetricData('Avg', entry.average > 0 ? entry.average.toStringAsFixed(1) : '-'),
+          _MetricData('Pts', '${entry.points}'),
+          _MetricData('Eco', entry.economy > 0 ? entry.economy.toStringAsFixed(1) : '-'),
         ],
       _RankTab.mvp => [
           _MetricData('Pts', '${entry.points}'),
@@ -487,8 +499,9 @@ class _RankingCard extends StatelessWidget {
         ],
       _RankTab.teams => [
           _MetricData('Pts', '${entry.points}'),
+          _MetricData('W-L', '${entry.wins}-${entry.losses}'),
           _MetricData('Mat', '${entry.matches}'),
-          _MetricData('Players', entry.runs > 0 ? '${entry.runs}' : '-'),
+          _MetricData('Ply', entry.playersCount > 0 ? '${entry.playersCount}' : '-'),
         ],
     };
   }

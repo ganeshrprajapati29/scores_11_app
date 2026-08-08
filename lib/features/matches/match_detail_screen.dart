@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/match_service.dart';
 import '../../data/services/team_service.dart';
 import '../../data/models/scorecard_model.dart';
@@ -82,7 +83,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Match details load nahi ho paayi.');
         _isLoading = false;
       });
     }
@@ -771,8 +772,8 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
   }
 
   Widget _buildBallRow(Map<String, dynamic> ball) {
-    final runs = (ball['runs'] as num?)?.toInt() ?? 0;
-    final extras = (ball['extras'] as num?)?.toInt() ?? 0;
+    final runs = _toInt(ball['runs']);
+    final extras = _toInt(ball['extras']);
     final isWicket = ball['wicket'] == true || ball['isWicket'] == true;
     final isWide = ball['isWide'] == true;
     final isNoBall = ball['isNoBall'] == true;
@@ -850,6 +851,11 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
         ],
       ),
     );
+  }
+
+  int _toInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   String _playerName(dynamic value) {
@@ -1788,7 +1794,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
           if (match.toss != null) ...[
             Divider(height: 24, color: Colors.grey.shade100),
             _buildInfoTile(Icons.swap_horiz_rounded, 'Toss',
-                '${match.toss!.winner} won & chose to ${match.toss!.decision}'),
+                '${_tossWinnerName(match)} won & chose to ${match.toss!.decision ?? 'bat/bowl'}'),
           ],
           if (_hasMeaningfulResult(match.result)) ...[
             Divider(height: 24, color: Colors.grey.shade100),
@@ -1799,7 +1805,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
                   Icons.trending_up_rounded, 'Margin', match.result!.margin!),
             if (match.result!.playerOfMatch != null)
               _buildInfoTile(Icons.star_outline_rounded, 'Player of Match',
-                  match.result!.playerOfMatch!),
+                  _safePlayerName(match.result!.playerOfMatch!)),
           ],
         ],
       ),
@@ -2043,11 +2049,11 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
       if (result!.message != null && result.message!.trim().isNotEmpty) {
         return result.message!.trim();
       }
-      final winner = result.winner?.trim();
+      final winner = _safeTeamOrResultName(match, result.winner);
       final margin = result.margin?.trim();
       final method = result.method?.trim();
       final buffer = StringBuffer();
-      if (winner != null && winner.isNotEmpty) {
+      if (winner.isNotEmpty) {
         buffer.write('$winner won');
       }
       if (margin != null && margin.isNotEmpty) {
@@ -2060,7 +2066,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
     }
     if (match.isLive) {
       final battingTeam =
-          match.currentInnings == 2 ? match.team2 : match.team1;
+          match.currentInnings == 2 ? _teamName(match, 2) : _teamName(match, 1);
       return '$battingTeam batting now';
     }
     if (match.isScheduled || match.isTeamSelecting || match.isReady) {
@@ -2081,6 +2087,40 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
   bool _looksLikeId(String? value) {
     if (value == null) return false;
     return RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(value.trim());
+  }
+
+  String _teamName(Match match, int teamNumber) {
+    final data = teamNumber == 1 ? match.team1Data : match.team2Data;
+    final raw = teamNumber == 1 ? match.team1 : match.team2;
+    if (data is Map) {
+      final value = data['name'] ?? data['teamName'] ?? data['shortName'];
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty && !_looksLikeId(text)) return text;
+    }
+    final text = raw.trim();
+    return text.isEmpty || _looksLikeId(text) ? 'Team $teamNumber' : text;
+  }
+
+  String _tossWinnerName(Match match) {
+    final winner = match.toss?.winner?.trim() ?? '';
+    if (winner.isEmpty) return 'Team';
+    if (winner == match.team1Id || winner == match.team1) return _teamName(match, 1);
+    if (winner == match.team2Id || winner == match.team2) return _teamName(match, 2);
+    return _looksLikeId(winner) ? 'Team' : winner;
+  }
+
+  String _safeTeamOrResultName(Match match, String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return '';
+    if (text == match.team1Id || text == match.team1) return _teamName(match, 1);
+    if (text == match.team2Id || text == match.team2) return _teamName(match, 2);
+    return _looksLikeId(text) ? '' : text;
+  }
+
+  String _safePlayerName(String value) {
+    final text = value.trim();
+    if (text.isEmpty || _looksLikeId(text)) return 'Player';
+    return text;
   }
 
   String _initials(String value) {

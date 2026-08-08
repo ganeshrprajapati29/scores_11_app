@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/models/tournament_model.dart';
 import '../../data/services/tournament_service.dart';
 
@@ -48,7 +49,7 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Points table load nahi ho paayi.');
         _isLoading = false;
       });
     }

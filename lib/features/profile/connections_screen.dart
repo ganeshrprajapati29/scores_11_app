@@ -3,6 +3,7 @@ import '../../core/services/user_service.dart';
 import '../../data/services/chat_service.dart';
 import '../../data/services/public_players_service.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../chat/chat_screen.dart';
 
@@ -95,7 +96,11 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading players: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Players load nahi ho paaye.'),
+            ),
+          ),
         );
       }
     } finally {
@@ -116,7 +121,11 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Follow failed: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Follow update nahi ho paaya.'),
+            ),
+          ),
         );
       }
     }
@@ -184,7 +193,11 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error starting chat: $e')),
+          SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Chat start nahi ho paayi.'),
+            ),
+          ),
         );
       }
     }

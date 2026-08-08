@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_textfield.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/match_service.dart';
 import '../../data/services/team_service.dart';
 import '../../data/services/tournament_service_safe.dart'
@@ -226,7 +227,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
       });
     } catch (e) {
       setState(() {
-        _fetchError = 'Failed to load your teams: $e';
+        _fetchError = friendlyError(e, fallback: 'Teams load nahi ho paayi.');
         _loadingTeams = false;
       });
     }
@@ -438,7 +439,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
         }
       }
     } catch (e) {
-      _snack('Failed to create match: ${e.toString()}', isError: true);
+      _snack(friendlyError(e, fallback: 'Match create nahi ho paaya.'), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

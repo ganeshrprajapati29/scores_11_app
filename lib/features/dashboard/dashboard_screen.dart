@@ -19,6 +19,7 @@ import '../../data/models/player_model.dart';
 import '../../data/models/team_model.dart' as app_team;
 import '../../data/models/user_model.dart';
 import '../../core/constants/app_routes.dart';
+import '../../core/utils/friendly_error.dart';
 import '../profile/profile_screen.dart';
 import '../../features/profile/cricket_profile_screen.dart';
 import '../../features/discovery/discovery_screen.dart';
@@ -1371,7 +1372,7 @@ class _NotificationCenterSheetState extends State<_NotificationCenterSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = friendlyError(e, fallback: 'Notifications load nahi ho paaye.');
         _isLoading = false;
       });
     }
@@ -2259,7 +2260,11 @@ class _StoryRailState extends State<_StoryRail> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Story upload failed: $e')));
+          .showSnackBar(SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Story upload nahi ho paayi.'),
+            ),
+          ));
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -6662,7 +6667,7 @@ class _DashboardCommentSheetState extends State<_DashboardCommentSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Community updates load nahi ho paaye.');
         _loading = false;
       });
     }
@@ -6690,7 +6695,7 @@ class _DashboardCommentSheetState extends State<_DashboardCommentSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyError(e, fallback: 'Community updates load nahi ho paaye.');
         _submitting = false;
       });
     }
@@ -8463,7 +8468,11 @@ class _QrScanEntryScreenState extends State<_QrScanEntryScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not add player: $e')));
+          .showSnackBar(SnackBar(
+            content: Text(
+              friendlyError(e, fallback: 'Player add nahi ho paaya.'),
+            ),
+          ));
     }
   }
 

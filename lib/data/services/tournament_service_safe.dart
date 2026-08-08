@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
 import '../models/tournament_model.dart';
@@ -51,10 +50,10 @@ class TournamentService {
         return _safeParseTournaments(response.data);
       }
       // API not 200, fallback
-      return _getMockTournaments(page, limit);
+      return _emptyTournaments(page, limit);
     } catch (networkError) {
       debugPrint('🌐 Tournament API error (fallback to mock): $networkError');
-      return _getMockTournaments(page, limit);
+      return _emptyTournaments(page, limit);
     }
   }
 
@@ -91,33 +90,18 @@ class TournamentService {
       );
     } catch (parseError) {
       debugPrint('❌ Tournament parsing failed, using mocks: $parseError');
-      return _getMockTournaments(1, 20);
+      return _emptyTournaments(1, 20);
     }
   }
 
-  PaginatedTournaments _getMockTournaments(int page, int limit) {
-    // Simple safe mock without complex parsing
-    final mockNames = ['IPL 2024', 'T20 Blast', 'Local League', 'International Series', 'Women\'s Premier'];
-    final List<Tournament> mocks = [];
-    
-    for (int i = 0; i < math.min(limit, mockNames.length); i++) {
-      mocks.add(Tournament(
-        id: 'mock_${i + 1}',
-        name: mockNames[i],
-        organizer: 'Mock Org',
-        format: 'T20',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ));
-    }
-
+  PaginatedTournaments _emptyTournaments(int page, int limit) {
     return PaginatedTournaments(
-      tournaments: mocks,
+      tournaments: const [],
       page: page,
       limit: limit,
-      total: mockNames.length,
-      totalPages: (mockNames.length / limit).ceil(),
-      hasMore: page * limit < mockNames.length,
+      total: 0,
+      totalPages: 1,
+      hasMore: false,
     );
   }
 

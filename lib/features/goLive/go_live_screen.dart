@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/utils/logout_helper.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/live_stream_service.dart';
 import '../../data/services/match_service.dart';
 import '../goLive/stream_preview_screen.dart';
@@ -177,7 +178,10 @@ class _GoLiveScreenState extends State<GoLiveScreen>
         _showAuthDialog();
       } else {
         setState(() {
-          _error     = s;
+          _error = friendlyError(
+            e,
+            fallback: 'Live streams load nahi ho paaye.',
+          );
           _isLoading = false;
         });
       }
@@ -245,7 +249,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       }
       _snack('Complete Google login, then tap Check connection.', isError: false);
     } catch (e) {
-      _snack(e.toString().replaceFirst('Exception: ', ''), isError: true);
+      _snack(friendlyError(e), isError: true);
     } finally {
       if (mounted) setState(() => _isYoutubeChecking = false);
     }

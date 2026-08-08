@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/public_players_service.dart';
 
@@ -95,7 +96,7 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
       setState(() {
         _isLoading = false;
         _isLoadingMore = false;
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = friendlyError(e, fallback: 'Players search nahi ho paaye.');
       });
     }
   }
