@@ -143,11 +143,21 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(9),
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.primary.withOpacity(0.18)),
             ),
-            child: const Icon(Icons.forum_rounded,
-                color: Colors.white, size: 18),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.forum_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 10),
           const Text(
@@ -326,14 +336,20 @@ class _FeedTabState extends State<_FeedTab> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F2F5),
-              borderRadius: BorderRadius.circular(20),
+            width: 132,
+            height: 96,
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
+            clipBehavior: Clip.antiAlias,
+            child: Image.asset(
+              'score 11/Community  Blog without trxt.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.centerRight,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.forum_rounded,
+                size: 42,
+                color: Color(0xFFB0B8CC),
+              ),
             ),
-            child: const Icon(Icons.forum_rounded,
-                size: 38, color: Color(0xFFB0B8CC)),
           ),
           const SizedBox(height: 18),
           const Text(

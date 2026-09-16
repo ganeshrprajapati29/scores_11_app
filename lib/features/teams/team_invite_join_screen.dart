@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../data/services/team_service.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/widgets/custom_appbar.dart';
 
 class TeamInviteJoinScreen extends StatefulWidget {
   final String code;
@@ -91,12 +92,7 @@ class _TeamInviteJoinScreenState extends State<TeamInviteJoinScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: _textPrimary,
-        title: const Text('Join Team'),
-      ),
+      appBar: const CustomAppBar(title: 'Join Team', showBackButton: true),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

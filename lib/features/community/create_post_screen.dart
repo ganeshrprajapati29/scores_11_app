@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../data/services/community_service.dart';
 import '../../data/services/upload_service.dart';
@@ -133,27 +134,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF111827)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Create Post',
-              style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.w900, fontSize: 18),
-            ),
-            Text(
-              'Share a cricket moment',
-              style: TextStyle(color: Color(0xFF667085), fontWeight: FontWeight.w600, fontSize: 11),
-            ),
-          ],
-        ),
+      appBar: CustomAppBar(
+        title: 'Create Post',
+        showBackButton: true,
+        centerTitle: false,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),

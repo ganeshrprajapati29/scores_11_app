@@ -99,14 +99,19 @@ class Cric11App extends StatelessWidget {
         navigatorObservers: [_appRouteBackController],
         builder: (context, child) {
           final media = MediaQuery.of(context);
-          return MediaQuery(
-            data: media.copyWith(
-              textScaler: media.textScaler
-                  .clamp(minScaleFactor: 0.86, maxScaleFactor: 0.98),
-            ),
-            child: _GlobalBackButtonHost(
-              controller: _appRouteBackController,
-              child: child ?? const SizedBox.shrink(),
+          final shortestSide = media.size.shortestSide;
+          final maxScale = shortestSide < 360 ? 0.96 : 1.08;
+          return ScrollConfiguration(
+            behavior: const _AppScrollBehavior(),
+            child: MediaQuery(
+              data: media.copyWith(
+                textScaler: media.textScaler
+                    .clamp(minScaleFactor: 0.92, maxScaleFactor: maxScale),
+              ),
+              child: _GlobalBackButtonHost(
+                controller: _appRouteBackController,
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           );
         },
@@ -171,6 +176,7 @@ class Cric11App extends StatelessWidget {
           // Auth Routes
           '/splash': (context) => const SplashScreen(),
           '/login': (context) => const _AuthAwareLoginScreen(),
+          '/email-login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
           '/complete-profile': (context) => const CompleteProfileScreen(),
           '/phone-login': (context) => const PhoneLoginScreen(),
@@ -390,6 +396,15 @@ class Cric11App extends StatelessWidget {
   }
 }
 
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+  }
+}
+
 class _AuthAwareLoginScreen extends StatelessWidget {
   const _AuthAwareLoginScreen();
 
@@ -405,7 +420,7 @@ class _AuthAwareLoginScreen extends StatelessWidget {
           return const Scaffold(
               body: Center(child: CircularProgressIndicator()));
         }
-        return const LoginScreen();
+        return const PhoneLoginScreen();
       },
     );
   }

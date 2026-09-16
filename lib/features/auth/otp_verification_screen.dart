@@ -1,8 +1,4 @@
-﻿import '../../core/theme/app_colors.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import '../../core/config/theme_config.dart';
+﻿import 'package:flutter/material.dart';
 import 'auth_design.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
@@ -66,217 +62,72 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     return AuthShell(
       showBack: true,
       title: 'Verify OTP',
-      subtitle: 'Enter the 6-digit code sent to ${widget.identifier}.',
+      subtitle: 'Enter the 6-digit code sent to\n${widget.identifier}',
       heroIcon: Icons.sms_rounded,
+      heroImage: 'score 11/Login, Register, OTP 1080 x 720 PNG.png',
+      belowCard: const AuthFeatureStrip(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(6, (index) {
-              return SizedBox(
-                width: 45,
-                height: 56,
-                child: TextField(
-                  controller: _controllers[index],
-                  focusNode: _focusNodes[index],
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  maxLength: 1,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AuthDesign.ink),
-                  decoration: InputDecoration(
-                    counterText: '',
-                    filled: true,
-                    fillColor: const Color(0xFFF9FAFB),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AuthDesign.line)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AuthDesign.line)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.8)),
-                  ),
-                  onChanged: (value) => _onDigitChanged(index, value),
-                ),
-              );
-            }),
+          AuthSuccessBanner(
+            title: 'Code sent successfully',
+            description: "We've sent a 6-digit verification code to ${widget.identifier}",
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
+          const Center(
+            child: Text(
+              'Enter 6-digit code',
+              style: TextStyle(color: AuthDesign.ink, fontWeight: FontWeight.w800, fontSize: 15),
+            ),
+          ),
+          const SizedBox(height: 14),
+          AuthOtpBoxRow(
+            controllers: _controllers,
+            focusNodes: _focusNodes,
+            onChanged: (index, value) => _onDigitChanged(index, value),
+          ),
+          const SizedBox(height: 14),
+          const Center(
+            child: AuthSecurityNote(text: 'For your security, never share your OTP with anyone.'),
+          ),
+          const SizedBox(height: 20),
           AuthPrimaryButton(
             onPressed: _isComplete ? _verify : null,
-            label: widget.isForgotPassword ? 'Reset password' : 'Verify',
+            label: widget.isForgotPassword ? 'Reset password' : 'Verify & Continue',
             loading: _isLoading,
-            icon: Icons.verified_rounded,
+            icon: Icons.verified_user_rounded,
+            trailingArrow: true,
           ),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text("Didn't receive code?", style: TextStyle(color: AuthDesign.muted, fontWeight: FontWeight.w600)),
-              TextButton(
-                onPressed: widget.onResend,
-                child: const Text('Resend', style: TextStyle(fontWeight: FontWeight.w900)),
-              ),
-            ],
+          Center(
+            child: TextButton.icon(
+              onPressed: widget.onResend,
+              icon: const Icon(Icons.refresh_rounded, size: 17),
+              label: const Text("Didn't receive code? Resend", style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline_rounded, size: 16, color: AuthDesign.muted),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Having trouble? Check your spam folder or wait a minute before requesting a new code.',
+                    style: TextStyle(fontSize: 11.5, color: AuthDesign.muted, fontWeight: FontWeight.w600, height: 1.35),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-    );
-
-    return Scaffold(
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF1E88E5), Color(0xFF1565C0), Color(0xFF0D47A1)],
-            ),
-          ),
-          child: SafeArea(
-child: SingleChildScrollView(
-              // FIXED: Removed onDrag to prevent back navigation in Release APK
-              // keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Center(
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Icon(Icons.sms, size: 45, color: AppColors.primary),
-                    ),
-                  ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.8, 0.8)),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Verify OTP',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ).animate().fadeIn(delay: 200.ms),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Enter the 6-digit code sent to\n${widget.identifier}',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withOpacity(0.8),
-                        ),
-                  ).animate().fadeIn(delay: 300.ms),
-                  const SizedBox(height: 40),
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(6, (index) {
-                            return SizedBox(
-                              width: 45,
-                              height: 55,
-                              child: TextField(
-                                controller: _controllers[index],
-                                focusNode: _focusNodes[index],
-                                textAlign: TextAlign.center,
-                                keyboardType: TextInputType.number,
-                                maxLength: 1,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                                decoration: InputDecoration(
-                                  counterText: '',
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                                  ),
-                                ),
-                                onChanged: (value) => _onDigitChanged(index, value),
-                              ),
-                            );
-                          }),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: _isComplete && !_isLoading ? _verify : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              disabledBackgroundColor: AppColors.textHint,
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                  )
-                                : Text(
-                                    widget.isForgotPassword ? 'Reset Password' : 'Verify',
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text("Didn't receive code?", style: TextStyle(color: AppColors.textSecondary)),
-                            TextButton(
-                              onPressed: widget.onResend,
-                              child: Text('Resend', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ).animate().fadeIn(delay: 400.ms, duration: 600.ms).slideY(begin: 0.2),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

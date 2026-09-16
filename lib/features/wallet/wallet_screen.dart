@@ -100,6 +100,12 @@ class _WalletScreenState extends State<WalletScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        image: const DecorationImage(
+          image: AssetImage('score 11/Wallet.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+          opacity: 0.18,
+        ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

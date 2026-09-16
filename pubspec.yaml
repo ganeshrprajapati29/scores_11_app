@@ -109,7 +109,31 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/login Auth cricket illustration.png
+    - score 11/Login, Register, OTP 1080 x 720 PNG.png
+    - score 11/Splash Screen 1080 x 2400.png
+    - score 11/Home Dashboard without text.png
+    - score 11/Create Match Team 1080 x 420 PNG.png
+    - score 11/Live Match Card 1024 x 576 PNG.png
+    - score 11/Live Control 1080 x 520.png
+    - score 11/Upcoming Match Card  1024 x 576 PNG.png
+    - score 11/Match Detail Header 1080 x 520.png
+    - score 11/Tournament Page banner.png
+    - score 11/Store.png
+    - score 11/Wallet.png
+    - score 11/Community  Blog without trxt.png
+    - score 11/Player Profile cover page.png
+    - score 11/Player Profile avatr circle page.png
+    - score 11/Team  cover page.png
+    - score 11/Team Profile logo.png
+    - score 11/Empty States 2.png
+    - score 11/Empty States 4.png
+    - score 11/Empty States 5.png
+    - score 11/Empty States 6.png
+    - score 11/Leaderboard without text.png
     - assets/images/
+    - assets/images/auth/
+    - assets/images/teams/
     - assets/icons/
 
 flutter_launcher_icons:

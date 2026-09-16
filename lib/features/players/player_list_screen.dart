@@ -839,15 +839,21 @@ Widget _buildSearchFilterSection() {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F2F5),
-              borderRadius: BorderRadius.circular(20),
+          Image.asset(
+            'score 11/Empty States 6.png',
+            width: 124,
+            height: 124,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F2F5),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(Icons.people_outline_rounded,
+                  size: 40, color: _kTextHint),
             ),
-            child: Icon(Icons.people_outline_rounded,
-                size: 40, color: _kTextHint),
           ),
           const SizedBox(height: 18),
           Text(

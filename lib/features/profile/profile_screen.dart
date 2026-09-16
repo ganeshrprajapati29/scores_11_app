@@ -743,7 +743,13 @@ class _ProfileScreenState extends State<ProfileScreen>
             size: 18,
           ),
           const SizedBox(width: 10),
-          Text(message),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
       backgroundColor: isError
@@ -987,6 +993,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                 colors: AppColors.primaryGradient,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
+              ),
+              image: const DecorationImage(
+                image: AssetImage('score 11/Player Profile cover page.png'),
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+                opacity: 0.28,
               ),
             ),
           ),

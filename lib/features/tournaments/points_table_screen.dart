@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/widgets/custom_appbar.dart';
 import '../../data/models/tournament_model.dart';
 import '../../data/services/tournament_service.dart';
 
@@ -59,11 +60,9 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
-      appBar: AppBar(
-        title: const Text('Points Table'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0F172A),
-        elevation: 0,
+      appBar: CustomAppBar(
+        title: 'Points Table',
+        showBackButton: true,
         actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _loadPoints),
         ],

@@ -433,15 +433,15 @@ class _HeroHeader extends StatelessWidget {
   }
 
   Widget _fallbackBackground() {
-    return Container(
+    return DecoratedBox(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF0F3B76), Color(0xFF1A56DB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        image: DecorationImage(
+          image: AssetImage('score 11/Tournament Page banner.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
         ),
       ),
-      child: Icon(Icons.emoji_events_rounded, size: 96, color: Colors.white.withOpacity(0.18)),
+      child: const SizedBox.expand(),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/live_score_control_provider.dart';
 import '../../providers/scorecard_provider.dart';
 import '../../data/services/match_service.dart';
@@ -25,21 +26,21 @@ import 'scorecard_screen.dart';
 // ─────────────────────────────────────────────
 class _D {
   // Core
-  static const primary = Color(0xFF1A56DB);
-  static const primaryDark = Color(0xFF0D2147);
+  static const primary = Color(0xFF1657CC);
+  static const primaryDark = Color(0xFF0D2B5E);
   static const primarySoft = Color(0xFFEEF4FF);
   static const primaryMid = Color(0xFFDEEBFF);
 
   // Surfaces
-  static const bg = Color(0xFFF5F7FF);
+  static const bg = Color(0xFFF7F8FA);
   static const surface = Color(0xFFFFFFFF);
   static const surfaceAlt = Color(0xFFF8FAFF);
-  static const border = Color(0xFFE8EEFF);
+  static const border = Color(0xFFE4E7EC);
 
   // Status
-  static const live = Color(0xFFEF4444);
+  static const live = Color(0xFFE31E3C);
   static const liveSoft = Color(0xFFFFF1F1);
-  static const green = Color(0xFF10B981);
+  static const green = Color(0xFF16A34A);
   static const greenSoft = Color(0xFFECFDF5);
   static const gold = Color(0xFFF59E0B);
   static const goldSoft = Color(0xFFFFFBEB);
@@ -49,27 +50,29 @@ class _D {
   static const tealSoft = Color(0xFFECFEFF);
   static const orange = Color(0xFFF97316);
   static const orangeSoft = Color(0xFFFFF7ED);
+  static const blue = Color(0xFF2563EB);
+  static const blueSoft = Color(0xFFEFF6FF);
 
   // Text
-  static const textPrimary = Color(0xFF0F172A);
-  static const textSecondary = Color(0xFF64748B);
+  static const textPrimary = Color(0xFF101828);
+  static const textSecondary = Color(0xFF667085);
   static const textMuted = Color(0xFF94A3B8);
   static const text = textPrimary;
   static const muted = textSecondary;
 
   // Gradients
   static const LinearGradient heroGrad = LinearGradient(
-    colors: [Color(0xFF0D2147), Color(0xFF1A56DB), Color(0xFF3B82F6)],
+    colors: [Color(0xFF0D2B5E), Color(0xFF1657CC), Color(0xFF3B82F6)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   static const LinearGradient liveGrad = LinearGradient(
-    colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+    colors: [Color(0xFFE31E3C), Color(0xFFB71C1C)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   static const LinearGradient greenGrad = LinearGradient(
-    colors: [Color(0xFF10B981), Color(0xFF059669)],
+    colors: [Color(0xFF16A34A), Color(0xFF0F7A36)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -77,9 +80,9 @@ class _D {
   // Shadows
   static List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: const Color(0xFF1A56DB).withOpacity(0.06),
+      color: const Color(0xFF101828).withOpacity(0.06),
       blurRadius: 20,
-      offset: const Offset(0, 4),
+      offset: const Offset(0, 6),
     ),
     BoxShadow(
       color: Colors.black.withOpacity(0.03),
@@ -96,7 +99,7 @@ class _D {
   ];
 
   // Radius
-  static const double rXL = 22;
+  static const double rXL = 20;
   static const double rLG = 16;
   static const double rMD = 12;
   static const double rSM = 8;
@@ -119,11 +122,23 @@ class LiveScoreControlScreen extends StatefulWidget {
 class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final GlobalKey _scoreButtonsKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+  }
+
+  void _scrollToScoreButtons() {
+    final context = _scoreButtonsKey.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
@@ -305,6 +320,66 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
           floatingActionButton: Consumer<LiveScoreControlProvider>(
             builder: (context, provider, _) => _buildFAB(provider),
           ),
+          bottomNavigationBar: AnimatedBuilder(
+            animation: _tabController.animation ?? _tabController,
+            builder: (context, _) =>
+                _tabController.index == 2 ? _buildScoreTabActionBar() : const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Bottom action bar (Score tab only) ─────
+  Widget _buildScoreTabActionBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -4)),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ScorecardScreen(matchId: widget.matchId),
+                    ),
+                  ),
+                  icon: const Icon(Icons.bar_chart_rounded, size: 18),
+                  label: const Text('Scorecard'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _D.primary,
+                    side: BorderSide(color: _D.primary.withOpacity(0.35)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: _scrollToScoreButtons,
+                  icon: const Icon(Icons.sports_cricket_rounded, size: 18),
+                  label: const Text('Add Ball'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _D.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -317,41 +392,108 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
       surfaceTintColor: Colors.white,
       elevation: 0,
       shadowColor: Colors.black.withOpacity(0.06),
+      titleSpacing: 4,
       leading: IconButton(
         icon: Container(
-          padding: const EdgeInsets.all(7),
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _D.surfaceAlt,
-            borderRadius: BorderRadius.circular(10),
+            color: Colors.white,
+            shape: BoxShape.circle,
             border: Border.all(color: _D.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: const Icon(Icons.arrow_back_ios_new, color: _D.text, size: 16),
+          child: const Icon(Icons.arrow_back_rounded, color: _D.text, size: 18),
         ),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      title: Row(
+        mainAxisSize: MainAxisSize.max,
         children: [
-          const Text(
-            'Live Score Control',
-            style: TextStyle(
-              color: _D.text,
-              fontWeight: FontWeight.w800,
-              fontSize: 17,
+          Container(
+            width: 34,
+            height: 34,
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: _D.live, width: 1.2),
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.sports_cricket, color: _D.primary, size: 16),
+              ),
             ),
           ),
-          const Text(
-            'Scorer Panel',
-            style: TextStyle(
-              color: _D.muted,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Live Score Control',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _D.text,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+              Text(
+                'Scorer Panel',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _D.muted,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
             ),
           ),
         ],
       ),
       actions: [
+        Consumer<LiveScoreControlProvider>(
+          builder: (context, provider, _) => provider.currentStatus == 'live'
+              ? Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _D.live,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.circle, size: 8, color: Colors.white),
+                      SizedBox(width: 5),
+                      Text(
+                        'LIVE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
         IconButton(
           tooltip: 'Open scorecard',
           onPressed: () => Navigator.push(
@@ -360,46 +502,44 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
               builder: (_) => ScorecardScreen(matchId: widget.matchId),
             ),
           ),
-          icon: const Icon(Icons.scoreboard_rounded, color: _D.primary),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: _D.primarySoft,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _D.primary.withOpacity(0.25)),
+            ),
+            child: const Icon(Icons.scoreboard_rounded, color: _D.primary, size: 18),
+          ),
         ),
         const SizedBox(width: 8),
       ],
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(52),
+        preferredSize: const Size.fromHeight(48),
         child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-          decoration: BoxDecoration(
-            color: _D.surfaceAlt,
-            borderRadius: BorderRadius.circular(_D.rMD),
-            border: Border.all(color: _D.border),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: _D.border)),
           ),
           child: TabBar(
             controller: _tabController,
-            labelColor: _D.text,
+            labelColor: _D.primary,
             unselectedLabelColor: _D.muted,
-            indicator: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(_D.rSM),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+            indicatorColor: _D.primary,
+            indicatorWeight: 2.5,
+            indicatorSize: TabBarIndicatorSize.label,
             labelStyle: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
             ),
             unselectedLabelStyle: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
             ),
             tabs: const [
-              Tab(icon: Icon(Icons.flip, size: 18), text: 'Toss'),
-              Tab(icon: Icon(Icons.groups, size: 18), text: 'Playing XI'),
-              Tab(icon: Icon(Icons.sports_cricket, size: 18), text: 'Score'),
+              Tab(icon: Icon(Icons.edit_rounded, size: 17), text: 'Toss'),
+              Tab(icon: Icon(Icons.groups_rounded, size: 17), text: 'Playing XI'),
+              Tab(icon: Icon(Icons.edit_note_rounded, size: 17), text: 'Score'),
             ],
           ),
         ),
@@ -454,115 +594,139 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
               'Manage Players & Teams',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            if (provider.match != null) ...[
-              _buildOptionTile(
-                icon: Icons.group_add_rounded,
-                title: 'Add to ${provider.match!.team1}',
-                subtitle: 'Find a player and include in this squad',
-                color: _D.primary,
-                onTap: () async {
-                  Navigator.pop(context);
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FindPlayerScreen(
-                        teamId: provider.match!.team1Id,
-                        matchId: provider.matchId,
+            Expanded(
+              child: SingleChildScrollView(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 2.6,
+                  children: [
+                    if (provider.match != null) ...[
+                      _buildOptionTile(
+                        icon: Icons.group_add_rounded,
+                        title: 'Add to ${provider.match!.team1}',
+                        subtitle: 'Add player to this squad',
+                        color: _D.primary,
+                        onTap: () async {
+                          Navigator.pop(context);
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FindPlayerScreen(
+                                teamId: provider.match!.team1Id,
+                                matchId: provider.matchId,
+                              ),
+                            ),
+                          );
+                          if (mounted) provider.refreshTeamPlayers();
+                        },
                       ),
-                    ),
-                  );
-                  if (mounted) provider.refreshTeamPlayers();
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildOptionTile(
-                icon: Icons.group_add_outlined,
-                title: 'Add to ${provider.match!.team2}',
-                subtitle: 'Find a player and include in this squad',
-                color: _D.purple,
-                onTap: () async {
-                  Navigator.pop(context);
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FindPlayerScreen(
-                        teamId: provider.match!.team2Id,
-                        matchId: provider.matchId,
+                      _buildOptionTile(
+                        icon: Icons.group_add_outlined,
+                        title: 'Add to ${provider.match!.team2}',
+                        subtitle: 'Add player to this squad',
+                        color: _D.purple,
+                        onTap: () async {
+                          Navigator.pop(context);
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FindPlayerScreen(
+                                teamId: provider.match!.team2Id,
+                                matchId: provider.matchId,
+                              ),
+                            ),
+                          );
+                          if (mounted) provider.refreshTeamPlayers();
+                        },
                       ),
+                    ],
+
+                    // Create New Player (Scores11 Style)
+                    _buildOptionTile(
+                      icon: Icons.person_add_rounded,
+                      title: 'Create New Player',
+                      subtitle: 'Add a new player',
+                      color: _D.green,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/create-player');
+                      },
                     ),
-                  );
-                  if (mounted) provider.refreshTeamPlayers();
-                },
+
+                    // Create Team (NEW - Scores11 Style)
+                    _buildOptionTile(
+                      icon: Icons.groups_rounded,
+                      title: 'Create Team',
+                      subtitle: 'New team with players',
+                      color: _D.primary,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/create-team');
+                      },
+                    ),
+
+                    // Open Player List
+                    _buildOptionTile(
+                      icon: Icons.people_rounded,
+                      title: 'Player List',
+                      subtitle: 'Manage existing players',
+                      color: _D.purple,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/players');
+                      },
+                    ),
+
+                    // Team List (NEW)
+                    _buildOptionTile(
+                      icon: Icons.groups_outlined,
+                      title: 'Team List',
+                      subtitle: 'Manage teams',
+                      color: _D.orange,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/teams');
+                      },
+                    ),
+
+                    // Player Search
+                    _buildOptionTile(
+                      icon: Icons.search_rounded,
+                      title: 'Search Player',
+                      subtitle: 'Find a specific player',
+                      color: _D.teal,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/player-search');
+                      },
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-            ],
-
-            // Create New Player (Scores11 Style)
-            _buildOptionTile(
-              icon: Icons.person_add_rounded,
-              title: 'Create New Player',
-              subtitle: 'Add a new player to the system',
-              color: _D.green,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/create-player');
-              },
             ),
-            const SizedBox(height: 12),
-
-            // Create Team (NEW - Scores11 Style)
-            _buildOptionTile(
-              icon: Icons.groups_rounded,
-              title: 'Create Team',
-              subtitle: 'Create a new team with players',
-              color: _D.primary,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/create-team');
-              },
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded, size: 18),
+                label: const Text('Cancel'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _D.textSecondary,
+                  side: const BorderSide(color: _D.border),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(_D.rMD),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 12),
-
-            // Open Player List
-            _buildOptionTile(
-              icon: Icons.people_rounded,
-              title: 'Player List',
-              subtitle: 'View and manage existing players',
-              color: _D.purple,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/players');
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Team List (NEW)
-            _buildOptionTile(
-              icon: Icons.groups_outlined,
-              title: 'Team List',
-              subtitle: 'View and manage teams',
-              color: _D.orange,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/teams');
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Player Search
-            _buildOptionTile(
-              icon: Icons.search_rounded,
-              title: 'Search Player',
-              subtitle: 'Find a specific player',
-              color: _D.teal,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/player-search');
-              },
-            ),
-            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -579,44 +743,50 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.2)),
+          color: color.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.16)),
         ),
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, color: color, size: 24),
+              child: Icon(icon, color: color, size: 19),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w700,
-                      color: color,
+                      color: _D.textPrimary,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 12, color: _D.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, color: _D.textSecondary),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: color),
+            Icon(Icons.chevron_right_rounded, size: 16, color: color),
           ],
         ),
       ),
@@ -639,6 +809,12 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   gradient: _D.heroGrad,
+                  image: const DecorationImage(
+                    image: AssetImage('score 11/Live Control 1080 x 520.png'),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    opacity: 0.20,
+                  ),
                   borderRadius: BorderRadius.circular(_D.rXL),
                   boxShadow: [
                     BoxShadow(
@@ -1341,7 +1517,10 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
               const SizedBox(height: 20),
 
               // Score Buttons
-              _ScoreButtonsGrid(provider: provider),
+              KeyedSubtree(
+                key: _scoreButtonsKey,
+                child: _ScoreButtonsGrid(provider: provider),
+              ),
               const SizedBox(height: 12),
               _UndoLastBallButton(
                 provider: provider,
@@ -1823,110 +2002,299 @@ class _LiveBanner extends StatelessWidget {
       );
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 14),
-      decoration: const BoxDecoration(gradient: _D.heroGrad),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Live dot
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: _D.live,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
+    final match = provider.match;
+    final team1Name = match?.team1 ?? 'Team 1';
+    final team2Name = match?.team2 ?? 'Team 2';
+    final team1Batting = provider.isTeam1Batting;
 
-              // Score
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${provider.currentScore.runs}/${provider.currentScore.wickets}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
+    final liveRuns = provider.currentScore.runs;
+    final liveWkts = provider.currentScore.wickets;
+    final liveOvers = provider.currentScore.overs;
+    final otherScore = team1Batting ? match?.score.team2 : match?.score.team1;
+    final otherRuns = otherScore?.runs ?? 0;
+    final otherWkts = otherScore?.wickets ?? 0;
+    final otherOvers = (otherScore?.overs.isNotEmpty ?? false) ? otherScore!.overs : '0.0';
+
+    final team1Runs = team1Batting ? liveRuns : otherRuns;
+    final team1Wkts = team1Batting ? liveWkts : otherWkts;
+    final team1Overs = team1Batting ? liveOvers : otherOvers;
+    final team2Runs = team1Batting ? otherRuns : liveRuns;
+    final team2Wkts = team1Batting ? otherWkts : liveWkts;
+    final team2Overs = team1Batting ? otherOvers : liveOvers;
+
+    final tossText = provider.tossDone
+        ? '${provider.tossWinnerName ?? ''} chose to ${provider.tossDecision == 'bat' ? 'bat' : 'bowl'}'
+        : 'Toss pending';
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      decoration: BoxDecoration(
+        gradient: _D.heroGrad,
+        image: const DecorationImage(
+          image: AssetImage('score 11/Live Control 1080 x 520.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          opacity: 0.24,
+        ),
+        borderRadius: BorderRadius.circular(_D.rXL),
+        boxShadow: _D.cardShadow,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: _HeroTeamScore(
+                    name: team1Name,
+                    logoAsset: 'assets/images/teams/team1_logo.png',
+                    runs: team1Runs,
+                    wickets: team1Wkts,
+                    overs: team1Overs,
+                  ),
+                ),
+                Container(
+                  width: 32,
+                  height: 32,
+                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.14),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.35)),
+                  ),
+                  child: const Text(
+                    'VS',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Expanded(
+                  child: _HeroTeamScore(
+                    name: team2Name,
+                    logoAsset: 'assets/images/teams/team2_logo.png',
+                    runs: team2Runs,
+                    wickets: team2Wkts,
+                    overs: team2Overs,
+                    alignRight: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    tossText,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Text(
-                    '${provider.currentScore.overs} overs${provider.isSecondInnings && provider.target != null ? ' - target ${provider.target}' : ''}',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 11,
+                ),
+                if (provider.canRefresh) ...[
+                  const SizedBox(width: 6),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => provider.refreshLiveData(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.refresh_rounded,
+                          color: Colors.white70, size: 16),
                     ),
                   ),
                 ],
-              ),
-
-              const Spacer(),
-
-              // RRR badge
-              if (provider.requiredRR != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
-                    borderRadius: BorderRadius.circular(_D.rSM),
-                  ),
-                  child: Text(
-                    'RRR: ${provider.requiredRR}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-
-              IconButton(
-                onPressed: provider.canRefresh
-                    ? () => provider.refreshLiveData()
-                    : null,
-                icon: Icon(
-                  Icons.refresh_rounded,
-                  color: Colors.white.withOpacity(
-                    provider.canRefresh ? 1.0 : 0.4,
-                  ),
-                  size: 20,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-          if (provider.resultMessage != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              provider.resultMessage!,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            color: Colors.white,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _HeroStatCol(
+                    label: 'Target',
+                    value: provider.target?.toString() ?? '-',
+                    valueColor: _D.textPrimary,
+                  ),
+                ),
+                Container(width: 1, height: 32, color: _D.border),
+                Expanded(
+                  child: _HeroStatCol(
+                    label: 'Required',
+                    value: provider.isSecondInnings
+                        ? (provider.requiredRuns?.toString() ?? '-')
+                        : '-',
+                    valueColor: _D.live,
+                    caption: provider.isSecondInnings &&
+                            provider.requiredBalls != null
+                        ? 'runs in ${provider.requiredBalls} balls'
+                        : null,
+                  ),
+                ),
+                Container(width: 1, height: 32, color: _D.border),
+                Expanded(
+                  child: _HeroStatCol(
+                    label: 'CRR',
+                    value: provider.currentScore.runRate.toStringAsFixed(2),
+                    valueColor: _D.green,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (provider.resultMessage != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.white,
+              child: Text(
+                provider.resultMessage!,
+                style: const TextStyle(
+                  color: _D.textPrimary,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            )
+          else if (provider.appreciations.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.white,
+              child: Text(
+                provider.appreciations.first,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _D.textSecondary,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          ] else if (provider.appreciations.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              provider.appreciations.first,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.85),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
         ],
       ),
+    );
+  }
+}
+
+class _HeroTeamScore extends StatelessWidget {
+  final String name;
+  final String logoAsset;
+  final int runs;
+  final int wickets;
+  final String overs;
+  final bool alignRight;
+  const _HeroTeamScore({
+    required this.name,
+    required this.logoAsset,
+    required this.runs,
+    required this.wickets,
+    required this.overs,
+    this.alignRight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final logo = Container(
+      width: 40,
+      height: 40,
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+      child: Image.asset(
+        logoAsset,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) =>
+            const Icon(Icons.shield_rounded, color: _D.primary),
+      ),
+    );
+    final texts = Column(
+      crossAxisAlignment:
+          alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '$runs/$wickets',
+          style: const TextStyle(
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+        ),
+        Text(
+          '$overs overs',
+          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 10.5),
+        ),
+      ],
+    );
+    return Row(
+      mainAxisAlignment: alignRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: alignRight
+          ? [Flexible(child: texts), const SizedBox(width: 8), logo]
+          : [logo, const SizedBox(width: 8), Flexible(child: texts)],
+    );
+  }
+}
+
+class _HeroStatCol extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+  final String? caption;
+  const _HeroStatCol({
+    required this.label,
+    required this.value,
+    required this.valueColor,
+    this.caption,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+              fontSize: 11, color: _D.textMuted, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: valueColor),
+        ),
+        if (caption != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            caption!,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 9.5, color: _D.textMuted),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -2212,35 +2580,39 @@ class _CurrentPlayersCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _PlayerChip(
-                  name: provider.currentStriker?.name ?? 'Set Striker',
-                  jersey: provider.currentStriker?.jerseyNumber,
-                  isSet: provider.currentStriker != null,
-                  label: 'Striker',
-                  icon: Icons.person_rounded,
-                  color: _D.green,
-                  onTap: onStrikerTap,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _PlayerChip(
-                  name: provider.currentNonStriker?.name ?? 'Non-Striker',
-                  jersey: provider.currentNonStriker?.jerseyNumber,
-                  isSet: provider.currentNonStriker != null,
-                  label: 'Non-Striker',
-                  icon: Icons.person_outline_rounded,
-                  color: _D.orange,
-                  onTap: onNonStrikerTap,
-                ),
-              ),
-            ],
+          _PlayerChip(
+            player: provider.currentStriker,
+            name: provider.currentStriker?.name ?? 'Set Striker',
+            jersey: provider.currentStriker?.jerseyNumber,
+            isSet: provider.currentStriker != null,
+            label: 'Striker',
+            onStrikeBadge: provider.currentStriker != null,
+            icon: Icons.person_rounded,
+            color: _D.green,
+            onTap: onStrikerTap,
+            isFullWidth: true,
+            battingStat: provider.currentStriker != null
+                ? provider.battingStatFor(provider.currentStriker)
+                : null,
           ),
           const SizedBox(height: 10),
           _PlayerChip(
+            player: provider.currentNonStriker,
+            name: provider.currentNonStriker?.name ?? 'Non-Striker',
+            jersey: provider.currentNonStriker?.jerseyNumber,
+            isSet: provider.currentNonStriker != null,
+            label: 'Non-Striker',
+            icon: Icons.person_outline_rounded,
+            color: _D.orange,
+            onTap: onNonStrikerTap,
+            isFullWidth: true,
+            battingStat: provider.currentNonStriker != null
+                ? provider.battingStatFor(provider.currentNonStriker)
+                : null,
+          ),
+          const SizedBox(height: 10),
+          _PlayerChip(
+            player: provider.currentBowler,
             name: provider.currentBowler?.name ?? 'Set Bowler',
             jersey: provider.currentBowler?.jerseyNumber,
             isSet: provider.currentBowler != null,
@@ -2257,6 +2629,7 @@ class _CurrentPlayersCard extends StatelessWidget {
 }
 
 class _PlayerChip extends StatelessWidget {
+  final Player? player;
   final String name;
   final int? jersey;
   final bool isSet;
@@ -2265,7 +2638,10 @@ class _PlayerChip extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
   final bool isFullWidth;
+  final bool onStrikeBadge;
+  final PlayerBattingStat? battingStat;
   const _PlayerChip({
+    this.player,
     required this.name,
     required this.jersey,
     required this.isSet,
@@ -2274,6 +2650,8 @@ class _PlayerChip extends StatelessWidget {
     required this.color,
     required this.onTap,
     this.isFullWidth = false,
+    this.onStrikeBadge = false,
+    this.battingStat,
   });
 
   @override
@@ -2289,61 +2667,117 @@ class _PlayerChip extends StatelessWidget {
             color: isSet ? color.withOpacity(0.25) : _D.border,
           ),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: isSet ? color.withOpacity(0.12) : _D.border,
-                borderRadius: BorderRadius.circular(_D.rSM),
-              ),
-              child: Icon(icon, color: isSet ? color : _D.textMuted, size: 18),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: isSet ? _D.textPrimary : _D.textMuted,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: _D.textMuted,
+            Row(
+              children: [
+                isSet
+                    ? _PlayerAvatar(player: player, color: color, size: 36)
+                    : Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _D.border,
+                          borderRadius: BorderRadius.circular(_D.rSM),
                         ),
+                        child: Icon(icon, color: _D.textMuted, size: 18),
                       ),
-                      if (jersey != null) ...[
-                        const Text(
-                          ' · ',
-                          style: TextStyle(fontSize: 10, color: _D.textMuted),
-                        ),
-                        Text(
-                          '#$jersey',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: color,
-                            fontWeight: FontWeight.w600,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: isSet ? _D.textPrimary : _D.textMuted,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      ],
+                          if (onStrikeBadge) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _D.primarySoft,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'On Strike',
+                                style: TextStyle(
+                                  color: _D.primary,
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: _D.textMuted,
+                            ),
+                          ),
+                          if (jersey != null) ...[
+                            const Text(
+                              ' · ',
+                              style:
+                                  TextStyle(fontSize: 10, color: _D.textMuted),
+                            ),
+                            Text(
+                              '#$jersey',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: color,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                Icon(Icons.chevron_right_rounded,
+                    size: 16, color: _D.textMuted),
+              ],
             ),
-            Icon(Icons.chevron_right_rounded, size: 16, color: _D.textMuted),
+            if (battingStat != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(_D.rSM),
+                ),
+                child: Row(
+                  children: [
+                    _TinyStatCol(label: 'Runs', value: '${battingStat!.runs}'),
+                    _TinyStatCol(label: 'Balls', value: '${battingStat!.balls}'),
+                    _TinyStatCol(label: '4s', value: '${battingStat!.fours}'),
+                    _TinyStatCol(label: '6s', value: '${battingStat!.sixes}'),
+                    _TinyStatCol(
+                        label: 'SR',
+                        value: battingStat!.strikeRate.toStringAsFixed(1)),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -3625,36 +4059,43 @@ class _ExtrasCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final wides = (provider.extras['wides'] ?? 0) as int;
+    final noBalls = (provider.extras['noBalls'] ?? 0) as int;
+    final byes = (provider.extras['byes'] ?? 0) as int;
+    final legByes = (provider.extras['legByes'] ?? 0) as int;
+    final penalty = (provider.extras['penalty'] ?? 0) as int;
+    final total = wides + noBalls + byes + legByes + penalty;
+
     final extras = [
       {
+        'label': 'Total',
+        'val': total,
+        'icon': Icons.functions_rounded,
+        'color': _D.primary,
+      },
+      {
         'label': 'Wides',
-        'val': provider.extras['wides'] ?? 0,
+        'val': wides,
         'icon': Icons.width_full,
         'color': _D.purple,
       },
       {
         'label': 'No Balls',
-        'val': provider.extras['noBalls'] ?? 0,
+        'val': noBalls,
         'icon': Icons.error_outline,
         'color': _D.teal,
       },
       {
         'label': 'Byes',
-        'val': provider.extras['byes'] ?? 0,
+        'val': byes,
         'icon': Icons.run_circle,
         'color': _D.gold,
       },
       {
         'label': 'Leg Byes',
-        'val': provider.extras['legByes'] ?? 0,
+        'val': legByes,
         'icon': Icons.sports_soccer,
         'color': _D.orange,
-      },
-      {
-        'label': 'Penalty',
-        'val': provider.extras['penalty'] ?? 0,
-        'icon': Icons.gavel_rounded,
-        'color': _D.green,
       },
     ];
 
@@ -3714,36 +4155,37 @@ class _ExtraStatBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(_D.rMD),
-        border: Border.all(color: color.withOpacity(0.15)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: color,
-            ),
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 9.5,
+            color: _D.textMuted,
+            fontWeight: FontWeight.w600,
           ),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 9,
-              color: _D.textMuted,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          child: Icon(icon, color: Colors.white, size: 16),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            color: _D.textPrimary,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -3951,10 +4393,23 @@ class _CurrentOverCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
-            title: 'This Over',
-            icon: Icons.format_list_numbered_rounded,
-            color: _D.primary,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const _SectionHeader(
+                title: 'Current Over',
+                icon: Icons.format_list_numbered_rounded,
+                color: _D.primary,
+              ),
+              Text(
+                '${provider.currentScore.overs} overs',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _D.textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           if (provider.currentOverBalls.isEmpty)
@@ -3982,11 +4437,29 @@ class _CurrentOverCard extends StatelessWidget {
             )
           else
             SizedBox(
-              height: 72,
+              height: 60,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: provider.currentOverBalls.length,
+                itemCount: provider.currentOverBalls.length +
+                    (provider.currentOverBalls.length < 6 ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (index >= provider.currentOverBalls.length) {
+                    // Placeholder for the upcoming ball in this over.
+                    return Container(
+                      width: 48,
+                      height: 48,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(_D.rMD),
+                        border: Border.all(
+                          color: _D.border,
+                          width: 1.4,
+                          style: BorderStyle.solid,
+                        ),
+                      ),
+                    );
+                  }
+
                   final ball = provider.currentOverBalls[index];
                   final isWicket = ball['wicket'] ?? false;
                   final runs = ball['runs'] ?? 0;
@@ -3994,26 +4467,34 @@ class _CurrentOverCard extends StatelessWidget {
                   final wagonLabel = ball['wagonLabel']?.toString();
                   final hasWagon = wagonLabel != null && wagonLabel.isNotEmpty;
 
+                  // Spec palette: wicket = red, six = green, four = blue,
+                  // dot ball = grey, extras = purple, other runs = primary.
                   Color ballColor = isWicket
                       ? _D.live
                       : runs == 6
-                      ? _D.live
-                      : runs == 4
-                      ? _D.orange
-                      : hasWagon
                       ? _D.green
+                      : runs == 4
+                      ? _D.blue
                       : isExtra
                       ? _D.purple
+                      : runs == 0
+                      ? _D.textMuted
                       : _D.primary;
 
+                  // Wickets and boundaries are solid-filled to stand out;
+                  // every other delivery keeps the soft tinted look.
+                  final isHighlighted = isWicket || runs == 4 || runs == 6;
+
                   return Container(
-                    width: hasWagon ? 70 : 56,
-                    height: 56,
+                    width: hasWagon ? 70 : 48,
+                    height: 48,
                     margin: const EdgeInsets.only(right: 8),
                     decoration: BoxDecoration(
-                      color: ballColor.withOpacity(0.09),
+                      color: isHighlighted ? ballColor : ballColor.withOpacity(0.09),
                       borderRadius: BorderRadius.circular(_D.rMD),
-                      border: Border.all(color: ballColor.withOpacity(0.3)),
+                      border: Border.all(
+                        color: isHighlighted ? ballColor : ballColor.withOpacity(0.3),
+                      ),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -4021,9 +4502,9 @@ class _CurrentOverCard extends StatelessWidget {
                         Text(
                           isWicket ? 'W' : runs.toString(),
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 18,
                             fontWeight: FontWeight.w900,
-                            color: ballColor,
+                            color: isHighlighted ? Colors.white : ballColor,
                           ),
                         ),
                         if (isExtra)
@@ -4031,7 +4512,9 @@ class _CurrentOverCard extends StatelessWidget {
                             ball['extra'],
                             style: TextStyle(
                               fontSize: 8,
-                              color: ballColor.withOpacity(0.8),
+                              color: isHighlighted
+                                  ? Colors.white.withOpacity(0.85)
+                                  : ballColor.withOpacity(0.8),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -4042,7 +4525,9 @@ class _CurrentOverCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 8,
-                              color: ballColor.withOpacity(0.8),
+                              color: isHighlighted
+                                  ? Colors.white.withOpacity(0.85)
+                                  : ballColor.withOpacity(0.8),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -4052,6 +4537,125 @@ class _CurrentOverCard extends StatelessWidget {
                 },
               ),
             ),
+          if (provider.currentBowler != null) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: _D.border),
+            const SizedBox(height: 14),
+            _BowlerMiniRow(provider: provider),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Bowler mini stat row (shown under current over)
+// ─────────────────────────────────────────────
+class _BowlerMiniRow extends StatelessWidget {
+  final LiveScoreControlProvider provider;
+  const _BowlerMiniRow({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final bowler = provider.currentBowler;
+    if (bowler == null) return const SizedBox.shrink();
+    final stat = provider.bowlingStatFor(bowler);
+    return Row(
+      children: [
+        _PlayerAvatar(player: bowler, color: _D.purple, size: 40),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 3,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                bowler.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: _D.textPrimary,
+                ),
+              ),
+              Text(
+                bowler.bowlingStyle?.trim().isNotEmpty == true
+                    ? bowler.bowlingStyle!
+                    : 'Bowler',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10, color: _D.textMuted),
+              ),
+            ],
+          ),
+        ),
+        _TinyStatCol(label: 'Overs', value: stat.overs),
+        _TinyStatCol(label: 'Runs', value: '${stat.runs}'),
+        _TinyStatCol(label: 'Wickets', value: '${stat.wickets}'),
+        _TinyStatCol(label: 'Economy', value: stat.economy.toStringAsFixed(2)),
+      ],
+    );
+  }
+}
+
+/// Circular player avatar — shows the player's real photo when available
+/// (Player.profileImage / Player.photo), otherwise a colored icon fallback.
+class _PlayerAvatar extends StatelessWidget {
+  final Player? player;
+  final Color color;
+  final double size;
+  const _PlayerAvatar({required this.player, required this.color, this.size = 40});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = player?.profileImage?.trim().isNotEmpty == true
+        ? player!.profileImage
+        : (player?.photo?.trim().isNotEmpty == true ? player!.photo : null);
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(_D.rSM),
+      ),
+      child: url != null
+          ? CachedNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) =>
+                  Icon(Icons.person_rounded, color: color, size: size * 0.5),
+            )
+          : Icon(Icons.person_rounded, color: color, size: size * 0.5),
+    );
+  }
+}
+
+class _TinyStatCol extends StatelessWidget {
+  final String label;
+  final String value;
+  const _TinyStatCol({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: _D.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 9.5, color: _D.textMuted),
+          ),
         ],
       ),
     );

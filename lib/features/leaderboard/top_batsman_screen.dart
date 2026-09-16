@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/leaderboard_service.dart';
 
 const Color _rankPrimary = Color(0xFF185FA5);
@@ -99,20 +100,7 @@ class _TopBatsmanScreenState extends State<TopBatsmanScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _rankBg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _rankText, size: 18),
-          onPressed: () => Navigator.maybePop(context),
-        ),
-        title: const Text(
-          'Rankings',
-          style: TextStyle(color: _rankText, fontWeight: FontWeight.w900, fontSize: 16),
-        ),
-        centerTitle: true,
-      ),
+      appBar: const CustomAppBar(title: 'Rankings', showBackButton: true),
       body: SafeArea(
         top: false,
         child: Column(

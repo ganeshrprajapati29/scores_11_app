@@ -195,7 +195,14 @@ class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.person_search, size: 64, color: Colors.grey[400]),
+            Image.asset(
+              'score 11/Empty States 6.png',
+              width: 124,
+              height: 124,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) =>
+                  Icon(Icons.person_search, size: 64, color: Colors.grey[400]),
+            ),
             const SizedBox(height: 16),
             Text(
               'No players found',
@@ -638,7 +645,17 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            child: Padding(
+            clipBehavior: Clip.antiAlias,
+            child: Container(
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('score 11/Player Profile cover page.png'),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                  opacity: 0.12,
+                ),
+              ),
+              child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
@@ -649,12 +666,26 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
                         ? NetworkImage(avatarUrl)
                         : null,
                     child: avatarUrl == null
-                        ? Text(
-                            widget.player.fullName.isNotEmpty ? widget.player.fullName[0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
+                        ? ClipOval(
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.asset(
+                                  'score 11/Player Profile avatr circle page.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                ),
+                                Center(
+                                  child: Text(
+                                    widget.player.fullName.isNotEmpty ? widget.player.fullName[0].toUpperCase() : '?',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           )
                         : null,
@@ -688,6 +719,7 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
                   ],
                 ],
               ),
+            ),
             ),
           ),
           const SizedBox(height: 16),

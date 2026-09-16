@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 // import 'package:url_launcher/url_launcher.dart'; // Add to pubspec.yaml if needed
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/custom_appbar.dart';
 
 class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
@@ -20,23 +21,105 @@ class HelpSupportScreen extends StatelessWidget {
     );
   }
 
+  static void _showGuide(
+    BuildContext context, {
+    required String title,
+    required List<String> points,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 28,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1A56DB), Color(0xFF3B82F6)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.help_outline_rounded,
+                        color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              ...points.map(
+                (point) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.check_circle_rounded,
+                          color: Color(0xFF1A56DB), size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          point,
+                          style: const TextStyle(
+                            color: Color(0xFF475569),
+                            fontSize: 14,
+                            height: 1.35,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Got it'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFF),
-      appBar: AppBar(
-        title: const Text(
-          'Help & Support',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: const Color(0xFF0D2147),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      backgroundColor: AppColors.background,
+      appBar: const CustomAppBar(title: 'Help & Support', showBackButton: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -46,13 +129,29 @@ class HelpSupportScreen extends StatelessWidget {
             _buildSupportItem(
               icon: Icons.help_outline,
               title: 'How to create matches?',
-              onTap: () {},
+              onTap: () => _showGuide(
+                context,
+                title: 'How to create matches?',
+                points: const [
+                  'Open Matches and tap Create Match.',
+                  'Select both teams, venue, date, time and match format.',
+                  'Save the match, then initialize live scoring when ready.',
+                ],
+              ),
               subtitle: 'Learn how to set up and manage cricket matches',
             ),
             _buildSupportItem(
               icon: Icons.emoji_events,
               title: 'Joining Tournaments',
-              onTap: () {},
+              onTap: () => _showGuide(
+                context,
+                title: 'Joining Tournaments',
+                points: const [
+                  'Open Tournaments and choose the tournament you want.',
+                  'Check eligibility, schedule and team requirements.',
+                  'Send a join request or contact the organizer from details.',
+                ],
+              ),
               subtitle: 'Step-by-step guide to participate in tournaments',
             ),
             const SizedBox(height: 24),
@@ -60,7 +159,15 @@ class HelpSupportScreen extends StatelessWidget {
             _buildSupportItem(
               icon: Icons.person,
               title: 'Profile Setup',
-              onTap: () {},
+              onTap: () => _showGuide(
+                context,
+                title: 'Profile Setup',
+                points: const [
+                  'Open Profile and tap edit to update basic details.',
+                  'Complete Cricket Profile with role, batting and bowling style.',
+                  'Add location and profile image to make your profile complete.',
+                ],
+              ),
               subtitle: 'Complete your player profile and stats',
             ),
             _buildSupportItem(

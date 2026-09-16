@@ -1,10 +1,6 @@
-﻿import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import '../../core/config/theme_config.dart';
-import '../../core/widgets/custom_button.dart';
-import '../../core/widgets/custom_textfield.dart';
 import '../../providers/auth_provider.dart';
 import 'auth_design.dart';
 
@@ -21,13 +17,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
   bool _otpVerified = false;
   String? _passedEmail;
-  
+
   // Focus nodes for keyboard management
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _otpFocusNode = FocusNode();
@@ -64,19 +60,19 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Future<void> _verifyOTP() async {
     FocusScope.of(context).unfocus();
     await Future.delayed(const Duration(milliseconds: 100));
-    
+
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      
+
       final authProvider = context.read<AuthProvider>();
       final success = await authProvider.resetPassword(
         _emailController.text.trim(),
         _otpController.text.trim(),
         _passwordController.text,
       );
-      
+
       setState(() => _isLoading = false);
-      
+
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -102,359 +98,230 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Widget build(BuildContext context) {
     return AuthShell(
       showBack: true,
-      title: 'New password',
-      subtitle: 'Enter your OTP and create a strong password for your Scores11 account.',
+      title: 'Reset password',
+      subtitle: 'Enter the OTP sent to your email and create a new secure password.',
+      heroImage: 'score 11/Login, Register, OTP 1080 x 720 PNG.png',
       heroIcon: Icons.password_rounded,
+      belowCard: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('Remember your password? ',
+                  style: TextStyle(color: AuthDesign.muted, fontWeight: FontWeight.w600)),
+              TextButton(
+                onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Sign in', style: TextStyle(fontWeight: FontWeight.w900)),
+                    Icon(Icons.chevron_right_rounded, size: 18),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const AuthFeatureStrip(),
+        ],
+      ),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextFormField(
-              controller: _emailController,
-              focusNode: _emailFocusNode,
-              keyboardType: TextInputType.emailAddress,
-              decoration: AuthDesign.input(label: 'Email address', hint: 'Registered email', icon: Icons.email_outlined),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) return 'Please enter email';
-                if (!value.contains('@') || !value.contains('.')) return 'Enter valid email';
-                return null;
-              },
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _otpController,
-              focusNode: _otpFocusNode,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              decoration: AuthDesign.input(label: 'OTP code', hint: '6-digit code', icon: Icons.pin_rounded).copyWith(counterText: ''),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) return 'Please enter OTP';
-                if (value.trim().length != 6) return 'OTP must be 6 digits';
-                return null;
-              },
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _passwordController,
-              focusNode: _passwordFocusNode,
-              obscureText: _obscurePassword,
-              decoration: AuthDesign.input(
-                label: 'New password',
-                hint: 'Create new password',
-                icon: Icons.lock_outline_rounded,
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                ),
+            const AuthStepProgress(currentStep: 1, labels: ['Verify OTP', 'Create Password', 'Complete']),
+            const SizedBox(height: 24),
+            _fieldSection(
+              label: 'Email Address',
+              icon: Icons.email_outlined,
+              trailing: _passedEmail != null
+                  ? const Icon(Icons.check_circle_rounded, color: AuthDesign.cricketGreen, size: 18)
+                  : null,
+              field: TextFormField(
+                controller: _emailController,
+                focusNode: _emailFocusNode,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                decoration: _plainFieldDecoration('Registered email'),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) return 'Please enter email';
+                  if (!value.contains('@') || !value.contains('.')) return 'Enter valid email';
+                  return null;
+                },
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Please enter password';
-                if (value.length < 6) return 'Password must be at least 6 characters';
-                return null;
-              },
             ),
             const SizedBox(height: 14),
-            TextFormField(
-              controller: _confirmPasswordController,
-              focusNode: _confirmPasswordFocusNode,
-              obscureText: _obscureConfirmPassword,
-              decoration: AuthDesign.input(
-                label: 'Confirm password',
-                hint: 'Re-enter password',
-                icon: Icons.verified_user_outlined,
-                suffixIcon: IconButton(
-                  icon: Icon(_obscureConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded),
-                  onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                ),
+            _fieldSection(
+              label: 'OTP Code',
+              icon: Icons.pin_rounded,
+              field: TextFormField(
+                controller: _otpController,
+                focusNode: _otpFocusNode,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+                maxLength: 6,
+                decoration: _plainFieldDecoration('6-digit code').copyWith(counterText: ''),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) return 'Please enter OTP';
+                  if (value.trim().length != 6) return 'OTP must be 6 digits';
+                  return null;
+                },
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Please confirm password';
-                if (value != _passwordController.text) return 'Passwords do not match';
-                return null;
-              },
             ),
+            const SizedBox(height: 14),
+            _fieldSection(
+              label: 'New Password',
+              icon: Icons.lock_outline_rounded,
+              field: TextFormField(
+                controller: _passwordController,
+                focusNode: _passwordFocusNode,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.next,
+                decoration: _plainFieldDecoration('Create new password').copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Please enter password';
+                  if (value.length < 6) return 'Password must be at least 6 characters';
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 14),
+            _fieldSection(
+              label: 'Confirm Password',
+              icon: Icons.verified_user_outlined,
+              field: TextFormField(
+                controller: _confirmPasswordController,
+                focusNode: _confirmPasswordFocusNode,
+                obscureText: _obscureConfirmPassword,
+                textInputAction: TextInputAction.done,
+                decoration: _plainFieldDecoration('Re-enter password').copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 20),
+                    onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Please confirm password';
+                  if (value != _passwordController.text) return 'Passwords do not match';
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildRequirementsCard(),
             const SizedBox(height: 18),
             AuthPrimaryButton(
               onPressed: _verifyOTP,
-              label: 'Reset password',
+              label: 'Reset Password',
               loading: _isLoading,
               icon: Icons.lock_reset_rounded,
+              trailingArrow: true,
             ),
           ],
         ),
       ),
     );
+  }
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.primary, AppColors.primaryDark],
-            ),
-          ),
-child: SafeArea(
-            child: SingleChildScrollView(
-              // FIXED: Removed onDrag to prevent back navigation in Release APK
-              // keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 20),
-                    // Back Button
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    // Icon
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.lock_reset,
-                        size: 60,
-                        color: Colors.white,
-                      ),
-                    ).animate().fadeIn().scale(),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Reset Your Password',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ).animate().fadeIn(delay: 200.ms),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Enter the OTP sent to your email',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
-                      ),
-                    ).animate().fadeIn(delay: 300.ms),
-                    const SizedBox(height: 40),
-                    // Form Card
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        children: [
-                          // Email Field
-                          TextFormField(
-                            controller: _emailController,
-                            focusNode: _emailFocusNode,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            style: const TextStyle(fontSize: 14),
-                            decoration: InputDecoration(
-                              labelText: 'Email Address',
-                              hintText: 'Enter your email',
-                              prefixIcon: const Icon(Icons.email, size: 20),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your email';
-                              }
-                              if (!value.contains('@')) {
-                                return 'Please enter a valid email';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // OTP Field
-                          TextFormField(
-                            controller: _otpController,
-                            focusNode: _otpFocusNode,
-                            keyboardType: TextInputType.number,
-                            textInputAction: TextInputAction.next,
-                            style: const TextStyle(fontSize: 14),
-                            decoration: InputDecoration(
-                              labelText: 'OTP Code',
-                              hintText: 'Enter the OTP from your email',
-                              prefixIcon: const Icon(Icons.pin, size: 20),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter the OTP';
-                              }
-                              if (value.length != 6) {
-                                return 'OTP must be 6 digits';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // New Password Field
-                          TextFormField(
-                            controller: _passwordController,
-                            focusNode: _passwordFocusNode,
-                            obscureText: _obscurePassword,
-                            textInputAction: TextInputAction.next,
-                            style: const TextStyle(fontSize: 14),
-                            decoration: InputDecoration(
-                              labelText: 'New Password',
-                              hintText: 'Enter new password',
-                              prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                                  size: 18,
-                                ),
-                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a password';
-                              }
-                              if (value.length < 6) {
-                                return 'Password must be at least 6 characters';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // Confirm Password Field
-                          TextFormField(
-                            controller: _confirmPasswordController,
-                            focusNode: _confirmPasswordFocusNode,
-                            obscureText: _obscureConfirmPassword,
-                            textInputAction: TextInputAction.done,
-                            style: const TextStyle(fontSize: 14),
-                            decoration: InputDecoration(
-                              labelText: 'Confirm Password',
-                              hintText: 'Confirm your password',
-                              prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                                  size: 18,
-                                ),
-                                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            ),
-validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please confirm your password';
-                              }
-                              if (value != _passwordController.text) {
-                                return 'Passwords do not match';
-                              }
-                              return null;
-                            },
-                            // FIX: Prevent unexpected navigation in release builds
-                            onFieldSubmitted: (value) {
-                              FocusScope.of(context).unfocus();
-                              if (!mounted) return;
-                              _verifyOTP();
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _verifyOTP,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : const Text(
-                                      'Reset Password',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+  /// Pure presentation helper: a light bordered "step card" row made of an
+  /// icon chip + label header with the actual field underneath.
+  Widget _fieldSection({
+    required String label,
+    required IconData icon,
+    required Widget field,
+    Widget? trailing,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AuthDesign.line),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(color: AuthDesign.chipBg, borderRadius: BorderRadius.circular(9)),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 15, color: AppColors.primary),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AuthDesign.ink)),
+              ),
+              if (trailing != null) trailing,
+            ],
+          ),
+          const SizedBox(height: 10),
+          field,
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _plainFieldDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AuthDesign.line)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AuthDesign.line)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.7)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.error)),
+      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.error, width: 1.7)),
+    );
+  }
+
+  Widget _buildRequirementsCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AuthDesign.chipBg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Password must contain:', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: AuthDesign.ink)),
+          SizedBox(height: 6),
+          _RequirementRow('At least 6 characters'),
+          SizedBox(height: 4),
+          _RequirementRow('Mix of letters and numbers'),
+          SizedBox(height: 4),
+          _RequirementRow('Strong & unique password'),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small "✓ requirement" row used inside the password requirements card.
+/// Purely presentational.
+class _RequirementRow extends StatelessWidget {
+  final String text;
+
+  const _RequirementRow(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.check_circle_rounded, size: 14, color: AuthDesign.cricketGreen),
+        const SizedBox(width: 6),
+        Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AuthDesign.muted)),
+      ],
     );
   }
 }

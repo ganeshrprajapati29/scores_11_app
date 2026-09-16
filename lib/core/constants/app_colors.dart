@@ -5,12 +5,12 @@ class AppColors {
   AppColors._();
   
   // ==================== PRIMARY COLORS ====================
-  static const Color primary = Color(0xFF185FA5);
-  static const Color primaryLight = Color(0xFFE6F1FB);
-  static const Color primaryDark = Color(0xFF0F477F);
-  
+  static const Color primary = Color(0xFF1657CC);
+  static const Color primaryLight = Color(0xFFE8F0FE);
+  static const Color primaryDark = Color(0xFF0D2B5E);
+
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF185FA5), Color(0xFF0F477F)],
+    colors: [Color(0xFF1657CC), Color(0xFF0D2B5E)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -34,22 +34,22 @@ class AppColors {
   static const Color surfaceDark = Color(0xFF1E1E1E);
   
   // ==================== TEXT COLORS ====================
-  static const Color textPrimary = Color(0xFF111827);
+  static const Color textPrimary = Color(0xFF101828);
   static const Color textSecondary = Color(0xFF667085);
   static const Color textHint = Color(0xFF98A2B3);
   static const Color textDisabled = Color(0xFFD0D5DD);
   static const Color textOnPrimary = Color(0xFFFFFFFF);
-  
+
   static const Color textPrimaryDark = Color(0xFFF5F5F5);
   static const Color textSecondaryDark = Color(0xFFB0B0B0);
   static const Color textHintDark = Color(0xFF6B6B6B);
-  
+
   // ==================== STATUS COLORS ====================
   static const Color success = Color(0xFF16A34A);
   static const Color error = Color(0xFFDC2626);
   static const Color errorLight = Color(0xFFFEE2E2);
   static const Color warning = Color(0xFFF59E0B);
-  static const Color info = Color(0xFF185FA5);
+  static const Color info = Color(0xFF1657CC);
   
   static const LinearGradient successGradient = LinearGradient(
     colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
@@ -64,13 +64,13 @@ class AppColors {
   );
   
   // ==================== MATCH STATUS COLORS ====================
-  static const Color live = Color(0xFFE11D48);
+  static const Color live = Color(0xFFE31E3C);
   static const Color scheduled = Color(0xFF64748B);
   static const Color cancelled = Color(0xFFF59E0B);
   static const Color completed = Color(0xFF16A34A);
-  
+
   static const LinearGradient liveGradient = LinearGradient(
-    colors: [Color(0xFFE53935), Color(0xFFB71C1C)],
+    colors: [Color(0xFFE31E3C), Color(0xFFB71C1C)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

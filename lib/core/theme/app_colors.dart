@@ -2,30 +2,30 @@
 
 class AppColors {
   // Primary Colors
-  static const Color primary = Color(0xFF1E88E5);
-  static const Color primaryDark = Color(0xFF1565C0);
-  static const Color primaryLight = Color(0xFF64B5F6);
-  static const Color primarySoft = Color(0xFFE3F2FD);
-  static const Color secondary = Color(0xFF43A047);
-  
+  static const Color primary = Color(0xFF1657CC);
+  static const Color primaryDark = Color(0xFF0D2B5E);
+  static const Color primaryLight = Color(0xFFE8F0FE);
+  static const Color primarySoft = Color(0xFFE8F0FE);
+  static const Color secondary = Color(0xFF16A34A);
+
   // Status Colors
-  static const Color success = Color(0xFF43A047);
+  static const Color success = Color(0xFF16A34A);
   static const Color error = Color(0xFFE53935);
   static const Color warning = Color(0xFFFFB300);
-  static const Color info = Color(0xFF2196F3);
-  static const Color live = Color(0xFFF44336);
-  
+  static const Color info = Color(0xFF1657CC);
+  static const Color live = Color(0xFFE31E3C);
+
   // Text Colors
-  static const Color textPrimary = Color(0xFF212121);
-  static const Color textSecondary = Color(0xFF757575);
+  static const Color textPrimary = Color(0xFF101828);
+  static const Color textSecondary = Color(0xFF667085);
   static const Color textHint = Color(0xFFBDBDBD);
   static const Color textOnPrimary = Colors.white;
   static const Color textPrimaryDark = Color(0xFFE0E0E0);
   static const Color textSecondaryDark = Color(0xFF9E9E9E);
   static const Color textHintDark = Color(0xFF616161);
-  
+
   // Background Colors
-  static const Color background = Color(0xFFF5F5F5);
+  static const Color background = Color(0xFFF7F9FC);
   static const Color backgroundDark = Color(0xFF121212);
   static const Color surface = Colors.white;
   static const Color surfaceDark = Color(0xFF1E1E1E);

@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/store_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -79,11 +80,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Checkout'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
+      appBar: const CustomAppBar(title: 'Checkout', showBackButton: true),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(

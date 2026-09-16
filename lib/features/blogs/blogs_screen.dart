@@ -380,18 +380,7 @@ class _BlogDetailScreenState extends State<BlogDetailScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF111827)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Article',
-          style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.w900, fontSize: 18),
-        ),
-      ),
+      appBar: const CustomAppBar(title: 'Article', showBackButton: true),
       body: isLoading && currentBlog == null
           ? const CustomLoader()
           : currentBlog == null

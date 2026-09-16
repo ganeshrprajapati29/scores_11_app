@@ -1,8 +1,9 @@
-import '../../core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+
 import '../../core/services/connectivity_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../providers/auth_provider.dart';
 import 'auth_design.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -103,8 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isSubmitting = true);
 
     final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.verifyEmailOtp(
-        _emailController.text.trim(), otp);
+    final success =
+        await authProvider.verifyEmailOtp(_emailController.text.trim(), otp);
 
     if (!mounted) return;
     setState(() => _isSubmitting = false);
@@ -150,15 +151,15 @@ class _LoginScreenState extends State<LoginScreen> {
     return AuthShell(
       title: 'Welcome back',
       subtitle: _otpSent
-          ? 'Enter the OTP sent to ${_emailController.text.trim()}.'
-          : 'Login with your email using a one-time code. No password needed.',
+          ? 'Enter the OTP sent to your email.\nNo password needed.'
+          : 'Login with your email using a one-time code.\nNo password needed.',
       heroIcon: Icons.sports_cricket_rounded,
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!_otpSent)
+            if (!_otpSent) ...[
               TextFormField(
                 controller: _emailController,
                 focusNode: _emailFocusNode,
@@ -170,17 +171,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   icon: Icons.email_outlined,
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter email';
-                  }
+                  if (value == null || value.isEmpty) return 'Please enter email';
                   if (!value.contains('@') || !value.contains('.')) {
                     return 'Enter valid email';
                   }
                   return null;
                 },
                 onFieldSubmitted: (_) => _sendOtp(),
-              )
-            else
+              ),
+              const SizedBox(height: 22),
+              AuthPrimaryButton(
+                onPressed: _sendOtp,
+                label: 'Send OTP',
+                loading: _isSubmitting || auth.status == AuthStatus.loading,
+                icon: Icons.send_rounded,
+                trailingArrow: true,
+              ),
+            ] else ...[
+              AuthSuccessBanner(
+                title: 'Enter the OTP sent to',
+                description: _emailController.text.trim(),
+              ),
+              const SizedBox(height: 18),
               TextFormField(
                 controller: _otpController,
                 focusNode: _otpFocusNode,
@@ -189,83 +201,96 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: AuthDesign.input(
                   label: 'OTP code',
                   hint: 'Enter 6-digit code',
-                  icon: Icons.pin_outlined,
+                  icon: Icons.lock_outline_rounded,
                 ).copyWith(counterText: ''),
                 onFieldSubmitted: (_) => _verifyOtp(),
               ),
-            const SizedBox(height: 18),
-            AuthPrimaryButton(
-              onPressed: _otpSent ? _verifyOtp : _sendOtp,
-              label: _otpSent ? 'Verify and sign in' : 'Send OTP',
-              loading: _isSubmitting || auth.status == AuthStatus.loading,
-              icon: _otpSent ? Icons.verified_rounded : Icons.send_rounded,
-            ),
-            if (_otpSent) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 22),
+              AuthPrimaryButton(
+                onPressed: _verifyOtp,
+                label: 'Verify and sign in',
+                loading: _isSubmitting || auth.status == AuthStatus.loading,
+                icon: Icons.shield_rounded,
+                trailingArrow: true,
+              ),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  TextButton(
+                  TextButton.icon(
                     onPressed: _isSubmitting ? null : _sendOtp,
-                    child: const Text('Resend OTP',
-                        style: TextStyle(fontWeight: FontWeight.w800)),
+                    icon: const Icon(Icons.refresh_rounded, size: 17),
+                    label: const Text(
+                      'Resend OTP',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
                   ),
-                  TextButton(
+                  Container(width: 1, height: 16, color: AuthDesign.line),
+                  TextButton.icon(
                     onPressed: _isSubmitting
                         ? null
                         : () => setState(() {
                               _otpSent = false;
                               _otpController.clear();
                             }),
-                    child: const Text('Change email'),
+                    icon: const Icon(Icons.edit_rounded, size: 17),
+                    label: const Text('Change email'),
                   ),
                 ],
               ),
             ],
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
+            const SizedBox(height: 24),
+            const AuthDivider(),
+            const SizedBox(height: 18),
+            AuthOutlineButton(
               onPressed: () => Navigator.pushNamed(context, '/phone-login'),
-              icon: const Icon(Icons.sms_outlined),
-              label: const Text('Login or register with mobile OTP'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
+              label: 'Login or register with mobile OTP',
+              icon: Icons.chat_bubble_outline_rounded,
             ),
-            const SizedBox(height: 14),
-            OutlinedButton.icon(
+            const SizedBox(height: 12),
+            AuthOutlineButton(
               onPressed: (auth.status == AuthStatus.loading || _isSubmitting)
                   ? null
                   : _continueAsGuest,
-              icon: const Icon(Icons.person_outline_rounded, size: 19),
-              label: const Text('Continue as guest'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: BorderSide(color: AppColors.primary.withOpacity(0.28)),
-                minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                textStyle: const TextStyle(fontWeight: FontWeight.w900),
-              ),
+              label: 'Continue as guest',
+              icon: Icons.person_outline_rounded,
             ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('New to Scores11?',
-                    style: TextStyle(
-                        color: AuthDesign.muted, fontWeight: FontWeight.w600)),
-                TextButton(
-                  onPressed: () => Navigator.pushNamed(context, '/register'),
-                  child: const Text('Create account',
-                      style: TextStyle(fontWeight: FontWeight.w900)),
-                ),
-              ],
+            const SizedBox(height: 22),
+            const Center(
+              child: AuthSecurityNote(text: 'Secure, fast and password-free'),
             ),
           ],
         ),
+      ),
+      belowCard: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'New to Scores11? ',
+                style: TextStyle(
+                  color: AuthDesign.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, '/register'),
+                child: const Text(
+                  'Create account',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const AuthFeatureStrip(items: [
+            AuthFeatureItem(Icons.verified_user_rounded, 'Secure\nLogin'),
+            AuthFeatureItem(Icons.bolt_rounded, 'Quick\nAccess'),
+            AuthFeatureItem(Icons.mark_email_read_rounded, 'OTP on\nEmail'),
+            AuthFeatureItem(Icons.emoji_events_rounded, 'For True\nCricket Fans'),
+          ]),
+        ],
       ),
     );
   }

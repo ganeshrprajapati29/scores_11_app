@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/community_service.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -119,15 +120,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF111827)),
-        title: const Text(
-          'Post',
-          style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.w800),
-        ),
+      appBar: CustomAppBar(
+        title: 'Post',
+        showBackButton: true,
+        centerTitle: false,
         actions: [
           IconButton(
             onPressed: _post == null ? null : _sharePost,

@@ -4,6 +4,7 @@ import '../../data/services/user_service.dart';
 import '../../data/models/player_model.dart';
 import '../../data/models/match_model.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/widgets/custom_appbar.dart';
 
 String? _safeUrl(String? value) {
   final url = value?.trim();
@@ -138,16 +139,10 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _C.surface,
-      appBar: AppBar(
-        title: const Text(
-          'Player Profile',
-          style: TextStyle(color: _C.textPrimary, fontWeight: FontWeight.w800),
-        ),
+      appBar: CustomAppBar(
+        title: 'Player Profile',
         centerTitle: false,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: _C.textPrimary),
+        showBackButton: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined, color: _C.textPrimary),
@@ -271,10 +266,27 @@ class _EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Player not found',
-        style: TextStyle(fontSize: 15, color: _C.textTertiary),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            'score 11/Empty States 6.png',
+            width: 128,
+            height: 128,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const Icon(
+              Icons.person_search_rounded,
+              size: 56,
+              color: _C.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Player not found',
+            style: TextStyle(fontSize: 15, color: _C.textTertiary),
+          ),
+        ],
       ),
     );
   }
@@ -330,7 +342,27 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Card(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _C.border, width: 0.5),
+        image: const DecorationImage(
+          image: AssetImage('score 11/Player Profile cover page.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+          opacity: 0.18,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -381,17 +413,25 @@ class _AvatarFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: _C.primaryLight,
-      alignment: Alignment.center,
-      child: Text(
-        name.isNotEmpty ? name[0].toUpperCase() : '?',
-        style: const TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.w700,
-          color: _C.primary,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          'score 11/Player Profile avatr circle page.png',
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(color: _C.primaryLight),
         ),
-      ),
+        Center(
+          child: Text(
+            name.isNotEmpty ? name[0].toUpperCase() : '?',
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

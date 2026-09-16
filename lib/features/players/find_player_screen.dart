@@ -635,14 +635,20 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F2F8),
-              shape: BoxShape.circle,
+          Image.asset(
+            'score 11/Empty States 6.png',
+            width: 124,
+            height: 124,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Container(
+              width: 88,
+              height: 88,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF0F2F8),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 40, color: const Color(0xFFCCCCCC)),
             ),
-            child: Icon(icon, size: 40, color: const Color(0xFFCCCCCC)),
           ),
           const SizedBox(height: 18),
           Text(

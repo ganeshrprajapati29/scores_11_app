@@ -25,13 +25,18 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-Icon(icon, size: 80, color: AppColors.textHint),
-            const SizedBox(height: 16),
+Container(
+              width: 88,
+              height: 88,
+              decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
+              child: Icon(icon, size: 40, color: AppColors.primary),
+            ),
+            const SizedBox(height: 18),
             Text(
               title,
               style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
               ),
               textAlign: TextAlign.center,
@@ -41,7 +46,7 @@ Icon(icon, size: 80, color: AppColors.textHint),
               Text(
                 subtitle!,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 13.5,
                   color: AppColors.textSecondary,
                 ),
                 textAlign: TextAlign.center,
@@ -51,7 +56,13 @@ Icon(icon, size: 80, color: AppColors.textHint),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: onButtonPressed,
-                child: Text(buttonText!),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: Text(buttonText!, style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
           ],

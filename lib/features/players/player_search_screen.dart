@@ -921,7 +921,14 @@ class _EmptyState extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           SizedBox(height: MediaQuery.of(context).size.height * 0.18),
-          Icon(Icons.person_search_rounded, size: 64, color: Colors.grey[400]),
+          Image.asset(
+            'score 11/Empty States 6.png',
+            width: 124,
+            height: 124,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) =>
+                Icon(Icons.person_search_rounded, size: 64, color: Colors.grey[400]),
+          ),
           const SizedBox(height: 14),
           Text(
             hasSearch ? 'No matching public players' : 'No public players found',

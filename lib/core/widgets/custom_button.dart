@@ -29,42 +29,50 @@ class CustomButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String buttonText = text.isNotEmpty ? text : (label ?? '');
-  final effectiveVariant = variant ?? ButtonVariant.filled;
-  return SizedBox(
-    width: width ?? double.infinity,
-    height: height,
-    child: switch (effectiveVariant) {
-      ButtonVariant.filled => ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color ?? AppColors.primary,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    final effectiveVariant = variant ?? ButtonVariant.filled;
+    final buttonHeight = height < 46 ? 46.0 : height;
+    return SizedBox(
+      width: width ?? double.infinity,
+      height: buttonHeight,
+      child: switch (effectiveVariant) {
+        ButtonVariant.filled => ElevatedButton(
+          onPressed: isLoading ? null : onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color ?? AppColors.primary,
+            foregroundColor: Colors.white,
+            minimumSize: Size(0, buttonHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 0,
           ),
-          elevation: 0,
+          child: _buildChild(buttonText),
         ),
-        child: _buildChild(buttonText),
-      ),
-      ButtonVariant.outlined => OutlinedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: color ?? AppColors.primary),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        ButtonVariant.outlined => OutlinedButton(
+          onPressed: isLoading ? null : onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: color ?? AppColors.primary,
+            minimumSize: Size(0, buttonHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            side: BorderSide(color: color ?? AppColors.primary, width: 1.4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
+          child: _buildChild(buttonText),
         ),
-        child: _buildChild(buttonText),
-      ),
-      ButtonVariant.text => TextButton(
-        onPressed: isLoading ? null : onPressed,
-        style: TextButton.styleFrom(
-          foregroundColor: color ?? AppColors.primary,
+        ButtonVariant.text => TextButton(
+          onPressed: isLoading ? null : onPressed,
+          style: TextButton.styleFrom(
+            foregroundColor: color ?? AppColors.primary,
+            minimumSize: Size(0, buttonHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+          child: _buildChild(buttonText),
         ),
-        child: _buildChild(buttonText),
-      ),
-    },
-  );
+      },
+    );
   }
 
   Widget _buildChild(String buttonText) {
@@ -78,12 +86,26 @@ class CustomButton extends StatelessWidget {
         ),
       );
     }
-    return Text(
+    final label = Text(
       buttonText,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
       style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
+        fontSize: 15,
+        fontWeight: FontWeight.w700,
       ),
+    );
+    if (icon == null) return label;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18),
+        const SizedBox(width: 8),
+        Flexible(child: label),
+      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/widgets/custom_appbar.dart';
 import '../../data/models/notification_model.dart';
 import '../../data/services/notification_service.dart';
 
@@ -204,22 +205,10 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     final unread = _notifications.where((item) => !item.isRead).length;
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        foregroundColor: _ink,
-        titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w900)),
-            Text(
-              unread == 0 ? 'All caught up' : '$unread unread updates',
-              style: const TextStyle(fontSize: 12, color: _muted, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
+      appBar: CustomAppBar(
+        title: unread == 0 ? 'Notifications' : 'Notifications ($unread)',
+        showBackButton: true,
+        centerTitle: false,
         actions: [
           IconButton(
             tooltip: 'Refresh',

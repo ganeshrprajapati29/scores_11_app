@@ -113,9 +113,33 @@ class _ScorecardScreenState extends State<ScorecardScreen>
             icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 30),
             onPressed: () => Navigator.maybePop(context),
           ),
-          title: const Text(
-            'Match Centre',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.sports_cricket_rounded, color: AppColors.primary, size: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Flexible(
+                child: Text(
+                  'Match Centre',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                ),
+              ),
+            ],
           ),
           actions: [
             IconButton(
@@ -178,7 +202,14 @@ class _ScorecardScreenState extends State<ScorecardScreen>
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(32),
                   children: [
-                    Icon(Icons.scoreboard, size: 80, color: Colors.grey),
+                    Image.asset(
+                      'score 11/Empty States 6.png',
+                      width: 128,
+                      height: 128,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.scoreboard, size: 80, color: Colors.grey),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'No scorecard data available',
@@ -232,19 +263,10 @@ class _ScorecardScreenState extends State<ScorecardScreen>
   Widget _buildScorecardMatchList() {
     return Scaffold(
       backgroundColor: _pageBg,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
+      appBar: CustomAppBar(
+        title: 'Scorecards',
+        showBackButton: true,
         centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _ink, size: 19),
-          onPressed: () => Navigator.maybePop(context),
-        ),
-        title: const Text(
-          'Scorecards',
-          style: TextStyle(color: _ink, fontWeight: FontWeight.w900, fontSize: 19),
-        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: _ink),
@@ -281,7 +303,17 @@ class _ScorecardScreenState extends State<ScorecardScreen>
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(28),
                         children: [
-                          Icon(Icons.scoreboard_outlined, size: 72, color: Colors.grey[400]),
+                          Image.asset(
+                            'score 11/Empty States 6.png',
+                            width: 128,
+                            height: 128,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.scoreboard_outlined,
+                              size: 72,
+                              color: Colors.grey[400],
+                            ),
+                          ),
                           const SizedBox(height: 14),
                           Text(
                             'No live or completed scorecards yet',
@@ -1127,6 +1159,12 @@ Widget _buildMatchHeader(FullScorecard scorecard) {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
+        image: const DecorationImage(
+          image: AssetImage('score 11/Match Detail Header 1080 x 520.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+          opacity: 0.22,
+        ),
         gradient: LinearGradient(
           colors: [AppColors.primary, AppColors.primaryDark],
           begin: Alignment.topLeft,
@@ -3352,6 +3390,14 @@ class _EmptyScoreSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Image.asset(
+            'score 11/Empty States 6.png',
+            width: 64,
+            height: 64,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 8),
           Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text(message, style: TextStyle(color: Colors.grey[600], fontSize: 13)),

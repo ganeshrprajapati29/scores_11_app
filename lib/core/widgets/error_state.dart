@@ -16,19 +16,30 @@ class ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-Icon(Icons.error_outline, size: 64, color: AppColors.error),
+Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(color: AppColors.error.withOpacity(0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.error_outline_rounded, size: 36, color: AppColors.error),
+            ),
             const SizedBox(height: 16),
             Text(
               friendlyError(message),
-              style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
+              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: onRetry,
-                icon: Icon(Icons.refresh),
-                label: Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
           ],

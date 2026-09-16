@@ -15,11 +15,11 @@ class AppTheme {
   static const Color darkCard = Color(0xFF2A2A3E);
   
   // Accent Colors
-  static const Color neonCyan = Color(0xFF185FA5);
-  static const Color electricPurple = Color(0xFF185FA5);
-  static const Color deepNavy = Color(0xFF185FA5);
+  static const Color neonCyan = Color(0xFF1657CC);
+  static const Color electricPurple = Color(0xFF1657CC);
+  static const Color deepNavy = Color(0xFF0D2B5E);
   static const Color neonGreen = Color(0xFF16A34A);
-  static const Color neonPink = Color(0xFFE11D48);
+  static const Color neonPink = Color(0xFFE31E3C);
   
   static ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
@@ -41,24 +41,62 @@ class AppTheme {
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.white,
+      foregroundColor: deepNavy,
       elevation: 0,
       centerTitle: true,
+      surfaceTintColor: Colors.white,
+      titleTextStyle: TextStyle(
+        color: deepNavy,
+        fontSize: 17,
+        fontWeight: FontWeight.w800,
+      ),
+      iconTheme: IconThemeData(color: deepNavy, size: 22),
+      actionsIconTheme: IconThemeData(color: deepNavy, size: 22),
     ),
     cardTheme: CardThemeData(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      color: lightCard,
+      surfaceTintColor: Colors.white,
+      shadowColor: const Color(0x1A101828),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE4E7EC)),
+      ),
       clipBehavior: Clip.antiAlias,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: lightCard,
+      fillColor: const Color(0xFFF4F7FF),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Color(0xFFE4E7EC)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: neonCyan, width: 1.6),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: neonCyan,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(48, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: neonCyan,
+        minimumSize: const Size(48, 48),
+        side: const BorderSide(color: neonCyan),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w800),
       ),
     ),
   );

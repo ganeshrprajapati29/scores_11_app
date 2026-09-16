@@ -680,7 +680,7 @@ class AppTheme {
       brightness: Brightness.light,
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.background,
-      visualDensity: VisualDensity.compact,
+      visualDensity: VisualDensity.standard,
       
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
@@ -766,7 +766,8 @@ class AppTheme {
           disabledBackgroundColor: AppColors.textDisabled,
           disabledForegroundColor: AppColors.textHint,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -780,7 +781,8 @@ class AppTheme {
           side: const BorderSide(color: AppColors.primary, width: 1.5),
           disabledForegroundColor: AppColors.textDisabled,
           // disabledSide: const BorderSide(color: AppColors.textDisabled),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -799,7 +801,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        isDense: false,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.divider),
@@ -837,10 +840,16 @@ class AppTheme {
         unselectedItemColor: AppColors.textHint,
         selectedIconTheme: IconThemeData(size: 22),
         unselectedIconTheme: IconThemeData(size: 22),
-        selectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+        selectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, height: 1.15),
+        unselectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, height: 1.15),
         type: BottomNavigationBarType.fixed,
         elevation: 4,
+      ),
+
+      listTileTheme: const ListTileThemeData(
+        minLeadingWidth: 32,
+        horizontalTitleGap: 12,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
       
       chipTheme: ChipThemeData(
@@ -968,6 +977,7 @@ class AppTheme {
       brightness: Brightness.dark,
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.primary.withOpacity(0.9),
+      visualDensity: VisualDensity.standard,
       
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
@@ -1050,7 +1060,8 @@ class AppTheme {
           disabledBackgroundColor: const Color(0xFF424242),
           disabledForegroundColor: AppColors.textHintDark,
           elevation: 2,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -1064,7 +1075,8 @@ class AppTheme {
           side: const BorderSide(color: AppColors.primary, width: 1.5),
           disabledForegroundColor: AppColors.textHintDark,
           // disabledSide: const BorderSide(color: Color(0xFF424242)),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -1083,7 +1095,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFF2C2C2C),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        isDense: false,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFF6B6B6B)),
@@ -1121,10 +1134,16 @@ class AppTheme {
         unselectedItemColor: Color(0xFF6B6B6B),
         selectedIconTheme: IconThemeData(size: 24),
         unselectedIconTheme: IconThemeData(size: 24),
-        selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        unselectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+        selectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, height: 1.15),
+        unselectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, height: 1.15),
         type: BottomNavigationBarType.fixed,
         elevation: 8,
+      ),
+
+      listTileTheme: const ListTileThemeData(
+        minLeadingWidth: 32,
+        horizontalTitleGap: 12,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
       
       chipTheme: ChipThemeData(

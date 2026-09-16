@@ -135,6 +135,26 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
         children: [
           // Categories
           Container(
+            height: 112,
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              image: const DecorationImage(
+                image: AssetImage('score 11/Store.png'),
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.10),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+          ).animate().fadeIn().slideY(begin: -0.08, end: 0),
+
+          Container(
             height: 50,
             color: Colors.white,
             child: ListView(
@@ -159,7 +179,17 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inventory_2, size: 64, color: Colors.grey[400]),
+                            Image.asset(
+                              'score 11/Empty States 5.png',
+                              width: 124,
+                              height: 124,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.inventory_2,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'No products found',

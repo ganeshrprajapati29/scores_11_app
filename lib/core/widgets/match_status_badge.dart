@@ -26,19 +26,19 @@ class MatchStatusBadge extends StatelessWidget {
         icon = Icons.circle;
         break;
       case 'COMPLETED':
-        bgColor = Colors.green.withOpacity(0.1);
-        textColor = Colors.green;
+        bgColor = AppColors.success.withOpacity(0.1);
+        textColor = AppColors.success;
         icon = Icons.check_circle;
         break;
       case 'SCHEDULED':
       case 'UPCOMING':
-        bgColor = Colors.orange.withOpacity(0.1);
-        textColor = Colors.orange;
+        bgColor = AppColors.primary.withOpacity(0.1);
+        textColor = AppColors.primary;
         icon = Icons.schedule;
         break;
       default:
-        bgColor = Colors.orange.withOpacity(0.1);
-        textColor = Colors.orange;
+        bgColor = AppColors.warning.withOpacity(0.12);
+        textColor = AppColors.warning;
         icon = Icons.schedule;
         break;
     }
@@ -100,7 +100,7 @@ class _LiveDotPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.red
+      ..color = Colors.white
       ..style = PaintingStyle.fill;
     
     canvas.drawCircle(

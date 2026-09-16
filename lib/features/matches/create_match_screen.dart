@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/widgets/custom_appbar.dart';
 import '../../core/widgets/custom_textfield.dart';
-import '../../core/widgets/custom_button.dart';
 import '../../core/utils/friendly_error.dart';
 import '../../data/services/match_service.dart';
 import '../../data/services/team_service.dart';
@@ -489,27 +488,28 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
     }
     return Scaffold(
       backgroundColor: _kBg,
-      appBar: _buildAppBar(),
-      body: _loadingTeams && _allTeams.isEmpty
-          ? _buildTeamLoader()
-          : Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildPageHeader(),
-                    const SizedBox(height: _kSectionGap),
+      body: Column(
+        children: [
+          _buildHeroBanner(),
+          Expanded(
+            child: _loadingTeams && _allTeams.isEmpty
+                ? _buildTeamLoader()
+                : Form(
+                    key: _formKey,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildTitleBlock(),
+                          const SizedBox(height: _kSectionGap),
 
-// Validation Warning Banner
-                    _buildValidationWarning(),
-                    const SizedBox(height: _kSectionGap),
-
-                    // Team 1
-                    _TeamSelectorCard(
-                      title: 'Team 1',
+                          // Team 1
+                          _TeamSelectorCard(
+                      title: 'Team 1 (Your Team)',
                       subtitle: 'Select your team',
+                      searchLabel: 'Search your teams...',
+                      accentColor: AppColors.primary,
                       searchController: _team1SearchController,
                       filteredTeams: _filteredTeams1,
                       selectedTeam: _selectedTeam1,
@@ -536,146 +536,185 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
                       onCreateTeam: _createTeamAndRefresh,
                     ),
 
-                    const SizedBox(height: 14),
-                    _VsDivider(),
-                    const SizedBox(height: 14),
+                          const SizedBox(height: 14),
+                          _VsDivider(),
+                          const SizedBox(height: 14),
 
-                    // Team 2
-                    _TeamSelectorCard(
-                      title: 'Team 2',
-                      subtitle: 'Select opponent team',
-                      searchController: _team2SearchController,
-                      filteredTeams: _filteredTeams2,
-                      selectedTeam: _selectedTeam2,
-                      loadingTeams: _loadingTeams,
-                      onSelect: (team) {
-                        setState(() {
-                          _selectedTeam2 = team;
-                          _selectedTeam2Id = team.id;
-                          _team2SearchController.text = team.name;
-                          _isTeam2Selected = true;
-                        });
-                      },
-                      onClear: () {
-                        setState(() {
-                          _selectedTeam2 = null;
-                          _selectedTeam2Id = null;
-                          _team2SearchController.clear();
-                          _isTeam2Selected = false;
-                        });
-                      },
-                      onRetry: _loadAllTeams,
-                      onCreateTeam: _createTeamAndRefresh,
+                          // Team 2
+                          _TeamSelectorCard(
+                            title: 'Team 2 (Opponent)',
+                            subtitle: 'Select opponent team',
+                            searchLabel: 'Search opponent teams...',
+                            accentColor: const Color(0xFF16A34A),
+                            searchController: _team2SearchController,
+                            filteredTeams: _filteredTeams2,
+                            selectedTeam: _selectedTeam2,
+                            loadingTeams: _loadingTeams,
+                            onSelect: (team) {
+                              setState(() {
+                                _selectedTeam2 = team;
+                                _selectedTeam2Id = team.id;
+                                _team2SearchController.text = team.name;
+                                _isTeam2Selected = true;
+                              });
+                            },
+                            onClear: () {
+                              setState(() {
+                                _selectedTeam2 = null;
+                                _selectedTeam2Id = null;
+                                _team2SearchController.clear();
+                                _isTeam2Selected = false;
+                              });
+                            },
+                            onRetry: _loadAllTeams,
+                            onCreateTeam: _createTeamAndRefresh,
+                          ),
+
+                          // Validation warning banner
+                          const SizedBox(height: _kSectionGap),
+                          _buildValidationWarning(),
+
+                          // Match Details (shown after both teams selected)
+                          if (_isTeam1Selected && _isTeam2Selected) ...[
+                            const SizedBox(height: _kSectionGap),
+                            _buildMatchDetailsCard(),
+                          ],
+
+                          // Error banner
+                          if (_fetchError != null) ...[
+                            const SizedBox(height: 14),
+                            _buildErrorBanner(),
+                          ],
+
+                          // Create button
+                          if (_isTeam1Selected && _isTeam2Selected) ...[
+                            const SizedBox(height: 24),
+                            _buildCreateButton(),
+                          ],
+                        ],
+                      ),
                     ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                    // Match Details (shown after both teams selected)
-                    if (_isTeam1Selected && _isTeam2Selected) ...[
-                      const SizedBox(height: _kSectionGap),
-                      _buildMatchDetailsCard(),
-                    ],
+  // ── Hero banner ──────────────────────────────────────────────────────────────
 
-                    // Error banner
-                    if (_fetchError != null) ...[
-                      const SizedBox(height: 14),
-                      _buildErrorBanner(),
-                    ],
-
-                    // Create button
-                    if (_isTeam1Selected && _isTeam2Selected) ...[
-                      const SizedBox(height: 24),
-                      _buildCreateButton(),
-                    ],
+  Widget _buildHeroBanner() {
+    final topPadding = MediaQuery.of(context).padding.top;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(16, topPadding + 12, 16, 18),
+      decoration: const BoxDecoration(color: Color(0xFFEAF3FF)),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(0),
+              child: Image.asset(
+                'score 11/Create Match Team 1080 x 420 PNG.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+                filterQuality: FilterQuality.high,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.98),
+                    Colors.white.withOpacity(0.78),
+                    Colors.white.withOpacity(0.10),
                   ],
+                  stops: const [0, 0.45, 1],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
                 ),
               ),
             ),
-    );
-  }
-
-  // ── AppBar ───────────────────────────────────────────────────────────────────
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      surfaceTintColor: Colors.transparent,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded,
-            size: 18, color: _kTextPrimary),
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: const Text(
-        'Create Match',
-        style: TextStyle(
-          color: _kTextPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.3,
-        ),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.help_outline_rounded,
-              size: 20, color: _kTextSecondary),
-          onPressed: _showHelpDialog,
-        ),
-      ],
-      bottom: const PreferredSize(
-        preferredSize: Size.fromHeight(1),
-        child: Divider(height: 1, color: _kBorder),
-      ),
-    );
-  }
-
-  // ── Page header ──────────────────────────────────────────────────────────────
-
-  Widget _buildPageHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(_kCardRadius),
-        border: Border.all(color: _kBorder),
-        boxShadow: const [
-          BoxShadow(color: _kShadow, blurRadius: 10, offset: Offset(0, 2)),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _RoundIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  _RoundIconButton(
+                    icon: Icons.help_outline_rounded,
+                    onTap: _showHelpDialog,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFDC2626), width: 1.4),
+                      boxShadow: const [
+                        BoxShadow(color: _kShadow, blurRadius: 8, offset: Offset(0, 3)),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'SCORES11',
+                    style: TextStyle(
+                      color: const Color(0xFF0D2B5E),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ],
       ),
-      child: Row(
+    );
+  }
+
+  // ── Title block ──────────────────────────────────────────────────────────────
+
+  Widget _buildTitleBlock() {
+    return const Padding(
+      padding: EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(14),
+          Text(
+            'Create Match',
+            style: TextStyle(
+              color: _kTextPrimary,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
-            child: Icon(Icons.sports_cricket_rounded,
-                color: AppColors.primary, size: 26),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Schedule a New Match',
-                  style: TextStyle(
-                    color: _kTextPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Select teams, set venue & match details',
-                  style: TextStyle(
-                    color: _kTextSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
+          SizedBox(height: 6),
+          Text(
+            'Select teams and match details to get started',
+            style: TextStyle(color: _kTextSecondary, fontSize: 13),
           ),
         ],
       ),
@@ -715,7 +754,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Please ensure both teams are selected before creating a match',
+              'Teams must be different to create a match',
               style: const TextStyle(color: Color(0xFF1E40AF), fontSize: 12),
             ),
           ),
@@ -727,28 +766,44 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
   // ── Match details card ───────────────────────────────────────────────────────
 
   Widget _buildMatchDetailsCard() {
+    Widget responsiveFields(List<Widget> children, {int maxColumns = 2}) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final columns = width >= 620 ? maxColumns : 1;
+          final itemWidth = (width - (columns - 1) * 10) / columns;
+          return Wrap(
+            spacing: 10,
+            runSpacing: _kFieldGap,
+            children: [
+              for (final child in children)
+                SizedBox(
+                  width: itemWidth,
+                  child: child,
+                ),
+            ],
+          );
+        },
+      );
+    }
+
     return _SectionCard(
       title: 'Match Details',
-      icon: Icons.edit_note_rounded,
+      icon: Icons.calendar_month_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Match Title
-          CustomTextField(
-            controller: _matchTitleController,
-            labelText: 'Match Title (Optional)',
-            hintText: 'e.g., El Clasico, Derby Match',
-            prefixIcon: Icons.title_rounded,
-          ),
-          const SizedBox(height: _kFieldGap),
-
-          // Format + Type
-          Row(
-            children: [
-              Expanded(
-                child: _StyledDropdown<String>(
+          responsiveFields(
+            [
+              CustomTextField(
+                  controller: _matchTitleController,
+                  labelText: 'Match Title (Optional)',
+                  hintText: 'Eg. Semi Final Match',
+                  prefixIcon: Icons.title_rounded,
+                ),
+              _StyledDropdown<String>(
                   value: _format,
-                  label: 'Format *',
+                  label: 'Format',
                   icon: Icons.sports_cricket_rounded,
                   items: const [
                     DropdownMenuItem(value: 't20', child: Text('T20')),
@@ -757,12 +812,9 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
                   ],
                   onChanged: (v) => setState(() => _format = v),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StyledDropdown<String>(
+              _StyledDropdown<String>(
                   value: _matchType,
-                  label: 'Match Type *',
+                  label: 'Match Type',
                   icon: Icons.category_rounded,
                   items: const [
                     DropdownMenuItem(value: 'league', child: Text('League')),
@@ -780,85 +832,134 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
                   ],
                   onChanged: (v) => setState(() => _matchType = v),
                 ),
-              ),
+            ],
+            maxColumns: 3,
+          ),
+          const SizedBox(height: _kFieldGap),
+
+          responsiveFields(
+            [
+              CustomTextField(
+                  controller: _oversController,
+                  labelText: 'Overs',
+                  prefixIcon: Icons.format_list_numbered_rounded,
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Required';
+                    final o = int.tryParse(v);
+                    if (o == null || o < 1 || o > 100) return '1–100';
+                    return null;
+                  },
+                ),
+              _StyledDropdown<String>(
+                  value: _ballType,
+                  label: 'Ball Type / Category',
+                  icon: Icons.sports_baseball_rounded,
+                  items: _ballCategories
+                      .map((category) => DropdownMenuItem(
+                            value: category.value,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.circle, size: 10, color: category.color),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    '${category.title} (${category.category[0].toUpperCase()}${category.category.substring(1)})',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v == null) return;
+                    _selectBallCategory(
+                        _ballCategories.firstWhere((c) => c.value == v));
+                  },
+                ),
+              _StyledDropdown<String>(
+                  value: _pitchType,
+                  label: 'Pitch Type',
+                  icon: Icons.grass_rounded,
+                  items: const [
+                    DropdownMenuItem(value: 'hard', child: Text('Hard')),
+                    DropdownMenuItem(value: 'green', child: Text('Green')),
+                    DropdownMenuItem(value: 'dusty', child: Text('Dusty')),
+                    DropdownMenuItem(value: 'wet', child: Text('Wet')),
+                  ],
+                  onChanged: (v) => setState(() => _pitchType = v),
+                ),
+            ],
+            maxColumns: 3,
+          ),
+          const SizedBox(height: _kFieldGap),
+
+          responsiveFields(
+            [
+              CustomTextField(
+                  controller: _venueNameController,
+                  labelText: 'Venue Name *',
+                  prefixIcon: Icons.location_on_rounded,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please enter venue name'
+                      : null,
+                ),
+              CustomTextField(
+                  controller: _venueCityController,
+                  labelText: 'Venue City (Optional)',
+                  prefixIcon: Icons.location_city_rounded,
+                ),
             ],
           ),
           const SizedBox(height: _kFieldGap),
 
-          // Tournament
-          _StyledDropdown<String?>(
-            value: _selectedTournamentId,
-            label: 'Tournament (Optional)',
-            icon: Icons.emoji_events_rounded,
-            items: [
-              const DropdownMenuItem(value: null, child: Text('No Tournament')),
-              ..._tournaments.map(
-                  (t) => DropdownMenuItem(value: t.id, child: Text(t.name))),
-            ],
-            onChanged: (v) => setState(() => _selectedTournamentId = v),
-          ),
-          const SizedBox(height: _kFieldGap),
-
-          // Overs
-          CustomTextField(
-            controller: _oversController,
-            labelText: 'Overs per innings *',
-            prefixIcon: Icons.format_list_numbered_rounded,
-            keyboardType: TextInputType.number,
-            validator: (v) {
-              if (v == null || v.isEmpty) return 'Please enter overs';
-              final o = int.tryParse(v);
-              if (o == null || o < 1 || o > 100) return 'Must be 1–100';
-              return null;
-            },
-          ),
-          const SizedBox(height: _kFieldGap),
-
-          _buildBallCategorySection(),
-          const SizedBox(height: _kFieldGap),
-
-          // Date + Time
-          Row(
-            children: [
-              Expanded(
-                child: _DateTimeField(
-                  label: 'Match Date (optional)',
+          responsiveFields(
+            [
+              _DateTimeField(
+                  label: 'Match Date (Optional)',
                   icon: Icons.calendar_today_rounded,
                   value: _scheduledDate != null
                       ? DateFormat('dd MMM yyyy').format(_scheduledDate!)
-                      : 'Not set - starts now',
+                      : 'Select date',
                   onTap: () => _pickDate(isToss: false),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _DateTimeField(
-                  label: 'Match Time (optional)',
+              _DateTimeField(
+                  label: 'Match Time (Optional)',
                   icon: Icons.access_time_rounded,
-                  value: _selectedTime?.format(context) ?? 'Not set - starts now',
+                  value: _selectedTime?.format(context) ?? 'Select time',
                   onTap: () => _pickTime(isToss: false),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: _kFieldGap),
 
-          // Venue Name
-          CustomTextField(
-            controller: _venueNameController,
-            labelText: 'Venue Name *',
-            prefixIcon: Icons.location_on_rounded,
-            validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Please enter venue name'
-                : null,
-          ),
-          const SizedBox(height: 10),
-
-          // City
-          CustomTextField(
-            controller: _venueCityController,
-            labelText: 'City (Optional)',
-            prefixIcon: Icons.location_city_rounded,
+          responsiveFields(
+            [
+              _StyledDropdown<String>(
+                  value: _tossDecision,
+                  label: 'Toss Decision',
+                  icon: Icons.flip_rounded,
+                  items: const [
+                    DropdownMenuItem(value: 'bat', child: Text('Bat First')),
+                    DropdownMenuItem(value: 'bowl', child: Text('Bowl First')),
+                  ],
+                  onChanged: (v) => setState(() => _tossDecision = v),
+                ),
+              _DateTimeField(
+                  label: 'Toss Date & Time (Optional)',
+                  icon: Icons.event_rounded,
+                  value: _tossDate != null
+                      ? '${DateFormat('d MMM').format(_tossDate!)}'
+                          '${_tossTime != null ? ', ${_tossTime!.format(context)}' : ''}'
+                      : 'Select date & time',
+                  onTap: () async {
+                    await _pickDate(isToss: true);
+                    if (mounted) await _pickTime(isToss: true);
+                  },
+                ),
+            ],
           ),
           const SizedBox(height: _kFieldGap),
 
@@ -981,6 +1082,18 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _StyledDropdown<String?>(
+            value: _selectedTournamentId,
+            label: 'Tournament (Optional)',
+            icon: Icons.emoji_events_rounded,
+            items: [
+              const DropdownMenuItem(value: null, child: Text('No Tournament')),
+              ..._tournaments.map(
+                  (t) => DropdownMenuItem(value: t.id, child: Text(t.name))),
+            ],
+            onChanged: (v) => setState(() => _selectedTournamentId = v),
+          ),
+          const SizedBox(height: 10),
           CustomTextField(
             controller: _umpireController,
             labelText: 'Umpire (Optional)',
@@ -1009,19 +1122,6 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
           ),
           const SizedBox(height: 10),
           _StyledDropdown<String>(
-            value: _pitchType,
-            label: 'Pitch Type',
-            icon: Icons.grass_rounded,
-            items: const [
-              DropdownMenuItem(value: 'hard', child: Text('Hard')),
-              DropdownMenuItem(value: 'green', child: Text('Green')),
-              DropdownMenuItem(value: 'dusty', child: Text('Dusty')),
-              DropdownMenuItem(value: 'wet', child: Text('Wet')),
-            ],
-            onChanged: (v) => setState(() => _pitchType = v),
-          ),
-          const SizedBox(height: 10),
-          _StyledDropdown<String>(
             value: _weatherCondition,
             label: 'Weather Condition',
             icon: Icons.wb_sunny_rounded,
@@ -1032,45 +1132,6 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
               DropdownMenuItem(value: 'overcast', child: Text('Overcast')),
             ],
             onChanged: (v) => setState(() => _weatherCondition = v),
-          ),
-          const SizedBox(height: 14),
-
-          // Toss Details
-          const _SectionDivider(label: 'Toss Details'),
-          const SizedBox(height: 12),
-          _StyledDropdown<String>(
-            value: _tossDecision,
-            label: 'Toss Decision',
-            icon: Icons.flip_rounded,
-            items: const [
-              DropdownMenuItem(value: 'bat', child: Text('Bat First')),
-              DropdownMenuItem(value: 'bowl', child: Text('Bowl First')),
-            ],
-            onChanged: (v) => setState(() => _tossDecision = v),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _DateTimeField(
-                  label: 'Toss Date',
-                  icon: Icons.calendar_today_rounded,
-                  value: _tossDate != null
-                      ? DateFormat('dd MMM yyyy').format(_tossDate!)
-                      : '',
-                  onTap: () => _pickDate(isToss: true),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _DateTimeField(
-                  label: 'Toss Time',
-                  icon: Icons.access_time_rounded,
-                  value: _tossTime?.format(context) ?? '',
-                  onTap: () => _pickTime(isToss: true),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -1111,37 +1172,73 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
   }
 
   Widget _buildCreateButton() {
-    return SizedBox(
-      height: 52,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _createMatch,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(_kRadius)),
-        ),
-        child: _isLoading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.sports_cricket_rounded, size: 20),
-                  SizedBox(width: 10),
-                  Text(
-                    'Create Match',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  ),
-                ],
+    return Column(
+      children: [
+        Container(
+          height: 54,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.primaryDark],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(_kRadius + 2),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.28),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
-      ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(_kRadius + 2),
+              onTap: _isLoading ? null : _createMatch,
+              child: Center(
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.sports_cricket_rounded,
+                              color: Colors.white, size: 20),
+                          SizedBox(width: 10),
+                          Text(
+                            'Create Match',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lock_outline_rounded,
+                size: 13, color: _kTextHint),
+            const SizedBox(width: 6),
+            Text(
+              'Your match will be created securely',
+              style: TextStyle(color: _kTextHint, fontSize: 11.5),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -1223,6 +1320,39 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
 
 // ─── Reusable sub-widgets ─────────────────────────────────────────────────────
 
+/// Circular white icon button floating over the hero banner
+class _RoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _RoundIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      elevation: 0,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: _kShadow, blurRadius: 10, offset: Offset(0, 3)),
+            ],
+          ),
+          child: Icon(icon, size: 19, color: _kTextPrimary),
+        ),
+      ),
+    );
+  }
+}
+
 /// White card with title + icon header
 class _SectionCard extends StatelessWidget {
   final String title;
@@ -1253,15 +1383,15 @@ class _SectionCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
             child: Row(
               children: [
-                Icon(icon, size: 18, color: AppColors.primary),
+                Icon(icon, size: 16, color: AppColors.primary),
                 const SizedBox(width: 8),
                 Text(
-                  title,
+                  title.toUpperCase(),
                   style: const TextStyle(
                     color: _kTextPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
                   ),
                 ),
               ],
@@ -1369,17 +1499,74 @@ class _StyledDropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<T>(
-      value: value as T?,
-      decoration: _fieldDecoration(label: label, icon: icon),
-      style: const TextStyle(
-          fontSize: 13, color: _kTextPrimary, fontWeight: FontWeight.w500),
-      dropdownColor: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      icon: const Icon(Icons.keyboard_arrow_down_rounded,
-          color: _kTextHint, size: 20),
-      items: items,
-      onChanged: onChanged,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600, color: _kTextSecondary),
+        ),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<T>(
+          value: value as T?,
+          isExpanded: true,
+          decoration: InputDecoration(
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 18, color: AppColors.primary),
+              ),
+            ),
+            prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            filled: true,
+            fillColor: const Color(0xFFF9FAFB),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_kRadius),
+              borderSide: const BorderSide(color: _kBorder),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_kRadius),
+              borderSide: const BorderSide(color: _kBorder),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_kRadius),
+              borderSide: BorderSide(color: AppColors.primary, width: 1.7),
+            ),
+          ),
+          style: const TextStyle(
+              fontSize: 13, color: _kTextPrimary, fontWeight: FontWeight.w600),
+          dropdownColor: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+              color: _kTextHint, size: 20),
+          selectedItemBuilder: (context) => items
+              .map(
+                (item) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: DefaultTextStyle(
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _kTextPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    child: item.child,
+                  ),
+                ),
+              )
+              .toList(),
+          items: items,
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 }
@@ -1400,15 +1587,54 @@ class _DateTimeField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AbsorbPointer(
-        child: TextFormField(
-          controller: TextEditingController(text: value),
-          style: const TextStyle(fontSize: 13, color: _kTextPrimary),
-          decoration: _fieldDecoration(label: label, icon: icon),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600, color: _kTextSecondary),
         ),
-      ),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(_kRadius),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(_kRadius),
+              border: Border.all(color: _kBorder),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, size: 16, color: AppColors.primary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: _kTextPrimary,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1422,18 +1648,20 @@ class _VsDivider extends StatelessWidget {
         const Expanded(child: Divider(color: _kBorder)),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
+          width: 34,
+          height: 34,
+          decoration: const BoxDecoration(
             color: AppColors.primary,
-            borderRadius: BorderRadius.circular(8),
+            shape: BoxShape.circle,
           ),
+          alignment: Alignment.center,
           child: const Text(
             'VS',
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w800,
-              fontSize: 13,
-              letterSpacing: 1,
+              fontSize: 12,
+              letterSpacing: 0.5,
             ),
           ),
         ),
@@ -1455,36 +1683,32 @@ class _AdvancedToggle extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(10),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(_kRadius),
+          border: Border.all(color: _kBorder),
         ),
         child: Row(
           children: [
+            Icon(Icons.settings_outlined, color: AppColors.primary, size: 18),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Advanced Options (Umpire, Referee, Weather, Tournament)',
+                style: TextStyle(
+                  color: _kTextPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
             Icon(
               expanded
                   ? Icons.keyboard_arrow_up_rounded
                   : Icons.keyboard_arrow_down_rounded,
-              color: AppColors.primary,
+              color: _kTextSecondary,
               size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Advanced Options',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              expanded ? 'Hide' : 'Show',
-              style: TextStyle(
-                color: AppColors.primary.withOpacity(0.7),
-                fontSize: 12,
-              ),
             ),
           ],
         ),
@@ -1522,6 +1746,8 @@ class _SectionDivider extends StatelessWidget {
 class _TeamSelectorCard extends StatelessWidget {
   final String title;
   final String subtitle;
+  final String searchLabel;
+  final Color accentColor;
   final TextEditingController searchController;
   final List<Team> filteredTeams;
   final Team? selectedTeam;
@@ -1534,6 +1760,8 @@ class _TeamSelectorCard extends StatelessWidget {
   const _TeamSelectorCard({
     required this.title,
     required this.subtitle,
+    required this.searchLabel,
+    this.accentColor = AppColors.primary,
     required this.searchController,
     required this.filteredTeams,
     required this.selectedTeam,
@@ -1553,7 +1781,7 @@ class _TeamSelectorCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(_kCardRadius),
         border: Border.all(
-          color: isSelected ? AppColors.primary.withOpacity(0.3) : _kBorder,
+          color: isSelected ? accentColor.withOpacity(0.3) : _kBorder,
           width: isSelected ? 1.5 : 1,
         ),
         boxShadow: const [
@@ -1565,7 +1793,12 @@ class _TeamSelectorCard extends StatelessWidget {
         children: [
           // Card header strip
           _CardHeaderStrip(
-              title: title, subtitle: subtitle, isSelected: isSelected),
+            title: title,
+            subtitle: subtitle,
+            isSelected: isSelected,
+            accentColor: accentColor,
+            onCreateTeam: onCreateTeam,
+          ),
 
           Padding(
             padding: const EdgeInsets.all(14),
@@ -1576,7 +1809,7 @@ class _TeamSelectorCard extends StatelessWidget {
                   controller: searchController,
                   style: const TextStyle(fontSize: 13, color: _kTextPrimary),
                   decoration: _fieldDecoration(
-                    label: 'Search $title',
+                    label: searchLabel,
                     icon: Icons.search_rounded,
                     suffix: isSelected
                         ? IconButton(
@@ -1589,24 +1822,13 @@ class _TeamSelectorCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
 
-                OutlinedButton.icon(
-                  onPressed: onCreateTeam,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Create a new team'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: BorderSide(color: AppColors.primary.withOpacity(0.3)),
-                    minimumSize: const Size.fromHeight(44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
                 // Body
                 if (isSelected)
-                  _SelectedTeamBanner(team: selectedTeam!)
+                  _SelectedTeamBanner(
+                    team: selectedTeam!,
+                    accentColor: accentColor,
+                    onDelete: onClear,
+                  )
                 else if (loadingTeams)
                   _TeamListLoader()
                 else if (filteredTeams.isEmpty &&
@@ -1618,6 +1840,7 @@ class _TeamSelectorCard extends StatelessWidget {
                   _TeamListView(
                     teams: filteredTeams,
                     selectedId: null,
+                    accentColor: accentColor,
                     onSelect: onSelect,
                   ),
               ],
@@ -1633,11 +1856,15 @@ class _CardHeaderStrip extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool isSelected;
+  final Color accentColor;
+  final VoidCallback onCreateTeam;
 
   const _CardHeaderStrip({
     required this.title,
     required this.subtitle,
     required this.isSelected,
+    required this.accentColor,
+    required this.onCreateTeam,
   });
 
   @override
@@ -1646,7 +1873,7 @@ class _CardHeaderStrip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: isSelected
-            ? AppColors.primary.withOpacity(0.06)
+            ? accentColor.withOpacity(0.06)
             : const Color(0xFFF8F9FA),
         borderRadius:
             const BorderRadius.vertical(top: Radius.circular(_kCardRadius - 1)),
@@ -1658,32 +1885,52 @@ class _CardHeaderStrip extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary : const Color(0xFFEEEFF2),
+              color: isSelected ? accentColor : accentColor.withOpacity(0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              isSelected ? Icons.check_rounded : Icons.add_rounded,
-              color: isSelected ? Colors.white : _kTextHint,
-              size: 16,
+              Icons.person_rounded,
+              color: isSelected ? Colors.white : accentColor,
+              size: 17,
             ),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: isSelected ? AppColors.primary : _kTextPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  style: TextStyle(
+                    color: isSelected ? accentColor : _kTextPrimary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                  ),
                 ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: _kTextHint, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            onPressed: onCreateTeam,
+            icon: Icon(Icons.add_rounded, size: 16, color: accentColor),
+            label: Text(
+              'Create Team',
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
               ),
-              Text(
-                subtitle,
-                style: const TextStyle(color: _kTextHint, fontSize: 11),
-              ),
-            ],
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
           ),
         ],
       ),
@@ -1693,44 +1940,51 @@ class _CardHeaderStrip extends StatelessWidget {
 
 class _SelectedTeamBanner extends StatelessWidget {
   final Team team;
-  const _SelectedTeamBanner({required this.team});
+  final Color accentColor;
+  final VoidCallback onDelete;
+  const _SelectedTeamBanner({
+    required this.team,
+    required this.accentColor,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final code = (team.shortName?.isNotEmpty == true
+            ? team.shortName!
+            : team.name.substring(0, team.name.length >= 3 ? 3 : team.name.length))
+        .toUpperCase();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.05),
+        color: accentColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+        border: Border.all(color: accentColor.withOpacity(0.15)),
       ),
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
+              color: accentColor,
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: accentColor.withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2))
               ],
             ),
-            child: Center(
-              child: Text(
-                (team.shortName?.isNotEmpty == true
-                        ? team.shortName![0]
-                        : team.name[0])
-                    .toUpperCase(),
-                style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white),
-              ),
-            ),
+            child: team.logo?.url != null && team.logo!.url!.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: team.logo!.url!,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) =>
+                        const Icon(Icons.shield_rounded, color: Colors.white),
+                  )
+                : const Icon(Icons.shield_rounded, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -1744,16 +1998,37 @@ class _SelectedTeamBanner extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: _kTextPrimary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                if (team.city != null)
-                  Text(team.city!,
-                      style: const TextStyle(
-                          color: _kTextSecondary, fontSize: 12)),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    code,
+                    if (team.city != null && team.city!.isNotEmpty) team.city!,
+                  ].join(' · '),
+                  style:
+                      const TextStyle(color: _kTextSecondary, fontSize: 12),
+                ),
               ],
             ),
           ),
-          const Icon(Icons.check_circle_rounded,
-              color: Color(0xFF16A34A), size: 22),
+          const SizedBox(width: 8),
+          Icon(Icons.check_circle_rounded, color: accentColor, size: 22),
+          const SizedBox(width: 6),
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onDelete,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.delete_outline_rounded,
+                  color: Color(0xFFDC2626), size: 18),
+            ),
+          ),
         ],
       ),
     );
@@ -1827,11 +2102,13 @@ class _EmptyTeamsPlaceholder extends StatelessWidget {
 class _TeamListView extends StatelessWidget {
   final List<Team> teams;
   final String? selectedId;
+  final Color accentColor;
   final void Function(Team) onSelect;
 
   const _TeamListView({
     required this.teams,
     required this.selectedId,
+    this.accentColor = AppColors.primary,
     required this.onSelect,
   });
 
@@ -1858,9 +2135,9 @@ class _TeamListView extends StatelessWidget {
                     height: 36,
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary
-                          : AppColors.primary.withOpacity(0.08),
-                      shape: BoxShape.circle,
+                          ? accentColor
+                          : accentColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(
                       child: Text(
@@ -1871,7 +2148,7 @@ class _TeamListView extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
-                          color: isSelected ? Colors.white : AppColors.primary,
+                          color: isSelected ? Colors.white : accentColor,
                         ),
                       ),
                     ),
@@ -1887,8 +2164,7 @@ class _TeamListView extends StatelessWidget {
                             fontWeight:
                                 isSelected ? FontWeight.w700 : FontWeight.w500,
                             fontSize: 13,
-                            color:
-                                isSelected ? AppColors.primary : _kTextPrimary,
+                            color: isSelected ? accentColor : _kTextPrimary,
                           ),
                         ),
                         if (team.city != null)
@@ -1900,7 +2176,7 @@ class _TeamListView extends StatelessWidget {
                   ),
                   if (isSelected)
                     Icon(Icons.check_circle_rounded,
-                        color: AppColors.primary, size: 18),
+                        color: accentColor, size: 18),
                 ],
               ),
             ),

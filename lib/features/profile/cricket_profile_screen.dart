@@ -263,7 +263,15 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        image: DecorationImage(
+          image: AssetImage('score 11/Player Profile cover page.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+          opacity: 0.10,
+        ),
+      ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Row(
         children: [
@@ -323,18 +331,25 @@ class _AvatarFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.primary.withOpacity(0.1),
-      child: Center(
-        child: Text(
-          user?.name?.substring(0, 1).toUpperCase() ?? 'U',
-          style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          'score 11/Player Profile avatr circle page.png',
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(color: AppColors.primary.withOpacity(0.1)),
+        ),
+        Center(
+          child: Text(
+            user?.name?.substring(0, 1).toUpperCase() ?? 'U',
+            style: const TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

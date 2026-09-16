@@ -270,9 +270,10 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
         color: _primary,
         borderRadius: BorderRadius.circular(20),
         image: const DecorationImage(
-          image: AssetImage('assets/images/pattern.png'),
+          image: AssetImage('score 11/Team  cover page.png'),
           fit: BoxFit.cover,
-          opacity: 0.04,
+          alignment: Alignment.centerRight,
+          opacity: 0.18,
         ),
       ),
       child: Column(

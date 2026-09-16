@@ -80,9 +80,8 @@ class _SplashScreenState extends State<SplashScreen>
 
     _hasNavigated = true;
 
-    final route = auth.status == AuthStatus.authenticated
-        ? '/dashboard'
-        : '/login';
+    final route =
+        auth.status == AuthStatus.authenticated ? '/dashboard' : '/phone-login';
 
     Navigator.pushReplacementNamed(context, route);
   }
@@ -97,153 +96,139 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final compact = size.width < 380;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF061B45),
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          Positioned(
-            top: -90,
-            right: -70,
-            child: _SoftCircle(size: size.width * 0.62, color: AppColors.primary),
-          ),
-          Positioned(
-            bottom: -120,
-            left: -100,
-            child: _SoftCircle(size: size.width * 0.72, color: AppColors.secondary),
-          ),
-          Positioned(
-            top: size.height * 0.14,
-            left: 20,
-            right: 20,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: CustomPaint(
-                painter: _PitchLinesPainter(),
-                child: const SizedBox(height: 190),
-              ),
-            ),
-          ),
+          const _AuthFallbackSplash(),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.symmetric(horizontal: compact ? 24 : 32),
               child: Column(
                 children: [
-                  const Spacer(flex: 2),
+                  const Spacer(flex: 3),
                   FadeTransition(
                     opacity: _fadeAnimation,
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: Container(
-                        height: 126,
-                        width: 126,
-                        padding: const EdgeInsets.all(13),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(32),
-                          border: Border.all(color: const Color(0xFFE8EEFF), width: 1.2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.18),
-                              blurRadius: 34,
-                              offset: const Offset(0, 16),
-                            ),
-                          ],
-                        ),
+                    child: AnimatedBuilder(
+                      animation: _rotateController,
+                      builder: (context, child) => Transform.rotate(
+                        angle: _rotateController.value * 6.28318,
                         child: Container(
+                          width: compact ? 176 : 210,
+                          height: compact ? 176 : 210,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppColors.primary, AppColors.primaryDark],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.primary.withOpacity(0.18),
+                              width: 2,
                             ),
-                            borderRadius: BorderRadius.circular(24),
                           ),
-                          child: Center(
-                            child: Image.asset(
-                              'assets/images/logo.png',
-                              width: 72,
-                              height: 72,
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.sports_cricket_rounded,
-                                color: Colors.white,
-                                size: 58,
+                          child: CustomPaint(
+                            painter: _SplashOrbitPainter(
+                              color: AppColors.primary.withOpacity(0.34),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: Offset(0, compact ? -142 : -168),
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: ScaleTransition(
+                        scale: _scaleAnimation,
+                        child: Container(
+                          width: compact ? 130 : 152,
+                          height: compact ? 130 : 152,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFFE31E3C),
+                              width: 2.4,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.22),
+                                blurRadius: 42,
+                                offset: const Offset(0, 18),
                               ),
+                            ],
+                          ),
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.sports_cricket_rounded,
+                              color: AppColors.primary,
+                              size: 64,
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 26),
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Column(
-                      children: [
-                        const Text(
-                          'Scores11',
-                          style: TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: AppColors.primarySoft,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.12)),
-                          ),
-                          child: const Text(
-                            'Live cricket, teams and scoring',
-                            style: TextStyle(
-                              color: AppColors.primaryDark,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 34),
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFF),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFFE8EEFF)),
-                      ),
-                      child: const Row(
+                  Transform.translate(
+                    offset: Offset(0, compact ? -118 : -144),
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: const Column(
                         children: [
-                          _SplashStat(icon: Icons.circle, label: 'Live', value: 'Scores'),
-                          _SplashDivider(),
-                          _SplashStat(icon: Icons.groups_rounded, label: 'Clubs', value: 'Teams'),
-                          _SplashDivider(),
-                          _SplashStat(icon: Icons.emoji_events_rounded, label: 'Pro', value: 'Cricket'),
+                          Text(
+                            'Welcome to Scores11',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFF07173B),
+                              fontSize: 30,
+                              fontWeight: FontWeight.w900,
+                              height: 1.05,
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          Text(
+                            'Score matches, manage teams and follow cricket live.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFF475569),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                  const Spacer(flex: 3),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                  const Spacer(flex: 2),
+                ],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 26),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 13),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.white.withOpacity(0.94),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: const Color(0xFFE8EEFF)),
+                      border: Border.all(color: Colors.white.withOpacity(0.72)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 18,
-                          offset: const Offset(0, 8),
+                          color: AppColors.primaryDark.withOpacity(0.12),
+                          blurRadius: 26,
+                          offset: const Offset(0, 12),
                         ),
                       ],
                     ),
@@ -255,13 +240,15 @@ class _SplashScreenState extends State<SplashScreen>
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.4,
-                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                            backgroundColor: AppColors.primary.withOpacity(0.10),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                                AppColors.primary),
+                            backgroundColor:
+                                AppColors.primary.withOpacity(0.10),
                           ),
                         ),
                         const SizedBox(width: 11),
                         const Text(
-                          'Preparing your cricket feed...',
+                          'Loading Scores11...',
                           style: TextStyle(
                             color: Color(0xFF64748B),
                             fontSize: 12.5,
@@ -271,8 +258,7 @@ class _SplashScreenState extends State<SplashScreen>
                       ],
                     ),
                   ),
-                  const SizedBox(height: 26),
-                ],
+                ),
               ),
             ),
           ),
@@ -280,6 +266,60 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
   }
+}
+
+class _AuthFallbackSplash extends StatelessWidget {
+  const _AuthFallbackSplash();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _PitchLinesPainter(),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFEAF3FF), Colors.white],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SplashOrbitPainter extends CustomPainter {
+  final Color color;
+
+  const _SplashOrbitPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2 - 16;
+    final ringPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    final dotPaint = Paint()..color = AppColors.primary;
+
+    canvas.drawCircle(center, radius, ringPaint);
+    canvas.drawCircle(Offset(center.dx, center.dy - radius), 5, dotPaint);
+    canvas.drawCircle(
+      Offset(center.dx + radius * 0.86, center.dy + radius * 0.5),
+      3.5,
+      dotPaint..color = const Color(0xFFE31E3C),
+    );
+    canvas.drawCircle(
+      Offset(center.dx - radius * 0.86, center.dy + radius * 0.5),
+      3.5,
+      dotPaint..color = const Color(0xFF06B6D4),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SplashOrbitPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _SplashStat extends StatelessWidget {

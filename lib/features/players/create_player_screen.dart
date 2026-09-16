@@ -328,6 +328,8 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _buildPlayerHeroHeader(isEdit),
+                  const SizedBox(height: 18),
                   _buildAvatarHeader(isEdit),
                   const SizedBox(height: 20),
                   _buildPersonalInfoCard(),
@@ -406,6 +408,90 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
 
   // ── Avatar header ─────────────────────────────────────────────────────────────
 
+  Widget _buildPlayerHeroHeader(bool isEdit) {
+    return Container(
+      height: 168,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.16),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'score 11/Player Profile cover page.png',
+            fit: BoxFit.cover,
+            alignment: Alignment.centerRight,
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.white.withOpacity(0.96),
+                  Colors.white.withOpacity(0.78),
+                  Colors.white.withOpacity(0.08),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/images/logo.png',
+                  width: 70,
+                  height: 42,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.sports_cricket_rounded,
+                    color: AppColors.primary,
+                    size: 34,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  isEdit ? 'Update Cricket Player' : 'Create Cricket Player',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _kTextPrimary,
+                    fontSize: 25,
+                    height: 1.05,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Add profile details for match scoring',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _kTextSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAvatarHeader(bool isEdit) {
     return Center(
       child: Column(
@@ -422,8 +508,14 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
                   border: Border.all(
                       color: AppColors.primary.withOpacity(0.2), width: 2),
                 ),
-                child: Icon(Icons.person_rounded,
-                    size: 42, color: AppColors.primary),
+                child: ClipOval(
+                  child: Image.asset(
+                    'score 11/Player Profile avatr circle page.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(Icons.person_rounded,
+                        size: 42, color: AppColors.primary),
+                  ),
+                ),
               ),
               Container(
                 width: 28,

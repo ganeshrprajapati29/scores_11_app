@@ -186,7 +186,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
       duration: const Duration(milliseconds: 400),
     );
     _progressAnim!.animateTo(1 / _totalSteps);
-    _searchPlayers('');
+    _searchMessage = 'Search players to add.';
   }
 
   @override
@@ -244,19 +244,25 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
 
   // ─── Player Search ─────────────────────────────────────────────────────────
   Future<void> _searchPlayers(String q) async {
+    final query = q.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _isLoadingPlayers = false;
+        _searchResults = [];
+        _searchMessage = 'Search players to add.';
+      });
+      return;
+    }
     setState(() {
       _isLoadingPlayers = true;
       _searchMessage = '';
     });
     try {
-      final players = await _playerService.searchPlayers(q, limit: 50);
+      final players = await _playerService.searchPlayers(query, limit: 50);
       setState(() {
         _searchResults = players;
-        _searchMessage = players.isEmpty
-            ? (q.isNotEmpty
-                ? 'No players found. Create one below.'
-                : 'Search players to add.')
-            : '';
+        _searchMessage =
+            players.isEmpty ? 'No players found. Create one below.' : '';
         _isLoadingPlayers = false;
       });
     } catch (e) {
@@ -471,6 +477,12 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
           colors: [_kNavy, _kNavyDeep],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+        ),
+        image: DecorationImage(
+          image: AssetImage('score 11/Team  cover page.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+          opacity: 0.20,
         ),
       ),
       padding: EdgeInsets.only(
@@ -928,6 +940,12 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        image: const DecorationImage(
+          image: AssetImage('score 11/Team  cover page.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+          opacity: 0.18,
+        ),
         borderRadius: BorderRadius.circular(_kCardRadius),
         boxShadow: [
           BoxShadow(
@@ -951,13 +969,25 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
             ),
             child: _logoFile != null
                 ? ClipOval(child: Image.file(_logoFile!, fit: BoxFit.cover))
-                : Center(
-                    child: Text(
-                      _teamNameCtrl.text.trim()[0].toUpperCase(),
-                      style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: _kNavy),
+                : ClipOval(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          'score 11/Team Profile logo.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                        Center(
+                          child: Text(
+                            _teamNameCtrl.text.trim()[0].toUpperCase(),
+                            style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
           ),
@@ -1385,7 +1415,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
               crossAxisCount: MediaQuery.of(context).size.width < 600 ? 3 : 5,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              childAspectRatio: 0.82,
+              childAspectRatio: 0.74,
             ),
             itemCount: _teamPlayers.length,
             itemBuilder: (ctx, i) =>
@@ -1471,7 +1501,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
                 crossAxisCount: MediaQuery.of(context).size.width < 600 ? 3 : 5,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 0.82,
+                childAspectRatio: 0.64,
               ),
               itemCount: filled.length,
               itemBuilder: (ctx, i) {
@@ -1514,8 +1544,9 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
             child: Column(
               children: <Widget>[
                 ..._roleOptions.map((role) {
-                  final int count =
-                      filled.where((p) => p.role?.toUpperCase() == role).length;
+                  final int count = filled
+                      .where((p) => _normalizeRole(p.role) == role)
+                      .length;
                   final Color color =
                       _roleColors[role] ?? const Color(0xFF3B82F6);
                   final Color bg = _roleBg[role] ?? const Color(0xFFEFF6FF);
@@ -1874,6 +1905,17 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
+  String _normalizeRole(String? value) {
+    final raw = (value ?? '').trim().toUpperCase().replaceAll('_', ' ');
+    if (raw == 'BAT' || raw.contains('BATSMAN') || raw.contains('BATTER')) {
+      return 'BAT';
+    }
+    if (raw == 'BWL' || raw.contains('BOWL')) return 'BWL';
+    if (raw == 'AR' || raw.contains('ALL')) return 'AR';
+    if (raw == 'WK' || raw.contains('WICKET')) return 'WK';
+    return 'BAT';
+  }
+
   Widget _sectionCard({
     required String title,
     required IconData icon,

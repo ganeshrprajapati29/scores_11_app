@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../core/utils/friendly_error.dart';
-import '../../../core/widgets/match_status_badge.dart';
 import '../../data/models/match_model.dart';
 import '../../data/services/match_service.dart';
 import 'package:shimmer/shimmer.dart';
@@ -22,7 +22,6 @@ class MatchListScreen extends StatefulWidget {
   @override
   State<MatchListScreen> createState() => _MatchListScreenState();
 }
-
 class _MatchListScreenState extends State<MatchListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
@@ -435,12 +434,13 @@ class _MatchListScreenState extends State<MatchListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: _buildAppBar(),
       body: _isLoading
           ? _buildShimmerLoading()
           : Column(
               children: [
+                _buildTopTabBar(),
                 _buildMatchSummaryStrip(),
                 _buildDateFilterBar(),
                 Expanded(
@@ -480,89 +480,178 @@ class _MatchListScreenState extends State<MatchListScreen>
     );
   }
 
-  Widget _buildMatchSummaryStrip() {
-    final filteredLive = _applyDateFilter(_liveMatches).length;
-    final filteredUpcoming = _applyDateFilter(_upcomingMatches).length;
-    final filteredCompleted = _applyDateFilter(_completedMatches).length;
-
+  // ---------------------------------------------------------------------
+  // Underline tab row: LIVE / SCHEDULED / COMPLETED
+  // ---------------------------------------------------------------------
+  Widget _buildTopTabBar() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SummaryTile(
-              label: 'Live',
-              count: filteredLive,
-              icon: Icons.radio_button_checked_rounded,
-              color: const Color(0xFFE53E3E),
-              onTap: () => _tabController.animateTo(0),
-            ),
+      child: TabBar(
+        controller: _tabController,
+        labelColor: AppColors.live,
+        unselectedLabelColor: AppColors.textSecondary,
+        indicatorColor: AppColors.live,
+        indicatorWeight: 2.5,
+        labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, letterSpacing: 0.3),
+        unselectedLabelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, letterSpacing: 0.3),
+        tabs: const [
+          Tab(
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.circle, size: 9),
+              SizedBox(width: 6),
+              Text('LIVE'),
+            ]),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _SummaryTile(
-              label: 'Upcoming',
-              count: filteredUpcoming,
-              icon: Icons.event_available_rounded,
-              color: AppColors.primary,
-              onTap: () => _tabController.animateTo(1),
-            ),
+          Tab(
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.calendar_month_rounded, size: 16),
+              SizedBox(width: 6),
+              Text('SCHEDULED'),
+            ]),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _SummaryTile(
-              label: 'Results',
-              count: filteredCompleted,
-              icon: Icons.emoji_events_rounded,
-              color: const Color(0xFF10B981),
-              onTap: () => _tabController.animateTo(2),
-            ),
+          Tab(
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.emoji_events_rounded, size: 16),
+              SizedBox(width: 6),
+              Text('COMPLETED'),
+            ]),
           ),
         ],
       ),
     );
   }
 
+  // ---------------------------------------------------------------------
+  // Stat pill strip -- doubles as the tab switcher (tap-to-switch preserved)
+  // ---------------------------------------------------------------------
+  Widget _buildMatchSummaryStrip() {
+    final filteredLive = _applyDateFilter(_liveMatches).length;
+    final filteredUpcoming = _applyDateFilter(_upcomingMatches).length;
+    final filteredCompleted = _applyDateFilter(_completedMatches).length;
+
+    return AnimatedBuilder(
+      animation: _tabController.animation ?? _tabController,
+      builder: (context, _) {
+        final activeIndex = _tabController.index;
+        return Container(
+          color: AppColors.background,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: _SummaryTile(
+                  label: 'Live Matches',
+                  subtitle: 'Now Live',
+                  count: filteredLive,
+                  icon: Icons.circle,
+                  color: AppColors.live,
+                  selected: activeIndex == 0,
+                  onTap: () => _tabController.animateTo(0),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SummaryTile(
+                  label: 'Scheduled',
+                  subtitle: 'Upcoming',
+                  count: filteredUpcoming,
+                  icon: Icons.calendar_month_rounded,
+                  color: AppColors.primary,
+                  selected: activeIndex == 1,
+                  onTap: () => _tabController.animateTo(1),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SummaryTile(
+                  label: 'Completed',
+                  subtitle: 'Finished',
+                  count: filteredCompleted,
+                  icon: Icons.emoji_events_rounded,
+                  color: AppColors.completed,
+                  selected: activeIndex == 2,
+                  onTap: () => _tabController.animateTo(2),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Date filter row -- callbacks unchanged
+  // ---------------------------------------------------------------------
   Widget _buildDateFilterBar() {
     final label = _selectedDate == null
         ? 'All dates'
         : DateFormat('EEE, MMM d, yyyy').format(_selectedDate!);
 
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: AppColors.background,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              'Date: $label',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0D1117),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.event_note_rounded,
+                      size: 16, color: AppColors.textSecondary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Date: $label',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          TextButton(
-            onPressed: () {
+          const SizedBox(width: 8),
+          _DateChipButton(
+            label: 'Today',
+            onTap: () {
               setState(() {
                 _selectedDate = DateTime.now();
               });
             },
-            child: const Text('Today'),
           ),
           const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: _pickFilterDate,
-            child: const Text('Pick Date'),
+          _DateChipButton(
+            label: 'Pick Date',
+            icon: Icons.calendar_today_rounded,
+            filled: true,
+            onTap: _pickFilterDate,
           ),
           if (_selectedDate != null) ...[
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: _clearDateFilter,
-              icon: const Icon(Icons.clear_rounded, size: 20),
-              tooltip: 'Clear date filter',
+            const SizedBox(width: 6),
+            InkWell(
+              onTap: _clearDateFilter,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.divider),
+                ),
+                child: const Icon(Icons.filter_alt_off_rounded,
+                    size: 16, color: AppColors.textSecondary),
+              ),
             ),
           ],
         ],
@@ -572,88 +661,83 @@ class _MatchListScreenState extends State<MatchListScreen>
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
+      toolbarHeight: 68,
       backgroundColor: Colors.white,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
+      titleSpacing: 16,
       title: Row(
+        mainAxisSize: MainAxisSize.max,
         children: [
           Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: const Icon(
-              Icons.sports_cricket_rounded,
-              color: Colors.white,
-              size: 18,
+            width: 36,
+            height: 36,
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.sports_cricket_rounded, color: AppColors.primary, size: 18),
+              ),
             ),
           ),
           const SizedBox(width: 10),
-          const Text(
-            'Matches',
-            style: TextStyle(
-              color: Color(0xFF0D1117),
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
+          const Expanded(
+            child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Matches',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'All your cricket matches',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
             ),
           ),
         ],
       ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(52),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              bottom: BorderSide(color: Color(0xFFEEEFF2), width: 1),
-            ),
-          ),
-          child: TabBar(
-            controller: _tabController,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: const Color(0xFF8B92A5),
-            labelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-            indicator: UnderlineTabIndicator(
-              borderSide: BorderSide(
-                color: AppColors.primary,
-                width: 2.5,
-              ),
-              insets: const EdgeInsets.symmetric(horizontal: 16),
-            ),
-            tabs: [
-              Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE53E3E),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Text('Live'),
-                  ],
-                ),
-              ),
-              const Tab(text: 'Scheduled'),
-              const Tab(text: 'Completed'),
-            ],
-          ),
+      actions: [
+        IconButton(
+          onPressed: () {},
+          icon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+          tooltip: 'Search',
         ),
+        IconButton(
+          onPressed: _pickFilterDate,
+          icon: const Icon(Icons.calendar_today_outlined,
+              color: AppColors.textSecondary, size: 20),
+          tooltip: 'Pick date',
+        ),
+        IconButton(
+          onPressed: () {},
+          icon: const Icon(Icons.notifications_none_rounded,
+              color: AppColors.textSecondary),
+          tooltip: 'Notifications',
+        ),
+        const SizedBox(width: 4),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: AppColors.divider),
       ),
     );
   }
@@ -670,7 +754,7 @@ class _MatchListScreenState extends State<MatchListScreen>
           height: 150,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),
@@ -725,65 +809,140 @@ class _MatchListScreenState extends State<MatchListScreen>
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
       elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     );
   }
 }
-
-class _SummaryTile extends StatelessWidget {
+class _DateChipButton extends StatelessWidget {
   final String label;
-  final int count;
-  final IconData icon;
-  final Color color;
+  final IconData? icon;
+  final bool filled;
   final VoidCallback onTap;
 
-  const _SummaryTile({
+  const _DateChipButton({
     required this.label,
-    required this.count,
-    required this.icon,
-    required this.color,
     required this.onTap,
+    this.icon,
+    this.filled = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.16)),
+          color: filled ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: filled ? AppColors.primary : AppColors.divider,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: filled ? Colors.white : AppColors.primary),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: filled ? Colors.white : AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final int count;
+  final IconData icon;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SummaryTile({
+    required this.label,
+    required this.subtitle,
+    required this.count,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.selected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? color.withOpacity(0.55) : AppColors.divider,
+            width: selected ? 1.4 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0x14101828),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 16),
-                const Spacer(),
-                Text(
-                  count.toString(),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: icon == Icons.circle ? 12 : 18),
             ),
             const SizedBox(height: 8),
+            Text(
+              count.toString(),
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 3),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Color(0xFF0D1117),
-                fontSize: 12,
+                color: AppColors.textPrimary,
+                fontSize: 11.5,
                 fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -986,16 +1145,18 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F2F5),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              Icons.sports_cricket_rounded,
-              size: 38,
-              color: const Color(0xFFB0B8CC),
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(28)),
+            clipBehavior: Clip.antiAlias,
+            child: Image.asset(
+              'score 11/Empty States 2.png',
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.sports_cricket_rounded,
+                size: 48,
+                color: Color(0xFFB0B8CC),
+              ),
             ),
           ),
           const SizedBox(height: 18),
@@ -1009,10 +1170,10 @@ class _EmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
+          const Text(
             'Check back later for updates',
             style: TextStyle(
-              color: const Color(0xFF9CA3AF),
+              color: Color(0xFF9CA3AF),
               fontSize: 13,
             ),
           ),
@@ -1063,34 +1224,58 @@ class _MatchCard extends StatelessWidget {
     }
   }
 
+  /// Pure display heuristic: whichever team has bowled more overs so far is
+  /// the team currently batting (used only to label the live chase banner).
+  bool _team2IsBatting() {
+    return match.score.team2.oversInDecimal >= match.score.team1.oversInDecimal &&
+        match.score.team2.oversInDecimal > 0;
+  }
+
+  String _formatCrr() {
+    final battingScore =
+        _team2IsBatting() ? match.score.team2 : match.score.team1;
+    final overs = battingScore.oversInDecimal;
+    if (overs <= 0) return '0.00';
+    return (battingScore.runs / overs).toStringAsFixed(2);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLive = match.isLive;
     final isCompleted = match.isCompleted;
+    final bgAsset = isLive
+        ? 'score 11/Live Match Card 1024 x 576 PNG.png'
+        : 'score 11/Upcoming Match Card  1024 x 576 PNG.png';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        image: DecorationImage(
+          image: AssetImage(bgAsset),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+          opacity: isLive ? 0.18 : 0.13,
+        ),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isLive ? const Color(0xFFFFE0E0) : const Color(0xFFEEEFF2),
+          color: isLive ? AppColors.live.withOpacity(0.25) : AppColors.divider,
           width: 1,
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+            color: Color(0x14101828),
+            blurRadius: 20,
+            offset: Offset(0, 8),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: () => _handleMatchTap(context),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           splashColor: AppColors.primary.withOpacity(0.04),
           highlightColor: AppColors.primary.withOpacity(0.02),
           child: Padding(
@@ -1098,26 +1283,26 @@ class _MatchCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top row: badge + format + venue
+                // Top row: status badge + format/overs + venue
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    MatchStatusBadge(status: match.status),
-                    if (match.matchNumber != null) ...[
-                      const SizedBox(width: 8),
-                      _MatchNumberChip(matchNumber: match.matchNumber!),
-                    ],
+                    _StatusPill(match: match),
                     const Spacer(),
-                    if (match.tournament != null &&
-                        match.tournament!.isNotEmpty) ...[
-                      _TournamentBadge(tournament: match.tournament),
-                      const SizedBox(width: 8),
-                    ],
-                    _MatchTypeChip(matchType: match.matchType),
-                    const SizedBox(width: 8),
-                    _FormatChip(format: match.format),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: _VenueLabel(venue: match.venue?.name),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${match.format.toUpperCase()} • ${match.overs} overs',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        _VenueLabel(venue: match.venue?.name),
+                      ],
                     ),
                   ],
                 ),
@@ -1125,13 +1310,28 @@ class _MatchCard extends StatelessWidget {
                 // Teams row
                 _TeamsRow(
                     match: match, isLive: isLive, isCompleted: isCompleted),
+                if (isLive) ...[
+                  const SizedBox(height: 12),
+                  _LiveChaseBanner(
+                    match: match,
+                    battingTeamName:
+                        _team2IsBatting() ? match.team2 : match.team1,
+                  ),
+                ],
                 const SizedBox(height: 14),
-                // Footer with date/time
-                _MatchFooter(
-                  match: match,
-                  isLive: isLive,
-                  formatDate: _formatMatchDate,
-                ),
+                // Footer / CTA
+                if (isLive)
+                  _LiveFooter(crr: _formatCrr())
+                else if (isCompleted)
+                  _CompletedFooter(
+                    match: match,
+                    onTap: () => _handleMatchTap(context),
+                  )
+                else
+                  _ScheduledFooter(
+                    dateLabel: _formatMatchDate(match.scheduledDate),
+                    onTap: () => _handleMatchTap(context),
+                  ),
               ],
             ),
           ),
@@ -1142,40 +1342,241 @@ class _MatchCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-widgets
+// Status pill (LIVE / SCHEDULED / COMPLETED / READY)
 // ---------------------------------------------------------------------------
 
-class _FormatChip extends StatelessWidget {
-  final String format;
-  const _FormatChip({required this.format});
+class _StatusPill extends StatelessWidget {
+  final Match match;
+  const _StatusPill({required this.match});
 
   @override
   Widget build(BuildContext context) {
-    String displayFormat = format.toUpperCase();
-    if (displayFormat == 'T20')
-      displayFormat = 'T20';
-    else if (displayFormat == 'ODI')
-      displayFormat = 'ODI';
-    else if (displayFormat == 'TEST') displayFormat = 'TEST';
+    late final Color color;
+    late final String text;
+    final isLive = match.isLive;
+
+    if (isLive) {
+      color = AppColors.live;
+      text = 'LIVE';
+    } else if (match.isCompleted) {
+      color = AppColors.completed;
+      text = 'COMPLETED';
+    } else if (match.isReady) {
+      color = AppColors.live;
+      text = 'READY';
+    } else {
+      color = AppColors.scheduled;
+      text = 'SCHEDULED';
+    }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(6),
+        color: isLive ? color : color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: isLive ? null : Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Text(
-        displayFormat,
-        style: TextStyle(
-          color: AppColors.primary,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.6,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isLive) ...[
+            const Icon(Icons.circle, size: 7, color: Colors.white),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            text,
+            style: TextStyle(
+              color: isLive ? Colors.white : color,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Live chase banner: "TEAM need X runs in Y balls"
+// ---------------------------------------------------------------------------
+
+class _LiveChaseBanner extends StatelessWidget {
+  final Match match;
+  final String battingTeamName;
+
+  const _LiveChaseBanner({required this.match, required this.battingTeamName});
+
+  @override
+  Widget build(BuildContext context) {
+    final requiredRuns = match.result?.requiredRuns;
+    final requiredBalls = match.result?.requiredBalls;
+    if (requiredRuns == null || requiredBalls == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppColors.live.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.live.withOpacity(0.18)),
+      ),
+      child: Text(
+        '$battingTeamName need $requiredRuns runs in $requiredBalls balls',
+        style: const TextStyle(
+          color: AppColors.live,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Footers per match state
+// ---------------------------------------------------------------------------
+
+class _LiveFooter extends StatelessWidget {
+  final String crr;
+  const _LiveFooter({required this.crr});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          'CRR: $crr',
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const Spacer(),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text(
+              'Live Score',
+              style: TextStyle(
+                color: AppColors.live,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.live),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CompletedFooter extends StatelessWidget {
+  final Match match;
+  final VoidCallback onTap;
+  const _CompletedFooter({required this.match, required this.onTap});
+
+  String _resultText() {
+    final message = match.result?.message ?? '';
+    if (message.isNotEmpty) return message;
+    final winner = match.result?.winner ?? 'Match completed';
+    final margin = match.result?.margin ?? '';
+    if (margin.isNotEmpty) return '$winner won by $margin';
+    return winner;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${_resultText()} — Full Time',
+          style: const TextStyle(
+            color: AppColors.completed,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.bar_chart_rounded, size: 16),
+            label: const Text('View Scorecard'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.completed,
+              side: BorderSide(color: AppColors.completed.withOpacity(0.35)),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ScheduledFooter extends StatelessWidget {
+  final String dateLabel;
+  final VoidCallback onTap;
+  const _ScheduledFooter({required this.dateLabel, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.access_time_rounded,
+                size: 13, color: AppColors.textSecondary),
+            const SizedBox(width: 6),
+            Text(
+              dateLabel,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+            label: const Text('View Details'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: BorderSide(color: AppColors.primary.withOpacity(0.35)),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sub-widgets
+// ---------------------------------------------------------------------------
 
 class _VenueLabel extends StatelessWidget {
   final String? venue;
@@ -1205,96 +1606,19 @@ class _VenueLabel extends StatelessWidget {
   }
 }
 
-class _MatchNumberChip extends StatelessWidget {
-  final int matchNumber;
-  const _MatchNumberChip({required this.matchNumber});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFF6366F1).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        'M$matchNumber',
-        style: const TextStyle(
-          color: Color(0xFF6366F1),
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _TournamentBadge extends StatelessWidget {
-  final String? tournament;
-  const _TournamentBadge({this.tournament});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFF10B981).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.emoji_events, size: 10, color: Color(0xFF10B981)),
-          const SizedBox(width: 3),
-          Text(
-            (tournament?.length ?? 0) > 8
-                ? '${tournament?.substring(0, 8)}...'
-                : tournament ?? 'Tournament',
-            style: const TextStyle(
-              color: Color(0xFF10B981),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MatchTypeChip extends StatelessWidget {
-  final String matchType;
-  const _MatchTypeChip({required this.matchType});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF59E0B).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        matchType.toUpperCase(),
-        style: const TextStyle(
-          color: Color(0xFFF59E0B),
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
 class _TeamAvatar extends StatelessWidget {
   final String name;
   final Color bgColor;
   final Color textColor;
+  final String? logoUrl;
+  final String assetFallback;
 
   const _TeamAvatar({
     required this.name,
     required this.bgColor,
     required this.textColor,
+    required this.assetFallback,
+    this.logoUrl,
   });
 
   @override
@@ -1302,6 +1626,7 @@ class _TeamAvatar extends StatelessWidget {
     return Container(
       width: 38,
       height: 38,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: bgColor,
         shape: BoxShape.circle,
@@ -1314,14 +1639,28 @@ class _TeamAvatar extends StatelessWidget {
           ),
         ],
       ),
-      child: Center(
-        child: Text(
-          name.isNotEmpty ? name[0].toUpperCase() : 'T',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 15,
-            color: textColor,
-          ),
+      child: (logoUrl != null && logoUrl!.trim().isNotEmpty)
+          ? CachedNetworkImage(
+              imageUrl: logoUrl!,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) => _fallback(),
+            )
+          : Image.asset(
+              assetFallback,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _fallback(),
+            ),
+    );
+  }
+
+  Widget _fallback() {
+    return Center(
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : 'T',
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 15,
+          color: textColor,
         ),
       ),
     );
@@ -1355,6 +1694,8 @@ class _TeamsRow extends StatelessWidget {
                   name: match.team1,
                   bgColor: AppColors.primary.withOpacity(0.12),
                   textColor: AppColors.primary,
+                  assetFallback: 'assets/images/teams/team1_logo.png',
+                  logoUrl: match.team1Data is Map ? match.team1Data['logo']?.toString() : null,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1451,7 +1792,21 @@ class _TeamsRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.end,
                       ),
-                      if (isLive || isCompleted) ...[
+                      if (isLive &&
+                          match.score.team2.oversInDecimal == 0 &&
+                          match.result?.target != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          'Target ${match.result!.target}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textSecondary,
+                            letterSpacing: -0.3,
+                          ),
+                          textAlign: TextAlign.end,
+                        ),
+                      ] else if (isLive || isCompleted) ...[
                         const SizedBox(height: 3),
                         Text(
                           '${match.score.team2.runs}/${match.score.team2.wickets}',
@@ -1483,6 +1838,8 @@ class _TeamsRow extends StatelessWidget {
                   name: match.team2,
                   bgColor: const Color(0xFF3B82F6).withOpacity(0.12),
                   textColor: const Color(0xFF3B82F6),
+                  assetFallback: 'assets/images/teams/team2_logo.png',
+                  logoUrl: match.team2Data is Map ? match.team2Data['logo']?.toString() : null,
                 ),
               ],
             ),
@@ -1493,91 +1850,3 @@ class _TeamsRow extends StatelessWidget {
   }
 }
 
-class _MatchFooter extends StatelessWidget {
-  final Match match;
-  final bool isLive;
-  final String Function(DateTime) formatDate;
-
-  const _MatchFooter({
-    required this.match,
-    required this.isLive,
-    required this.formatDate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isCompleted = match.isCompleted;
-
-    String getFooterText() {
-      if (isLive) {
-        final overs = match.score.team1.overs;
-        return 'Live • ${overs.isNotEmpty ? overs : '0.0'} overs • ${formatDate(match.scheduledDate)}';
-      } else if (isCompleted) {
-        // Fix: Access winner from match.result
-        final message = match.result?.message ?? '';
-        if (message.isNotEmpty) {
-          return '🏆 $message • ${formatDate(match.scheduledDate)}';
-        }
-        final winner = match.result?.winner ?? 'Match completed';
-        final margin = match.result?.margin ?? '';
-        if (margin.isNotEmpty) {
-          return '🏆 $winner won by $margin • ${formatDate(match.scheduledDate)}';
-        }
-        return '🏆 $winner • ${formatDate(match.scheduledDate)}';
-      } else {
-        return '📅 ${formatDate(match.scheduledDate)}';
-      }
-    }
-
-    Color getFooterColor() {
-      if (isLive) return const Color(0xFFE53E3E);
-      if (isCompleted) return const Color(0xFF10B981);
-      return const Color(0xFF6B7280);
-    }
-
-    IconData getFooterIcon() {
-      if (isLive) return Icons.radio_button_on_rounded;
-      if (isCompleted) return Icons.emoji_events_rounded;
-      return Icons.access_time_rounded;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: isLive
-            ? const Color(0xFFFFF5F5)
-            : isCompleted
-                ? const Color(0xFFF0FDF4)
-                : const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            getFooterIcon(),
-            size: 14,
-            color: getFooterColor(),
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Text(
-              getFooterText(),
-              style: TextStyle(
-                color: getFooterColor(),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Icon(
-            Icons.chevron_right_rounded,
-            size: 16,
-            color: const Color(0xFFB0B8CC),
-          ),
-        ],
-      ),
-    );
-  }
-}

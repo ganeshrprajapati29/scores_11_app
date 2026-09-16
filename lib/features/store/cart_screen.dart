@@ -2,6 +2,7 @@
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/widgets/custom_appbar.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/friendly_error.dart';
 import '../../data/services/store_service.dart';
@@ -118,10 +119,9 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('My Cart'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+      appBar: CustomAppBar(
+        title: 'My Cart',
+        showBackButton: true,
         actions: [
           if (_cartItems.isNotEmpty)
             TextButton(
@@ -148,7 +148,7 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 );
               },
-              child: Text('Clear All', style: TextStyle(color: Colors.white)),
+              child: const Text('Clear All'),
             ),
         ],
       ),

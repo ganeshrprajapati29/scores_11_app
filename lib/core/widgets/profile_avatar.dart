@@ -45,10 +45,11 @@ class ProfileAvatar extends StatelessWidget {
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                     ),
-                    errorWidget: (context, url, error) => _buildInitials(),
+                    errorWidget: (context, url, error) =>
+                        _buildFallbackAvatar(avatarRadius),
                   ),
                 )
-              : _buildInitials(),
+              : _buildFallbackAvatar(avatarRadius),
           ),
           if (showOnlineIndicator)
             Positioned(
@@ -93,18 +94,36 @@ class ProfileAvatar extends StatelessWidget {
     return url;
   }
 
+  Widget _buildFallbackAvatar(double avatarRadius) {
+    return ClipOval(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'score 11/Player Profile avatr circle page.png',
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _buildInitials(),
+          ),
+          Center(child: _buildInitialsText()),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInitials() {
+    return Center(child: _buildInitialsText());
+  }
+
+  Widget _buildInitialsText() {
     final name = user?.name ?? 'U';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
     
-    return Center(
-      child: Text(
-        initial,
-        style: TextStyle(
-          fontSize: radius * 0.6,
-          fontWeight: FontWeight.bold,
-          color: AppColors.primary,
-        ),
+    return Text(
+      initial,
+      style: TextStyle(
+        fontSize: radius * 0.6,
+        fontWeight: FontWeight.bold,
+        color: AppColors.primary,
       ),
     );
   }

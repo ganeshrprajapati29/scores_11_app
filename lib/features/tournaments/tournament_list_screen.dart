@@ -236,13 +236,20 @@ class _TournamentListScreenState extends State<TournamentListScreen>
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: const Icon(
-              Icons.emoji_events_rounded,
               color: Colors.white,
-              size: 18,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.primary.withOpacity(0.18)),
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.emoji_events_rounded,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -513,16 +520,18 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F2F5),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(
-              Icons.emoji_events_outlined,
-              size: 38,
-              color: Color(0xFFB0B8CC),
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(28)),
+            clipBehavior: Clip.antiAlias,
+            child: Image.asset(
+              'score 11/Empty States 4.png',
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.emoji_events_outlined,
+                size: 48,
+                color: Color(0xFFB0B8CC),
+              ),
             ),
           ),
           const SizedBox(height: 18),
@@ -674,6 +683,12 @@ class _CardHeader extends StatelessWidget {
           colors: gradientColors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+        ),
+        image: const DecorationImage(
+          image: AssetImage('score 11/Tournament Page banner.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+          opacity: 0.28,
         ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
       ),
