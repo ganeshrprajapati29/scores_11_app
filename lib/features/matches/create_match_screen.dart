@@ -156,6 +156,10 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
   String? _weatherCondition = 'sunny';
   String? _selectedTournamentId;
 
+  // Start now (system uses current date/time, match begins immediately) vs
+  // schedule for later (user must pick a future date & time).
+  bool _startNow = true;
+
   // Date / Time
   DateTime? _scheduledDate;
   TimeOfDay? _selectedTime;
@@ -366,8 +370,10 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
       _snack('Minimum 2 teams required to start a match', isError: true);
       return;
     }
-    if ((_scheduledDate == null) != (_selectedTime == null)) {
-      _snack('Please select both a match date and time, or leave both blank',
+    if (_startNow) {
+      // System uses the current date/time - nothing to validate here.
+    } else if (_scheduledDate == null || _selectedTime == null) {
+      _snack('Please select a match date and time to schedule this match',
           isError: true);
       return;
     }
@@ -398,7 +404,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
           'city': _venueCityController.text.trim(),
       };
       DateTime? scheduledDateTime;
-      if (_scheduledDate != null && _selectedTime != null) {
+      if (!_startNow && _scheduledDate != null && _selectedTime != null) {
         scheduledDateTime = DateTime(
           _scheduledDate!.year,
           _scheduledDate!.month,
@@ -428,7 +434,15 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
         _snack('Match created successfully!', isError: false);
 
         final currentRouteName = ModalRoute.of(context)?.settings.name;
-        if (currentRouteName == '/create-match') {
+        if (_startNow) {
+          // Go straight into the toss so the match actually begins now,
+          // instead of dropping the user on the scheduled-matches list.
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/toss',
+            (route) => route.settings.name == '/dashboard' || route.isFirst,
+            arguments: newMatch.id,
+          );
+        } else if (currentRouteName == '/create-match') {
           Navigator.of(context).pushNamedAndRemoveUntil(
             '/scheduled-matches',
             (route) => route.settings.name == '/dashboard' || route.isFirst,
@@ -915,25 +929,33 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
           ),
           const SizedBox(height: _kFieldGap),
 
-          responsiveFields(
-            [
-              _DateTimeField(
-                  label: 'Match Date (Optional)',
-                  icon: Icons.calendar_today_rounded,
-                  value: _scheduledDate != null
-                      ? DateFormat('dd MMM yyyy').format(_scheduledDate!)
-                      : 'Select date',
-                  onTap: () => _pickDate(isToss: false),
-                ),
-              _DateTimeField(
-                  label: 'Match Time (Optional)',
-                  icon: Icons.access_time_rounded,
-                  value: _selectedTime?.format(context) ?? 'Select time',
-                  onTap: () => _pickTime(isToss: false),
-                ),
-            ],
+          _StartModeToggle(
+            startNow: _startNow,
+            onChanged: (value) => setState(() => _startNow = value),
           ),
           const SizedBox(height: _kFieldGap),
+
+          if (!_startNow) ...[
+            responsiveFields(
+              [
+                _DateTimeField(
+                    label: 'Match Date *',
+                    icon: Icons.calendar_today_rounded,
+                    value: _scheduledDate != null
+                        ? DateFormat('dd MMM yyyy').format(_scheduledDate!)
+                        : 'Select date',
+                    onTap: () => _pickDate(isToss: false),
+                  ),
+                _DateTimeField(
+                    label: 'Match Time *',
+                    icon: Icons.access_time_rounded,
+                    value: _selectedTime?.format(context) ?? 'Select time',
+                    onTap: () => _pickTime(isToss: false),
+                  ),
+              ],
+            ),
+            const SizedBox(height: _kFieldGap),
+          ],
 
           responsiveFields(
             [
@@ -1672,6 +1694,115 @@ class _VsDivider extends StatelessWidget {
 }
 
 /// Advanced options collapse toggle
+/// Two-option toggle: "Start Match" (system uses current date/time, match
+/// begins immediately) vs "Schedule Match" (user picks a future date/time).
+class _StartModeToggle extends StatelessWidget {
+  final bool startNow;
+  final ValueChanged<bool> onChanged;
+
+  const _StartModeToggle({required this.startNow, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(_kRadius),
+        border: Border.all(color: _kBorder),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StartModeOption(
+              label: 'Start Match',
+              sublabel: 'Begins now',
+              icon: Icons.play_circle_fill_rounded,
+              selected: startNow,
+              onTap: () => onChanged(true),
+            ),
+          ),
+          Expanded(
+            child: _StartModeOption(
+              label: 'Schedule Match',
+              sublabel: 'Pick date & time',
+              icon: Icons.event_available_rounded,
+              selected: !startNow,
+              onTap: () => onChanged(false),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StartModeOption extends StatelessWidget {
+  final String label;
+  final String sublabel;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _StartModeOption({
+    required this.label,
+    required this.sublabel,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(_kRadius - 4),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: selected ? AppColors.primary : _kTextSecondary,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: selected ? _kTextPrimary : _kTextSecondary,
+              ),
+            ),
+            Text(
+              sublabel,
+              style: TextStyle(
+                fontSize: 11,
+                color: _kTextSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AdvancedToggle extends StatelessWidget {
   final bool expanded;
   final VoidCallback onTap;

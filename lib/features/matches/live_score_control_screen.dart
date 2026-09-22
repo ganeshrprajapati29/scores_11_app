@@ -2546,13 +2546,23 @@ class _CurrentPlayersCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final canSwap =
         provider.currentStriker != null && provider.currentNonStriker != null;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _D.surface,
-        borderRadius: BorderRadius.circular(_D.rXL),
-        border: Border.all(color: _D.border),
-        boxShadow: _D.cardShadow,
+    // Re-keying on updatePulse restarts this tween from begin=1.0 every time
+    // a score update lands (local or from another scorer), giving a brief
+    // colour flash so it's obvious the update just happened.
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(provider.updatePulse),
+      tween: Tween(begin: 1.0, end: 0.0),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOut,
+      builder: (context, flash, child) => Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Color.lerp(_D.surface, _D.primary.withOpacity(0.22), flash),
+          borderRadius: BorderRadius.circular(_D.rXL),
+          border: Border.all(color: _D.border),
+          boxShadow: _D.cardShadow,
+        ),
+        child: child,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../data/services/match_service.dart';
 import '../data/services/team_service.dart';
 import '../data/services/player_service.dart';
@@ -172,6 +173,21 @@ class LiveScoreControlProvider extends ChangeNotifier {
 
   // Live state
   LiveScoreState _currentScore = const LiveScoreState();
+
+  // Bumped every time a score update is applied (locally or from another
+  // scorer via socket), so the UI can key a flash animation off it and give
+  // the scorer haptic/visual confirmation that the update actually went
+  // through.
+  int _updatePulse = 0;
+  int get updatePulse => _updatePulse;
+
+  void _signalScoreUpdated() {
+    _updatePulse++;
+    try {
+      HapticFeedback.mediumImpact();
+    } catch (_) {}
+  }
+
   Player? _currentStriker;
   Player? _currentNonStriker;
   Player? _currentBowler;
@@ -786,6 +802,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
         : (_findPlayerById(nonStrikerId) ?? _currentNonStriker);
     _currentBowler =
         bowlerId == null ? null : (_findPlayerById(bowlerId) ?? _currentBowler);
+    _signalScoreUpdated();
     notifyListeners();
   }
 
@@ -1757,6 +1774,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     _refreshChaseProjection();
     _updateAutomaticResultIfFinished();
     _error = null;
+    _signalScoreUpdated();
     notifyListeners();
   }
 

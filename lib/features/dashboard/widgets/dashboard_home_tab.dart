@@ -7,6 +7,8 @@ import '../../../data/models/dashboard_model.dart';
 import '../../../data/models/blog_model.dart';
 import 'dart:async';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/announcement_model.dart';
+import '../../../data/services/announcement_service.dart';
 import 'live_match_carousel.dart';
 import 'quick_actions_grid.dart';
 import 'stats_row.dart';
@@ -35,8 +37,9 @@ class DashboardHomeTab extends StatelessWidget {
           _buildWelcomeHero(context),
           const SizedBox(height: 12),
           
-          // Auto-scrolling banner carousel 
+          // Auto-scrolling banner carousel
           const BannerCarousel(),
+          const AnnouncementTicker(),
           const SizedBox(height: 24),
 
           Padding(
@@ -703,8 +706,7 @@ class DashboardHomeTab extends StatelessWidget {
       return 'Today ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
     }
     return '${date.day}/${date.month}/${date.year}';
-
-
+  }
 }
 
 class BannerCarousel extends StatefulWidget {
@@ -847,6 +849,100 @@ class _BannerCarouselState extends State<BannerCarousel> {
                   ),
                 );
               }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Home page announcement ticker, shown below the banner carousel - admin
+/// posts short updates from the backend (Announcement module) and they
+/// auto-advance here. Renders nothing when there are no active announcements.
+class AnnouncementTicker extends StatefulWidget {
+  const AnnouncementTicker({super.key});
+
+  @override
+  State<AnnouncementTicker> createState() => _AnnouncementTickerState();
+}
+
+class _AnnouncementTickerState extends State<AnnouncementTicker> {
+  final AnnouncementService _service = AnnouncementService();
+  final PageController _pageController = PageController();
+  Timer? _timer;
+  int _currentIndex = 0;
+  List<Announcement> _announcements = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final items = await _service.getActiveAnnouncements();
+    if (!mounted) return;
+    setState(() {
+      _announcements = items;
+      _loading = false;
+    });
+    if (items.length > 1) {
+      _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
+        if (!mounted || !_pageController.hasClients) return;
+        _currentIndex = (_currentIndex + 1) % _announcements.length;
+        _pageController.animateToPage(
+          _currentIndex,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || _announcements.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.campaign_rounded, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              scrollDirection: Axis.vertical,
+              itemCount: _announcements.length,
+              onPageChanged: (index) => _currentIndex = index,
+              itemBuilder: (context, index) => Center(
+                child: Text(
+                  _announcements[index].message,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0D1117),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
