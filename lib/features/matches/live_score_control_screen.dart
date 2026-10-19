@@ -224,7 +224,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
       SnackBar(
         content: Text(
           success
-              ? 'Last ball undo ho gayi.'
+              ? 'Last ball undone.'
               : (provider.error ?? 'Undo failed. Please try again.'),
         ),
         backgroundColor: success ? _D.green : _D.live,
@@ -303,6 +303,11 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
               Consumer<LiveScoreControlProvider>(
                 builder: (context, provider, _) =>
                     _LiveBanner(provider: provider),
+              ),
+              // Offline / syncing status: balls saved on the phone
+              Consumer<LiveScoreControlProvider>(
+                builder: (context, provider, _) =>
+                    _SyncStatusBar(provider: provider),
               ),
               // Tab content
               Expanded(
@@ -493,6 +498,15 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                   ),
                 )
               : const SizedBox.shrink(),
+        ),
+        IconButton(
+          tooltip: 'Stream this match on YouTube',
+          onPressed: () => Navigator.pushNamed(
+            context,
+            '/go-live',
+            arguments: widget.matchId,
+          ),
+          icon: const Icon(Icons.videocam_rounded, color: _D.live),
         ),
         IconButton(
           tooltip: 'Open scorecard',
@@ -1753,9 +1767,11 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                                 prov.currentNonStriker?.id == player.id) ||
                             (type == 'bowler' &&
                                 prov.currentBowler?.id == player.id);
+                        final bowledLastOver =
+                            type == 'bowler' && prov.barredBowlerId == player.id;
 
                         return GestureDetector(
-                          onTap: () async {
+                          onTap: bowledLastOver ? null : () async {
                             if (type == 'striker') {
                               await prov.setStriker(player);
                             } else if (type == 'nonStriker') {
@@ -1822,10 +1838,13 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                                         ),
                                       ),
                                       Text(
-                                        player.role ?? '',
-                                        style: const TextStyle(
-                                          color: _D.textSecondary,
+                                        bowledLastOver
+                                            ? 'Bowled the last over'
+                                            : (player.role ?? ''),
+                                        style: TextStyle(
+                                          color: bowledLastOver ? _D.live : _D.textSecondary,
                                           fontSize: 12,
+                                          fontWeight: bowledLastOver ? FontWeight.w700 : FontWeight.w400,
                                         ),
                                       ),
                                     ],
@@ -1964,6 +1983,120 @@ class _RoleButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Shows the scorer that balls are safe on the phone while there is no
+/// internet, that they are syncing, or that one needs a decision.
+class _SyncStatusBar extends StatelessWidget {
+  final LiveScoreControlProvider provider;
+  const _SyncStatusBar({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final rejected = provider.rejectedAction;
+    final pending = provider.pendingSyncCount;
+    final balls = provider.pendingBallCount;
+    if (rejected == null && pending == 0 && !provider.isSyncing) {
+      return const SizedBox.shrink();
+    }
+
+    late final Color bg;
+    late final Color fg;
+    late final IconData icon;
+    late final String title;
+    late final String subtitle;
+    if (rejected != null) {
+      bg = _D.liveSoft;
+      fg = _D.live;
+      icon = Icons.error_outline_rounded;
+      title = 'A saved ${rejected.isBall ? 'ball' : 'change'} was not accepted';
+      subtitle = rejected.error ?? 'The server refused it.';
+    } else if (provider.isSyncing) {
+      bg = _D.blueSoft;
+      fg = _D.blue;
+      icon = Icons.sync_rounded;
+      title = 'Syncing score…';
+      subtitle = pending > 0
+          ? '$pending update${pending == 1 ? '' : 's'} going to the server'
+          : 'Almost done';
+    } else {
+      bg = _D.goldSoft;
+      fg = const Color(0xFFB45309);
+      icon = Icons.cloud_off_rounded;
+      title = provider.isOffline ? 'No internet – keep scoring' : 'Waiting to sync';
+      subtitle = balls > 0
+          ? '$balls ball${balls == 1 ? '' : 's'} saved on this phone. They sync automatically when the connection is back.'
+          : 'Your changes are saved on this phone and will sync automatically.';
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: fg.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          provider.isSyncing
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.2, color: fg),
+                )
+              : Icon(icon, color: fg, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: fg.withOpacity(0.85), fontSize: 11.5, height: 1.3)),
+              ],
+            ),
+          ),
+          if (rejected != null) ...[
+            TextButton(
+              onPressed: () => _confirmDiscard(context),
+              child: const Text('Discard'),
+            ),
+            TextButton(
+              onPressed: provider.retrySync,
+              child: const Text('Retry'),
+            ),
+          ] else if (!provider.isSyncing)
+            TextButton(
+              onPressed: provider.retrySync,
+              child: const Text('Sync now'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDiscard(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard this update?'),
+        content: const Text(
+          'It will be removed from this phone. The balls saved after it will be sent to the server.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Discard')),
+        ],
+      ),
+    );
+    if (ok == true) await provider.discardRejectedAction();
   }
 }
 
@@ -3032,10 +3165,10 @@ class _ScoreButtonsGrid extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 type == 'noBall'
-                    ? 'Runs bat se aaye hon to yahan add karein. No ball ka 1 run automatic add hoga.'
+                    ? 'Add runs scored off the bat here. The 1-run no-ball penalty is added automatically.'
                     : type == 'wide'
-                    ? 'Wide ka 1 run automatic add hoga. Bhaag kar aaye bye runs yahan add karein.'
-                    : 'Extra runs select karein.',
+                    ? 'The 1-run wide penalty is added automatically. Add any runs taken here.'
+                    : 'Select extra runs.',
                 style: const TextStyle(
                   color: _D.textSecondary,
                   fontSize: 12,
@@ -3066,9 +3199,9 @@ class _ScoreButtonsGrid extends StatelessWidget {
                       ? 'Bat runs on no ball'
                       : 'Custom extra runs',
                   helperText: type == 'noBall'
-                      ? 'No ball ka 1 run automatic add hoga'
+                      ? '1 no-ball run is added automatically'
                       : type == 'wide'
-                      ? 'Wide ka 1 run automatic add hoga'
+                      ? '1 wide run is added automatically'
                       : null,
                 ),
               ),
@@ -3133,7 +3266,7 @@ class _ScoreButtonsGrid extends StatelessWidget {
                     decoration: const InputDecoration(
                       labelText: 'Runs',
                       helperText:
-                          'Penalty ON karne par runs team extras me jayenge',
+                          'With penalty on, runs go to team extras',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -3238,7 +3371,7 @@ class _ScoreButtonsGrid extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Rain ke baad revised overs set karein. Backend revised target, par score, required runs aur result method save karega.',
+                    'Set the revised overs after rain. The revised target, par score, required runs and result method are calculated and saved.',
                     style: TextStyle(
                       color: _D.textSecondary,
                       fontSize: 12,
@@ -3278,7 +3411,7 @@ class _ScoreButtonsGrid extends StatelessWidget {
                     decoration: const InputDecoration(
                       labelText: 'Revised overs',
                       helperText:
-                          'Example: 20 over match rain ke baad 12 overs',
+                          'Example: a 20-over match reduced to 12 overs',
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -3489,8 +3622,8 @@ class _ScoreButtonsGrid extends StatelessWidget {
                       ),
                       child: Text(
                         wicketType == 'retired_out'
-                            ? 'Retire out: full wicket count hoga. Batter dobara batting nahi kar sakta.'
-                            : 'Retire/absent not out: wicket count nahi badhega.',
+                            ? 'Retired out: counts as a wicket. The batter cannot bat again.'
+                            : 'Retired / absent not out: does not count as a wicket.',
                         style: TextStyle(
                           color: wicketType == 'retired_hurt' || wicketType == 'retired_not_out' || wicketType == 'absent_hurt'
                               ? _D.green
@@ -3514,7 +3647,7 @@ class _ScoreButtonsGrid extends StatelessWidget {
                             ? 'Caught by'
                             : 'Run out / assisted by',
                         helperText:
-                            'Scorecard me proper dismissal text ke liye select karein',
+                            'Select for the correct dismissal text on the scorecard',
                       ),
                       items: fielders
                           .map(
@@ -3570,7 +3703,7 @@ class _ScoreButtonsGrid extends StatelessWidget {
                     decoration: const InputDecoration(
                       labelText: 'Custom completed runs',
                       helperText:
-                          '3 se jyada runs ke liye yahan number daalein',
+                          'Enter the number for more than 3 runs',
                     ),
                     onChanged: (value) {
                       final runs = int.tryParse(value);
@@ -4918,8 +5051,8 @@ class _MatchActionBar extends StatelessWidget {
         title: Text(isFinalInnings ? 'Finish Match?' : 'End 1st Innings?'),
         content: Text(
           isFinalInnings
-              ? 'Second innings complete karke result public scorecard par publish karna hai?'
-              : 'First innings complete karke second innings start karna hai?',
+              ? 'End the second innings and publish the result to the public scorecard?'
+              : 'End the first innings and start the second innings?',
         ),
         actions: [
           TextButton(

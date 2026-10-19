@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/custom_appbar.dart';
 import '../../data/services/leaderboard_service.dart';
 
-const Color _rankPrimary = Color(0xFF185FA5);
+const Color _rankPrimary = Color(0xFF1657CC);
 const Color _rankBg = Color(0xFFF7F8FA);
 const Color _rankBorder = Color(0xFFE4E7EC);
 const Color _rankHeader = Color(0xFFF2F4F7);

@@ -1,4 +1,6 @@
+import '../highlights/match_highlights_section.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/scorecard_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -83,7 +85,7 @@ class _ScorecardScreenState extends State<ScorecardScreen>
       setState(
         () => _matchListError = friendlyError(
           e,
-          fallback: 'Scorecards load nahi ho paaye.',
+          fallback: 'Could not load scorecards.',
         ),
       );
     } finally {
@@ -142,13 +144,17 @@ class _ScorecardScreenState extends State<ScorecardScreen>
             ],
           ),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.share_outlined, color: Colors.white, size: 28),
-              onPressed: () {},
+            Consumer<ScorecardProvider>(
+              builder: (context, provider, child) => IconButton(
+                tooltip: 'Share score',
+                icon: const Icon(Icons.share_outlined, color: Colors.white, size: 26),
+                onPressed: () => _shareScore(provider.match),
+              ),
             ),
             Consumer<ScorecardProvider>(
               builder: (context, provider, child) => IconButton(
-                icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 30),
+                tooltip: 'Refresh',
+                icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 28),
                 onPressed: provider.isLoading ? null : () => provider.refreshScorecard(widget.matchId),
               ),
             ),
@@ -203,7 +209,7 @@ class _ScorecardScreenState extends State<ScorecardScreen>
                   padding: const EdgeInsets.all(32),
                   children: [
                     Image.asset(
-                      'score 11/Empty States 6.png',
+                      'score 11/Empty States 4.png',
                       width: 128,
                       height: 128,
                       fit: BoxFit.contain,
@@ -304,7 +310,7 @@ class _ScorecardScreenState extends State<ScorecardScreen>
                         padding: const EdgeInsets.all(28),
                         children: [
                           Image.asset(
-                            'score 11/Empty States 6.png',
+                            'score 11/Empty States 4.png',
                             width: 128,
                             height: 128,
                             fit: BoxFit.contain,
@@ -322,7 +328,7 @@ class _ScorecardScreenState extends State<ScorecardScreen>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Live aur completed matches yahan dynamic show honge.',
+                            'Live and completed matches will appear here.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey[600]),
                           ),
@@ -633,31 +639,37 @@ class _ScorecardScreenState extends State<ScorecardScreen>
     );
   }
 
+  void _shareScore(Match? match) {
+    final link = 'https://scores11.com/match/${widget.matchId}';
+    if (match == null) {
+      Share.share('Follow this match live on Scores11\n$link');
+      return;
+    }
+    String line(String team, TeamScore s) =>
+        '$team ${s.runs}/${s.wickets} (${s.overs} ov)';
+    final result = match.result?.message ?? '';
+    Share.share([
+      '${match.team1} vs ${match.team2}',
+      line(match.team1, match.score.team1),
+      line(match.team2, match.score.team2),
+      if (result.isNotEmpty) result,
+      link,
+    ].join('\n'));
+  }
+
   Widget _buildGalleryTab(Match match) {
-    final gallery = <_GalleryItem>[
-      _GalleryItem(Icons.scoreboard_rounded, 'Match moments', _teamName(match, 1), AppColors.primary),
-      _GalleryItem(Icons.groups_rounded, 'Squad photos', _teamName(match, 2), Colors.green),
-      _GalleryItem(Icons.emoji_events_rounded, 'Highlights', match.format.toUpperCase(), Colors.orange),
-    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: gallery.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.08,
-          ),
-          itemBuilder: (context, index) => _GalleryCard(item: gallery[index]),
+        MatchHighlightsSection(
+          key: ValueKey('highlights-${match.id}'),
+          matchId: match.id.isNotEmpty ? match.id : widget.matchId,
+          matchTitle: '${_teamName(match, 1)} vs ${_teamName(match, 2)}',
         ),
         const SizedBox(height: 16),
         _EmptyScoreSection(
-          title: 'Upload gallery',
-          message: 'Backend gallery media can be connected to match uploads. Use Community posts for now to publish match photos and videos.',
+          title: 'Match photos',
+          message: 'Share match photos with the community.',
           actionLabel: 'Create post',
           onAction: () => Navigator.pushNamed(context, '/create-post'),
         ),
@@ -692,7 +704,7 @@ class _ScorecardScreenState extends State<ScorecardScreen>
           const SizedBox(height: 16),
           _EmptyScoreSection(
             title: 'Scorecard',
-            message: 'Scorecard striker aur bowler set karne ke baad live update hoga.',
+            message: 'The scorecard updates live once the striker and bowler are set.',
           ),
         ],
       );
@@ -1368,7 +1380,12 @@ Widget _buildMatchHeader(FullScorecard scorecard) {
 
   String _pointsLabel(double value) {
     if (value <= 0) return '-';
-    return value == value.roundToDouble() ? value.toInt().toString() : value.toStringAsFixed(1);
+    // Show integer if whole number, otherwise 2 decimal places for
+    // square-root batting and position-weighted bowling values.
+    if (value == value.roundToDouble()) return value.toInt().toString();
+    final s = value.toStringAsFixed(2);
+    // Trim trailing zero after decimal (e.g. "3.50" → "3.5")
+    return s.endsWith('0') ? s.substring(0, s.length - 1) : s;
   }
 
   bool _looksLikeId(String value) {
@@ -2695,7 +2712,7 @@ class _HeaderTeamBlock extends StatelessWidget {
           children: [
             if (!alignEnd && isBatting) ...[
               const Icon(Icons.sports_cricket_rounded,
-                  color: Color(0xFF1A56DB), size: 14),
+                  color: Color(0xFF1657CC), size: 14),
               const SizedBox(width: 5),
             ],
             Flexible(
@@ -2714,7 +2731,7 @@ class _HeaderTeamBlock extends StatelessWidget {
             if (alignEnd && isBatting) ...[
               const SizedBox(width: 5),
               const Icon(Icons.sports_cricket_rounded,
-                  color: Color(0xFF1A56DB), size: 14),
+                  color: Color(0xFF1657CC), size: 14),
             ],
           ],
         ),
@@ -3034,14 +3051,6 @@ class _InsightCards extends StatelessWidget {
   }
 }
 
-class _GalleryItem {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  const _GalleryItem(this.icon, this.title, this.subtitle, this.color);
-}
-
 class _CricheroSummaryRow extends StatelessWidget {
   final String label;
   final String value;
@@ -3084,33 +3093,6 @@ class _CricheroSummaryRow extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GalleryCard extends StatelessWidget {
-  final _GalleryItem item;
-  const _GalleryCard({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8EEF8)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(item.icon, color: item.color, size: 28),
-          const Spacer(),
-          Text(item.title, style: const TextStyle(fontWeight: FontWeight.w900)),
-          const SizedBox(height: 3),
-          Text(item.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
@@ -3336,7 +3318,7 @@ class _SquadCard extends StatelessWidget {
           const SizedBox(height: 12),
           if (players.isEmpty)
             Text(
-              'Squad data available nahi hai.',
+              'Squads are not available yet.',
               style: TextStyle(color: Colors.grey[600], fontSize: 13),
             )
           else
@@ -3391,7 +3373,7 @@ class _EmptyScoreSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Image.asset(
-            'score 11/Empty States 6.png',
+            'score 11/Empty States 4.png',
             width: 64,
             height: 64,
             fit: BoxFit.contain,

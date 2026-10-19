@@ -267,77 +267,84 @@ class AuthService {
     return null;
   }
 
-  bool _isFirebaseProjectMismatch(String? message) {
-    final normalized = message?.toLowerCase() ?? '';
-    return normalized.contains('project mismatch') ||
-        normalized.contains('incorrect "aud"') ||
-        normalized.contains('expected') && normalized.contains('got');
+  /// Step 1 of mobile login: the backend sends an OTP through APITxT.
+  /// Returns {success, isNewUser, resendInSeconds, otpLength} or
+  /// {success: false, message, code, retryAfterSeconds}.
+  Future<Map<String, dynamic>> sendPhoneOtp(String phone) async {
+    try {
+      final response = await _apiClient.post(
+        '${ApiConfig.auth}/phone/send-otp',
+        data: {'phone': phone},
+      );
+      final data = _convertToMap(response.data?['data']);
+      return {
+        'success': true,
+        'message': response.data?['message']?.toString() ?? 'OTP sent',
+        'isNewUser': data['isNewUser'] == true,
+        'resendInSeconds': (data['resendInSeconds'] as num?)?.toInt() ?? 30,
+        'otpLength': (data['otpLength'] as num?)?.toInt() ?? 6,
+      };
+    } on DioException catch (e) {
+      final message = e.response?.data is Map ? e.response?.data['message']?.toString() : null;
+      final wait = RegExp(r'wait (\d+) seconds').firstMatch(message ?? '');
+      return {
+        'success': false,
+        'message': message ?? _handleDioError(e),
+        'code': _extractErrorCode(e.response?.data),
+        if (wait != null) 'retryAfterSeconds': int.parse(wait.group(1)!),
+      };
+    }
   }
 
-  Future<Map<String, dynamic>> firebasePhoneLogin({
-    required String idToken,
+  /// Step 2 of mobile login: verify the OTP (or, for a new number, send the
+  /// [verificationToken] from the PROFILE_REQUIRED reply plus a [name]).
+  Future<Map<String, dynamic>> verifyPhoneOtp({
+    String? phone,
+    String? otp,
+    String? verificationToken,
     String? name,
     String? email,
-    String? role,
     String? playerRole,
     String? battingStyle,
     String? bowlingStyle,
   }) async {
     try {
       final response = await _apiClient.post(
-        '${ApiConfig.auth}/phone/firebase',
+        '${ApiConfig.auth}/phone/verify-otp',
         data: {
-          'idToken': idToken,
+          if (verificationToken != null) 'verificationToken': verificationToken
+          else ...{'phone': phone, 'otp': otp},
           if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
-          if (email != null && email.trim().isNotEmpty)
-            'email': email.trim().toLowerCase(),
-          if (role != null && role.trim().isNotEmpty) 'role': role.trim(),
-          if (playerRole != null && playerRole.trim().isNotEmpty)
-            'playerRole': playerRole.trim(),
-          if (battingStyle != null && battingStyle.trim().isNotEmpty)
-            'battingStyle': battingStyle.trim(),
-          if (bowlingStyle != null && bowlingStyle.trim().isNotEmpty)
-            'bowlingStyle': bowlingStyle.trim(),
+          if (email != null && email.trim().isNotEmpty) 'email': email.trim().toLowerCase(),
+          if (playerRole != null && playerRole.trim().isNotEmpty) 'playerRole': playerRole.trim(),
+          if (battingStyle != null && battingStyle.trim().isNotEmpty) 'battingStyle': battingStyle.trim(),
+          if (bowlingStyle != null && bowlingStyle.trim().isNotEmpty) 'bowlingStyle': bowlingStyle.trim(),
         },
       );
-      if (response.statusCode == 200) {
-        final data = _convertToMap(response.data?['data']);
-        final userData = _convertToMap(data['user']);
-        final accessToken = data['accessToken'] ?? data['token'];
-        final refreshToken = data['refreshToken'];
-        if (accessToken == null || refreshToken == null || userData.isEmpty) {
-          return {
-            'success': false,
-            'message': 'Invalid authentication response',
-          };
-        }
-        await _apiClient.setTokens(
-          accessToken.toString(),
-          refreshToken.toString(),
-        );
-        return {
-          'success': true,
-          'data': {
-            'user': UserModel.fromJson(userData),
-            'accessToken': accessToken,
-            'refreshToken': refreshToken,
-          },
-        };
+      final data = _convertToMap(response.data?['data']);
+      final userData = _convertToMap(data['user']);
+      final accessToken = data['accessToken'] ?? data['token'];
+      final refreshToken = data['refreshToken'];
+      if (accessToken == null || refreshToken == null || userData.isEmpty) {
+        return {'success': false, 'message': 'Invalid authentication response'};
       }
+      await _apiClient.setTokens(accessToken.toString(), refreshToken.toString());
       return {
-        'success': false,
-        'message': response.data?['message'] ?? 'Mobile sign-in failed',
+        'success': true,
+        'data': {
+          'user': UserModel.fromJson(userData),
+          'accessToken': accessToken,
+          'refreshToken': refreshToken,
+        },
       };
     } on DioException catch (e) {
-      final errorCode = _extractErrorCode(e.response?.data);
-      final rawMessage = e.response?.data?['message']?.toString();
-      final isProjectMismatch = _isFirebaseProjectMismatch(rawMessage);
+      final body = e.response?.data;
+      final data = body is Map ? _convertToMap(body['data']) : <String, dynamic>{};
       return {
         'success': false,
-        'message': isProjectMismatch
-            ? 'Mobile sign-in is not ready on the server. Please try again after the latest update.'
-            : rawMessage ?? _handleDioError(e),
-        if (errorCode != null) 'code': errorCode,
+        'message': (body is Map ? body['message']?.toString() : null) ?? _handleDioError(e),
+        'code': _extractErrorCode(body),
+        if (data['verificationToken'] != null) 'verificationToken': data['verificationToken'].toString(),
       };
     }
   }

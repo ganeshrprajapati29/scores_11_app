@@ -86,7 +86,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      _showSnack(friendlyError(e, fallback: 'Post create nahi ho paaya. Photo ya text dobara check karein.'), AppColors.error);
+      _showSnack(friendlyError(e, fallback: 'Could not create the post. Please check the photo or text and try again.'), AppColors.error);
     } finally {
       if (mounted) setState(() => _isPosting = false);
     }

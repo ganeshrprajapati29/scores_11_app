@@ -21,7 +21,8 @@ class _CartScreenState extends State<CartScreen> {
 
   double get _subtotal => _cartItems.fold(0, (sum, item) => sum + (item['price'] * item['quantity']));
   double get _discount => _cartItems.fold(0, (sum, item) => sum + ((item['originalPrice'] - item['price']) * item['quantity']));
-  double get _shipping => _subtotal > 1000 ? 0 : 99;
+  // Same as checkout/backend: free shipping, GST-inclusive prices.
+  double get _shipping => 0;
   double get _total => _subtotal + _shipping;
 
   @override
@@ -44,7 +45,7 @@ class _CartScreenState extends State<CartScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendlyError(e, fallback: 'Cart load nahi ho paaya.'))),
+        SnackBar(content: Text(friendlyError(e, fallback: 'Could not load cart.'))),
       );
     }
   }
@@ -84,7 +85,7 @@ class _CartScreenState extends State<CartScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendlyError(e, fallback: 'Cart update nahi ho paaya.'))),
+        SnackBar(content: Text(friendlyError(e, fallback: 'Could not update cart.'))),
       );
     }
   }
@@ -211,11 +212,11 @@ class _CartScreenState extends State<CartScreen> {
                   child: SafeArea(
                     child: Column(
                       children: [
-                        _buildSummaryRow('Subtotal', 'â‚¹${_subtotal.toStringAsFixed(2)}'),
-                        _buildSummaryRow('Discount', 'â‚¹-${_discount.toStringAsFixed(2)}', isDiscount: true),
-                        _buildSummaryRow('Shipping', _shipping == 0 ? 'FREE' : 'â‚¹${_shipping.toStringAsFixed(2)}', isDiscount: _shipping == 0),
+                        _buildSummaryRow('Subtotal', '₹${_subtotal.toStringAsFixed(2)}'),
+                        _buildSummaryRow('Discount', '₹-${_discount.toStringAsFixed(2)}', isDiscount: true),
+                        _buildSummaryRow('Shipping', _shipping == 0 ? 'FREE' : '₹${_shipping.toStringAsFixed(2)}', isDiscount: _shipping == 0),
                         const Divider(),
-                        _buildSummaryRow('Total', 'â‚¹${_total.toStringAsFixed(2)}', isTotal: true),
+                        _buildSummaryRow('Total', '₹${_total.toStringAsFixed(2)}', isTotal: true),
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
@@ -339,7 +340,7 @@ class _CartScreenState extends State<CartScreen> {
                 Row(
                   children: [
                     Text(
-                      'â‚¹${item['price']}',
+                      '₹${item['price']}',
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.bold,
@@ -347,7 +348,7 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'â‚¹${item['originalPrice']}',
+                      '₹${item['originalPrice']}',
                       style: TextStyle(
                         decoration: TextDecoration.lineThrough,
                         color: Colors.grey[400],
@@ -414,7 +415,7 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      'â‚¹${(item['price'] * item['quantity']).toString()}',
+                      '₹${(item['price'] * item['quantity']).toString()}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,

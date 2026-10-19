@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../data/services/player_service.dart';
 import '../../data/services/user_service.dart';
 import '../../data/models/player_model.dart';
 import '../../data/models/match_model.dart';
 import '../../core/utils/friendly_error.dart';
 import '../../core/widgets/custom_appbar.dart';
+import '../matches/scorecard_screen.dart';
 
 String? _safeUrl(String? value) {
   final url = value?.trim();
@@ -21,7 +23,7 @@ String? _safeUrl(String? value) {
 
 // ─── Color Tokens ─────────────────────────────────────────────────────────────
 class _C {
-  static const primary      = Color(0xFF185FA5);
+  static const primary      = Color(0xFF1657CC);
   static const primaryLight = Color(0xFFE6F1FB);
   static const primaryMid   = Color(0xFF85B7EB);
   static const surface      = Color(0xFFF7F8FA);
@@ -113,7 +115,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Player profile load nahi ho paayi.');
+        _error = friendlyError(e, fallback: 'Could not load player profile.');
         _isLoading = false;
       });
     }
@@ -145,8 +147,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen>
         showBackButton: true,
         actions: [
           IconButton(
+            tooltip: 'Share profile',
             icon: const Icon(Icons.share_outlined, color: _C.textPrimary),
-            onPressed: () {},
+            onPressed: () { if (_player != null) _sharePlayerProfile(_player!); },
           ),
         ],
       ),
@@ -271,7 +274,7 @@ class _EmptyView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Image.asset(
-            'score 11/Empty States 6.png',
+            'score 11/Empty States 4.png',
             width: 128,
             height: 128,
             fit: BoxFit.contain,
@@ -465,7 +468,7 @@ class _PlayerInfo extends StatelessWidget {
           spacing: 10,
           runSpacing: 6,
           children: [
-            if (player.jerseyNumber != null)
+            if (player.jerseyNumber != null && player.jerseyNumber != 0)
               _MetaChip(
                 icon: Icons.tag_rounded,
                 label: '${player.jerseyNumber}',
@@ -866,9 +869,11 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final w = (MediaQuery.of(context).size.width - 32 - 28 - 16) / 3;
+    // 3 tiles per row: page padding (32) + card padding (28) + two gaps, with
+    // a little slack so rounding never pushes the third tile to a new line.
+    final w = ((MediaQuery.of(context).size.width - 32 - 28 - 16 - 6) / 3).floorToDouble();
     return Container(
-      width: w.clamp(80.0, 115.0),
+      width: w.clamp(80.0, 160.0),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
         color: _C.surface,
@@ -966,6 +971,11 @@ class _RecentMatchesCard extends StatelessWidget {
   }
 }
 
+void _sharePlayerProfile(Player player) {
+  final role = (player.role ?? '').isNotEmpty ? ' (${player.role})' : '';
+  Share.share('${player.name}$role on Scores11\nhttps://scores11.com/players/${player.id}');
+}
+
 class _MatchTile extends StatelessWidget {
   final Match match;
   final ValueChanged<Match> onOptOut;
@@ -979,9 +989,21 @@ class _MatchTile extends StatelessWidget {
     final canOptOut = match.canOptOut;
 
     return InkWell(
+      // Issue-8 fix: completed matches open scorecard directly; others open match detail
       onTap: match.id.isEmpty
           ? null
-          : () => Navigator.pushNamed(context, '/match/${match.id}'),
+          : () {
+              if (match.isCompleted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ScorecardScreen(matchId: match.id),
+                  ),
+                );
+              } else {
+                Navigator.pushNamed(context, '/match/${match.id}');
+              }
+            },
       child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
@@ -1033,7 +1055,10 @@ class _MatchTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                match.status,
+                match.status.isEmpty
+                    ? ''
+                    : match.status[0].toUpperCase() +
+                        match.status.substring(1).replaceAll('_', ' '),
                 style: const TextStyle(
                   fontSize: 11,
                   color: _C.primary,
@@ -1153,7 +1178,7 @@ class _ActionRowState extends State<_ActionRow> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'Action complete nahi ho paaya.'),
+              friendlyError(e, fallback: 'Could not complete the action.'),
             ),
           ));
     } finally {
@@ -1202,7 +1227,7 @@ class _ActionRowState extends State<_ActionRow> {
           child: OutlinedButton.icon(
             icon: const Icon(Icons.share_outlined, size: 17),
             label: const Text('Share'),
-            onPressed: () {},
+            onPressed: () => _sharePlayerProfile(widget.player),
             style: OutlinedButton.styleFrom(
               foregroundColor: _C.primary,
               side: const BorderSide(color: _C.primaryMid, width: 1),

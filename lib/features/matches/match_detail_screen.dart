@@ -5,7 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/services/socket_service.dart';
 import '../../data/services/match_service.dart';
 import '../../data/services/team_service.dart';
 import '../../data/models/scorecard_model.dart';
@@ -14,6 +17,8 @@ import '../../data/models/team_model.dart';
 import '../../data/models/player_model.dart';
 import 'live_score_control_screen.dart';
 import 'toss_screen.dart';
+import '../highlights/match_highlights_section.dart';
+import '../highlights/match_live_stream_banner.dart';
 
 class MatchDetailScreen extends StatefulWidget {
   final String matchId;
@@ -49,25 +54,69 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
     _loadMatchData();
+    // Polling is the fallback; the socket below makes updates near-instant.
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (mounted && _match?.isLive == true && !_isLoading) {
-        _loadMatchData();
+        _loadMatchData(silent: true);
       }
+    });
+    _subscribeLiveUpdates();
+  }
+
+  final SocketService _socketService = SocketService();
+  Timer? _socketDebounce;
+
+  Future<void> _subscribeLiveUpdates() async {
+    try {
+      await _socketService.connect();
+      _socketService.joinMatch(widget.matchId);
+      for (final event in _liveEvents) {
+        _socketService.listen(event, _onLiveEvent);
+      }
+    } catch (e) {
+      debugPrint('Match socket unavailable, polling only: $e');
+    }
+  }
+
+  static const _liveEvents = [
+    'liveScoreUpdate',
+    'scoreUpdated',
+    'tossUpdate',
+    'matchStarted',
+    'lineupsUpdate',
+  ];
+
+  void _onLiveEvent(dynamic data) {
+    final id = data is Map ? (data['matchId'] ?? data['_id'])?.toString() : null;
+    if (id != null && id != widget.matchId) return;
+    // A wicket fires several events at once; refresh once.
+    _socketDebounce?.cancel();
+    _socketDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (mounted && !_isLoading) _loadMatchData(silent: true);
     });
   }
 
   @override
   void dispose() {
+    _socketDebounce?.cancel();
+    for (final event in _liveEvents) {
+      _socketService.unlisten(event, _onLiveEvent);
+    }
+    _socketService.leaveMatch(widget.matchId);
     _liveRefreshTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadMatchData() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  /// [silent] = background refresh: no full-screen loader, and a failed
+  /// refresh keeps the score already on screen.
+  Future<void> _loadMatchData({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
       final match = await _matchService.getMatchById(widget.matchId);
@@ -77,13 +126,17 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
       }
       await _loadSquads(match);
 
+      if (!mounted) return;
       setState(() {
         _match = match;
         _isLoading = false;
+        _error = null;
       });
     } catch (e) {
+      if (!mounted) return;
+      if (silent && _match != null) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Match details load nahi ho paayi.');
+        _error = friendlyError(e, fallback: 'Could not load match details.');
         _isLoading = false;
       });
     }
@@ -241,8 +294,12 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
   }
 
   Widget _buildFloatingButtons() {
-    final bool isLive = _match?.isLive == true;
-    final bool canStart = _canStartLive();
+    // Scoring controls are for signed-in users only (guests just watch).
+    final auth = context.watch<AuthProvider>();
+    final bool signedIn = auth.status == AuthStatus.authenticated &&
+        (auth.user?.role ?? '').toUpperCase() != 'GUEST';
+    final bool isLive = signedIn && _match?.isLive == true;
+    final bool canStart = signedIn && _canStartLive();
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -360,7 +417,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Error: $e'),
+              content: Text(friendlyError(e, fallback: 'Something went wrong. Please try again.')),
               backgroundColor: const Color(0xFFB71C1C)),
         );
       }
@@ -403,12 +460,24 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildMatchHeader(),
+          MatchLiveStreamBanner(
+            key: ValueKey('stream-${_match!.id}'),
+            matchId: _match!.id,
+          ),
           if (_match!.isScheduled || _match!.isTeamSelecting || _match!.isReady) ...[
             const SizedBox(height: 16),
             _buildStartFlowCard(),
           ],
           const SizedBox(height: 16),
           _buildScoreStats(),
+          if (!_match!.isScheduled) ...[
+            const SizedBox(height: 16),
+            MatchHighlightsSection(
+              key: ValueKey('highlights-${_match!.id}'),
+              matchId: _match!.id,
+              matchTitle: '${_match!.team1} vs ${_match!.team2}',
+            ),
+          ],
           const SizedBox(height: 16),
           _buildBallByBallCard(),
           const SizedBox(height: 16),
@@ -765,7 +834,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
           const SizedBox(height: 14),
           if (balls.isEmpty)
             Text(
-              'Scoring start hote hi ball-by-ball yahan live dikhega.',
+              'Ball-by-ball updates appear here once scoring starts.',
               style: TextStyle(color: Colors.grey[600], fontSize: 13),
             )
           else
@@ -843,7 +912,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
                 const SizedBox(height: 3),
                 Text(
                   isWicket
-                      ? 'Wicket${ball['wicketType'] != null ? ' - ${ball['wicketType']}' : ''}'
+                      ? 'Wicket${ball['wicketType'] != null ? ' - ${ball['wicketType'].toString().replaceAll('_', ' ')}' : ''}'
                       : wagon != null && wagon.isNotEmpty
                           ? '$runs run${runs == 1 ? '' : 's'} through $wagon'
                           : '${runs + extras} run${runs + extras == 1 ? '' : 's'}',
@@ -920,6 +989,17 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
 
   int _getTarget() {
     final match = _match!;
+    // A rain-revised (DLS) target from the server wins over the plain one.
+    final revised = match.result?.target ?? 0;
+    if (revised > 0) return revised;
+    final first = match.score.team1.innings <= match.score.team2.innings
+        ? match.score.team1
+        : match.score.team2;
+    final second = identical(first, match.score.team1)
+        ? match.score.team2
+        : match.score.team1;
+    final chaseStarted = second.runs > 0 || second.wickets > 0 || second.overs != '0.0';
+    if (first.runs > 0 && (chaseStarted || match.isCompleted)) return first.runs + 1;
     if (match.score.team1.runs > 0 && match.score.team2.runs == 0) {
       return match.score.team1.runs + 1;
     }
@@ -1653,7 +1733,7 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
             Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'Squad data backend se available hote hi yahan dikhega.',
+                'Squads appear here once teams are selected.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[500], fontSize: 13),
               ),

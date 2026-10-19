@@ -12,7 +12,7 @@ import 'dart:developer';
 import '../data/services/blog_service.dart';
 import '../data/services/community_service.dart';
 import '../data/models/blog_model.dart';
-import '../data/models/tournament_model.dart';  // Add this line at top
+import '../data/models/tournament_model.dart'; // Add this line at top
 
 class DashboardProvider extends ChangeNotifier {
   DashboardData? _dashboardData;
@@ -30,19 +30,24 @@ class DashboardProvider extends ChangeNotifier {
   List<LiveMatch> get liveMatches => (_dashboardData?.liveMatches ?? [])
       .where((match) => match.isActuallyLive)
       .toList();
-  List<UpcomingMatch> get upcomingMatches => _dashboardData?.upcomingMatches ?? [];
-  List<TrendingPlayer> get trendingPlayers => _dashboardData?.trendingPlayers ?? [];
-  List<Tournament> get latestTournaments => _dashboardData?.latestTournaments ?? [];
-  QuickStats get quickStats => _dashboardData?.quickStats ?? const QuickStats(
-    totalMatches: 0,
-    totalTournaments: 0,
-    totalTeams: 0,
-    totalPlayers: 0,
-    todayMatches: 0,
-    weekMatches: 0,
-    activeTournaments: 0,
-    liveMatches: 0,
-  );
+  List<UpcomingMatch> get upcomingMatches =>
+      _dashboardData?.upcomingMatches ?? [];
+  List<TrendingPlayer> get trendingPlayers =>
+      _dashboardData?.trendingPlayers ?? [];
+  List<Tournament> get latestTournaments =>
+      _dashboardData?.latestTournaments ?? [];
+  QuickStats get quickStats =>
+      _dashboardData?.quickStats ??
+      const QuickStats(
+        totalMatches: 0,
+        totalTournaments: 0,
+        totalTeams: 0,
+        totalPlayers: 0,
+        todayMatches: 0,
+        weekMatches: 0,
+        activeTournaments: 0,
+        liveMatches: 0,
+      );
 
   List<BlogModel> get recentBlogs => _recentBlogs;
   List<Map<String, dynamic>> get recentPosts => _recentPosts;
@@ -106,42 +111,32 @@ class DashboardProvider extends ChangeNotifier {
 
     try {
       debugPrint('🔄 Loading dashboard (with retry + fallback)...');
-      
+
       // Service now handles retry + returns safe empty data
       _dashboardData = await _dashboardService.getDashboardOverview();
-      
+
       // Load recent blogs & community posts for dashboard
       await _loadDashboardCarouselMatches();
       _recentBlogs = await _blogService.getBlogs(page: 1, limit: 5);
       _recentPosts = await _communityService.getPostsList(page: 1, limit: 5);
-      debugPrint('📚 Recent content: ${_recentBlogs.length} blogs, ${_recentPosts.length} posts');
-      
-      if (_dashboardData != null && 
-          (_dashboardData!.liveMatches.isNotEmpty || 
-           _dashboardData!.upcomingMatches.isNotEmpty ||
-           _dashboardData!.trendingPlayers.isNotEmpty)) {
-        _isMockData = false;
-        _error = null;
-        debugPrint('✅ Real dashboard data loaded successfully');
-      } else {
-        debugPrint('ℹ️ Dashboard empty (server offline/empty) - using fallback');
-        _isMockData = true;
-        _error = null; // No error popup for empty data
-      }
-      
-      debugPrint('📊 Final state - Live: ${_dashboardData!.liveMatches.length}, '
-                 'Upcoming: ${_dashboardData!.upcomingMatches.length}');
-      
+      debugPrint(
+          '📚 Recent content: ${_recentBlogs.length} blogs, ${_recentPosts.length} posts');
+
+      // Empty lists are real data (nothing live yet), not "offline".
+      _isMockData = false;
+      _error = null;
+
+      debugPrint(
+          '📊 Final state - Live: ${_dashboardData?.liveMatches.length ?? 0}, '
+          'Upcoming: ${_dashboardData?.upcomingMatches.length ?? 0}');
     } on DioException catch (e) {
       debugPrint('⚠️ Dashboard network warning (service handled): ${e.type}');
       _error = null; // Service already provided fallback data
       _isMockData = true;
-      
     } catch (e) {
       debugPrint('❌ Dashboard provider error: $e');
       _error = 'Unable to load dashboard. Showing cached data.';
       _isMockData = true;
-      
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -210,17 +205,23 @@ class DashboardProvider extends ChangeNotifier {
   }
 
   bool _isCarouselLiveMatch(Match match) {
-    const liveStatuses = {'live', 'started', 'in_progress', 'ongoing'};
+    const liveStatuses = {
+      'live',
+      'started',
+      'in_progress',
+      'ongoing',
+      'duckworth_lewis',
+      'dls',
+    };
     return liveStatuses.contains(match.normalizedStatus);
   }
-
 
   /// Get live matches only (refresh from dashboard)
   Future<List<LiveMatch>> getLiveMatches() async {
     if (_dashboardData != null) {
       return _dashboardData!.liveMatches;
     }
-    
+
     try {
       final data = await _dashboardService.getDashboardOverview();
       _dashboardData = data;
@@ -235,16 +236,16 @@ class DashboardProvider extends ChangeNotifier {
   /// Get upcoming matches only
   Future<List<UpcomingMatch>> getUpcomingMatches({int limit = 10}) async {
     if (_dashboardData != null) {
-      return limit > 0 
+      return limit > 0
           ? _dashboardData!.upcomingMatches.take(limit).toList()
           : _dashboardData!.upcomingMatches;
     }
-    
+
     try {
       final data = await _dashboardService.getDashboardOverview();
       _dashboardData = data;
       notifyListeners();
-      return limit > 0 
+      return limit > 0
           ? data.upcomingMatches.take(limit).toList()
           : data.upcomingMatches;
     } catch (e) {
@@ -256,16 +257,16 @@ class DashboardProvider extends ChangeNotifier {
   /// Get trending players only
   Future<List<TrendingPlayer>> getTrendingPlayers({int limit = 10}) async {
     if (_dashboardData != null) {
-      return limit > 0 
+      return limit > 0
           ? _dashboardData!.trendingPlayers.take(limit).toList()
           : _dashboardData!.trendingPlayers;
     }
-    
+
     try {
       final data = await _dashboardService.getDashboardOverview();
       _dashboardData = data;
       notifyListeners();
-      return limit > 0 
+      return limit > 0
           ? data.trendingPlayers.take(limit).toList()
           : data.trendingPlayers;
     } catch (e) {
@@ -277,16 +278,16 @@ class DashboardProvider extends ChangeNotifier {
   /// Get latest tournaments only
   Future<List<Tournament>> getLatestTournaments({int limit = 5}) async {
     if (_dashboardData != null) {
-      return limit > 0 
+      return limit > 0
           ? _dashboardData!.latestTournaments.take(limit).toList()
           : _dashboardData!.latestTournaments;
     }
-    
+
     try {
       final data = await _dashboardService.getDashboardOverview();
       _dashboardData = data;
       notifyListeners();
-      return limit > 0 
+      return limit > 0
           ? data.latestTournaments.take(limit).toList()
           : data.latestTournaments;
     } catch (e) {
@@ -300,7 +301,7 @@ class DashboardProvider extends ChangeNotifier {
     if (_dashboardData != null) {
       return _dashboardData!.quickStats;
     }
-    
+
     try {
       final data = await _dashboardService.getDashboardOverview();
       _dashboardData = data;
@@ -334,13 +335,16 @@ class DashboardProvider extends ChangeNotifier {
   bool get hasLiveMatches => liveMatches.isNotEmpty;
 
   /// Check if there are upcoming matches
-  bool get hasUpcomingMatches => (_dashboardData?.upcomingMatches.isNotEmpty ?? false);
+  bool get hasUpcomingMatches =>
+      (_dashboardData?.upcomingMatches.isNotEmpty ?? false);
 
   /// Check if there are trending players
-  bool get hasTrendingPlayers => (_dashboardData?.trendingPlayers.isNotEmpty ?? false);
+  bool get hasTrendingPlayers =>
+      (_dashboardData?.trendingPlayers.isNotEmpty ?? false);
 
   /// Check if there are tournaments
-  bool get hasTournaments => (_dashboardData?.latestTournaments.isNotEmpty ?? false);
+  bool get hasTournaments =>
+      (_dashboardData?.latestTournaments.isNotEmpty ?? false);
 
   /// Get first live match ID for scorecard navigation
   String? getFirstLiveMatchId() {
@@ -377,4 +381,3 @@ class DashboardProviderWrapper extends StatelessWidget {
     return child;
   }
 }
-

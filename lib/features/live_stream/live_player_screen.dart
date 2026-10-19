@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+import '../../core/services/user_service.dart';
 import '../../core/utils/friendly_error.dart';
 import '../../data/models/live_stream_model.dart';
 import '../../data/models/match_model.dart' as match_model;
 import '../../data/models/scorecard_model.dart' as scorecard_model;
 import '../../data/services/live_stream_service.dart';
 import '../../data/services/match_service.dart';
+import '../goLive/live_broadcast_screen.dart';
 
 class LivePlayerScreen extends StatefulWidget {
   final String streamId;
@@ -37,6 +39,10 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
 
   bool _isLoading = true;
   bool _isPlayerLoading = false;
+  // The stream's creator can end it from here (pasted YouTube links land on
+  // this screen, not on the camera preview).
+  bool _isOwner = false;
+  bool _isEnding = false;
   String? _error;
   String? _scorecardError;
   String? _currentUrl;
@@ -50,17 +56,27 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   Future<void> _initializeStream() async {
     try {
       final stream = await LiveStreamService.getStream(widget.streamId);
+      final myId = await UserService.getUserId();
       if (!mounted) return;
       setState(() {
         _stream = stream;
+        _isOwner = widget.isHost ||
+            (myId != null && myId.isNotEmpty && myId == stream.userId);
         _isLoading = false;
       });
 
-      try {
-        await LiveStreamService.joinStream(widget.streamId);
-        LiveStreamService.joinStreamRoom(widget.streamId);
-      } catch (e) {
-        debugPrint('Public stream join skipped: $e');
+      // Socket room first: guests can't call the authenticated join API but
+      // should still get live chat/end events.
+      LiveStreamService.joinStreamRoom(widget.streamId).catchError(
+        (e) => debugPrint('Stream socket join skipped: $e'),
+      );
+      // The host is not counted as a viewer of their own stream.
+      if (!_isOwner) {
+        try {
+          await LiveStreamService.joinStream(widget.streamId);
+        } catch (e) {
+          debugPrint('Public stream join skipped: $e');
+        }
       }
       LiveStreamService.registerStreamEndedCallback((_) {
         if (mounted) {
@@ -78,7 +94,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Live stream load nahi ho paayi.');
+        _error = friendlyError(e, fallback: 'Could not load live stream.');
         _isLoading = false;
       });
     }
@@ -123,7 +139,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _scorecardError = friendlyError(e, fallback: 'Scorecard load nahi ho paaya.'));
+      setState(() => _scorecardError = friendlyError(e, fallback: 'Could not load scorecard.'));
     }
   }
 
@@ -209,9 +225,11 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
-    LiveStreamService.leaveStream(widget.streamId).catchError(
-      (e) => debugPrint('Public stream leave skipped: $e'),
-    );
+    if (!_isOwner) {
+      LiveStreamService.leaveStream(widget.streamId).catchError(
+        (e) => debugPrint('Public stream leave skipped: $e'),
+      );
+    }
     LiveStreamService.leaveStreamRoom(widget.streamId);
     _disposePlayer();
     super.dispose();
@@ -583,9 +601,116 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
               ],
             ),
           ),
+          // Phone broadcast whose camera screen was closed (app restarted,
+          // call came in): reopen the camera on the same YouTube stream.
+          if (_isOwner && stream.status != 'ended' && stream.youtubeBroadcastId != null) ...[
+            TextButton.icon(
+              onPressed: _isEnding ? null : _resumeCamera,
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.white24,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+              icon: const Icon(Icons.videocam_rounded, size: 18),
+              label: const Text('Camera', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(width: 8),
+          ],
+          if (_isOwner && stream.status != 'ended')
+            TextButton.icon(
+              onPressed: _isEnding ? null : _confirmEndStream,
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.redAccent.withOpacity(0.5),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+              icon: _isEnding
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.stop_rounded, size: 18),
+              label: const Text('End', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
         ],
       ),
     );
+  }
+
+  Future<void> _resumeCamera() async {
+    final stream = _stream;
+    if (stream == null) return;
+    try {
+      final ingest = await LiveStreamService.getStreamIngest(stream.id);
+      if (!mounted) return;
+      _pollTimer?.cancel();
+      _disposePlayer();
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LiveBroadcastScreen(
+            stream: stream,
+            rtmpUrl: ingest['rtmpUrl']?.toString(),
+            streamKey: ingest['streamKey']?.toString(),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(friendlyError(e, fallback: 'Could not reopen the camera.')),
+        backgroundColor: Colors.redAccent,
+      ));
+    }
+  }
+
+  Future<void> _confirmEndStream() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('End live stream?'),
+        content: Text(
+          _stream?.isYoutube == true
+              ? 'Viewers will stop seeing this stream in Scores11 and the recording will be added to the match highlights. Also stop the live stream in your YouTube or encoder app.'
+              : 'Viewers will stop seeing this stream.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('End stream'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isEnding = true);
+    try {
+      await LiveStreamService.endStream(widget.streamId);
+      if (!mounted) return;
+      _pollTimer?.cancel();
+      _disposePlayer();
+      setState(() => _stream?.status = 'ended');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Live stream ended')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyError(e, fallback: 'Could not end the stream.')),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isEnding = false);
+    }
   }
 
   Widget _messageScaffold({

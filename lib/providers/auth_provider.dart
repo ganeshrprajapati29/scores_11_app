@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:logger/logger.dart';
 import '../../core/services/api_client.dart';
 import '../core/utils/friendly_error.dart';
@@ -13,7 +12,9 @@ import 'dart:async';
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  AuthProvider({AuthService? authService}) : _authService = authService ?? AuthService();
+
+  final AuthService _authService;
   final ApiClient _apiClient = ApiClient();
   static final Logger _logger = Logger();
 
@@ -30,6 +31,14 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus get status => _status;
   String? get errorMessage => _errorMessage;
   String? get authActionCode => _authActionCode;
+
+  // Mobile OTP (APITxT via backend)
+  String? _phoneVerificationToken;
+  int _otpResendSeconds = 30;
+  /// Set after a new number is verified; lets the user finish sign-up with
+  /// a name without receiving a second OTP.
+  String? get phoneVerificationToken => _phoneVerificationToken;
+  int get otpResendSeconds => _otpResendSeconds;
   UserModel? get user => _user;
   Map<String, dynamic>? get userStats => _userStats;
   String? get userRole => _user?.role;
@@ -76,6 +85,15 @@ class AuthProvider extends ChangeNotifier {
           _user = await _authService.getCurrentUser();
           _loadUserStatsAsync();
           _status = AuthStatus.authenticated;
+          // Sessions restored on launch must also record the id that
+          // chat/community use to tell "me" from other users.
+          if (_user != null && _user!.id.isNotEmpty) {
+            await UserService.saveUserData(
+              userId: _user!.id,
+              userName: _user!.name,
+              userEmail: _user!.email,
+            );
+          }
         } catch (e) {
           _logger.w('Failed to get user profile, token might be invalid: $e');
           final isAuthFailure = e is DioException &&
@@ -231,7 +249,7 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     _user = UserModel(
       id: 'guest-user',
-      email: 'guest@scores11.app',
+      email: '',
       name: 'Guest User',
       role: 'GUEST',
       isEmailVerified: false,
@@ -341,11 +359,36 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> loginWithFirebasePhone({
-    required String idToken,
+  /// Sends a mobile OTP. Returns true when the SMS is on its way.
+  Future<bool> sendPhoneOtp(String phone) async {
+    _errorMessage = null;
+    _authActionCode = null;
+    _safeNotifyListeners();
+    final response = await _authService.sendPhoneOtp(phone);
+    if (response['success'] == true) {
+      _otpResendSeconds = (response['resendInSeconds'] as int?) ?? 30;
+      _phoneVerificationToken = null;
+      _safeNotifyListeners();
+      return true;
+    }
+    _authActionCode = response['code']?.toString();
+    final wait = response['retryAfterSeconds'];
+    if (wait is int) _otpResendSeconds = wait;
+    _errorMessage = friendlyError(response['message'],
+        fallback: 'Could not send the OTP. Please try again.');
+    _safeNotifyListeners();
+    return false;
+  }
+
+  /// Verifies the mobile OTP and signs in. For a new number pass [name]
+  /// (the token from the first verification is reused automatically).
+  /// Returns false with [authActionCode] == 'PROFILE_REQUIRED' when a new
+  /// number still needs a name.
+  Future<bool> loginWithPhoneOtp({
+    String? phone,
+    String? otp,
     String? name,
     String? email,
-    String? role,
     String? playerRole,
     String? battingStyle,
     String? bowlingStyle,
@@ -354,11 +397,13 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     _authActionCode = null;
     _safeNotifyListeners();
-    final response = await _authService.firebasePhoneLogin(
-      idToken: idToken,
+    final useToken = name != null && _phoneVerificationToken != null;
+    final response = await _authService.verifyPhoneOtp(
+      phone: useToken ? null : phone,
+      otp: useToken ? null : otp,
+      verificationToken: useToken ? _phoneVerificationToken : null,
       name: name,
       email: email,
-      role: role,
       playerRole: playerRole,
       battingStyle: battingStyle,
       bowlingStyle: bowlingStyle,
@@ -368,15 +413,25 @@ class AuthProvider extends ChangeNotifier {
       _user = data is Map && data['user'] is UserModel
           ? data['user'] as UserModel
           : await _authService.getCurrentUser();
+      _phoneVerificationToken = null;
+      if (_user != null) {
+        await UserService.saveUserData(
+          userId: _user!.id,
+          userName: _user!.name,
+          userEmail: _user!.email,
+        );
+      }
       _status = AuthStatus.authenticated;
       _loadUserStatsAsync();
       _safeNotifyListeners();
       return true;
     }
     _authActionCode = response['code']?.toString();
+    final token = response['verificationToken']?.toString();
+    if (token != null && token.isNotEmpty) _phoneVerificationToken = token;
     _errorMessage = friendlyError(response['message'],
-        fallback: 'Mobile login failed. Please try again.');
-    _status = AuthStatus.error;
+        fallback: 'Could not verify the OTP. Please try again.');
+    _status = AuthStatus.unauthenticated;
     _safeNotifyListeners();
     return false;
   }
@@ -400,7 +455,7 @@ class AuthProvider extends ChangeNotifier {
       }
       _authActionCode = response['code']?.toString();
       _errorMessage = friendlyError(response['message'],
-          fallback: 'OTP send nahi ho paaya.');
+          fallback: 'Could not send OTP.');
       _status = AuthStatus.error;
       _safeNotifyListeners();
       return false;
@@ -439,7 +494,7 @@ class AuthProvider extends ChangeNotifier {
         return true;
       }
       _errorMessage = friendlyError(response['message'],
-          fallback: 'OTP verify nahi ho paaya.');
+          fallback: 'Could not verify OTP.');
       _status = AuthStatus.error;
       _safeNotifyListeners();
       return false;
@@ -465,13 +520,13 @@ class AuthProvider extends ChangeNotifier {
         return true;
       } else {
         _errorMessage = friendlyError(response['message'],
-            fallback: 'Request complete nahi ho paayi.');
+            fallback: 'Could not complete the request.');
         _status = AuthStatus.error;
         _safeNotifyListeners();
         return false;
       }
     } catch (e) {
-      _errorMessage = friendlyError(e, fallback: 'Request complete nahi ho paayi.');
+      _errorMessage = friendlyError(e, fallback: 'Could not complete the request.');
       _status = AuthStatus.error;
       _safeNotifyListeners();
       return false;
@@ -494,13 +549,13 @@ class AuthProvider extends ChangeNotifier {
         return true;
       } else {
         _errorMessage = friendlyError(response['message'],
-            fallback: 'Password reset nahi ho paaya.');
+            fallback: 'Could not reset password.');
         _status = AuthStatus.error;
         _safeNotifyListeners();
         return false;
       }
     } catch (e) {
-      _errorMessage = friendlyError(e, fallback: 'Password reset nahi ho paaya.');
+      _errorMessage = friendlyError(e, fallback: 'Could not reset password.');
       _status = AuthStatus.error;
       _safeNotifyListeners();
       return false;
@@ -510,12 +565,6 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     _clearLocalSessionState();
     _safeNotifyListeners();
-
-    try {
-      await firebase_auth.FirebaseAuth.instance.signOut();
-    } catch (e) {
-      _logger.w('Firebase sign out error (ignored): $e');
-    }
 
     try {
       // Invalidates the refresh token server-side and clears cookies,

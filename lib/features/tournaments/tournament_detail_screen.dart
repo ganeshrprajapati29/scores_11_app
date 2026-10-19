@@ -86,10 +86,10 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
   String _cleanError(Object error) {
     final message = friendlyError(
       error,
-      fallback: 'Tournament open nahi ho paaya. Please retry.',
+      fallback: 'Could not open tournament. Please try again.',
     );
     if (message.contains('No token provided')) {
-      return 'Tournament details public mode me load ho rahe hain. Please refresh.';
+      return 'Showing public tournament details. Pull to refresh.';
     }
     return message;
   }

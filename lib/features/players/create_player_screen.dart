@@ -191,7 +191,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
     } catch (e) {
       if (mounted) {
         _snack(
-          friendlyError(e, fallback: 'Player details load nahi ho paaye.'),
+          friendlyError(e, fallback: 'Could not load player details.'),
           isError: true,
         );
       }
@@ -246,7 +246,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
           widget.editPlayerId != null
               ? 'Player updated successfully!'
               : teamAttachFailed
-                  ? 'Player created. Team me add karne ke liye retry karein.'
+                  ? 'Player created, but could not be added to the team. Please try again.'
                   : 'Player created successfully!',
           isError: teamAttachFailed,
         );
@@ -257,7 +257,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
         _snack(
           friendlyError(
             e.response?.data['message'] ?? e,
-            fallback: 'Player save nahi ho paaya.',
+            fallback: 'Could not save player.',
           ),
           isError: true,
         );
@@ -265,7 +265,7 @@ class _CreatePlayerScreenState extends State<CreatePlayerScreen>
     } catch (e) {
       if (mounted) {
         _snack(
-          friendlyError(e, fallback: 'Player save nahi ho paaya.'),
+          friendlyError(e, fallback: 'Could not save player.'),
           isError: true,
         );
       }

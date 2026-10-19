@@ -68,7 +68,7 @@ class TournamentService {
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(
         e,
-        defaultMessage: 'Tournaments load nahi ho paaye.',
+        defaultMessage: 'Could not load tournaments.',
       ));
     } catch (e) {
       throw Exception(_cleanError(e));
@@ -130,7 +130,7 @@ class TournamentService {
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(
         e,
-        defaultMessage: 'Tournament open nahi ho paaya.',
+        defaultMessage: 'Could not open tournament.',
       ));
     } catch (e) {
       throw Exception(_cleanError(e));
@@ -144,7 +144,7 @@ class TournamentService {
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(
         e,
-        defaultMessage: 'Tournament open nahi ho paaya.',
+        defaultMessage: 'Could not open tournament.',
       ));
     } catch (e) {
       throw Exception(_cleanError(e));
@@ -216,7 +216,7 @@ class TournamentService {
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(
         e,
-        defaultMessage: 'Tournament create nahi ho paaya.',
+        defaultMessage: 'Could not create tournament.',
       ));
     } catch (e) {
       throw Exception(_cleanError(e));
@@ -242,7 +242,7 @@ class TournamentService {
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(
         e,
-        defaultMessage: 'Team register nahi ho paayi.',
+        defaultMessage: 'Could not register team.',
       ));
     } catch (e) {
       throw Exception(_cleanError(e));
@@ -259,7 +259,7 @@ class TournamentService {
     } on DioException catch (e) {
       throw Exception(_apiClient.parseDioError(
         e,
-        defaultMessage: 'Team unregister nahi ho paayi.',
+        defaultMessage: 'Could not unregister team.',
       ));
     } catch (e) {
       throw Exception(_cleanError(e));

@@ -48,7 +48,7 @@ class _FixturesScreenState extends State<FixturesScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Fixtures load nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not load fixtures.');
         _isLoading = false;
       });
     }

@@ -9,6 +9,7 @@ import '../../data/models/match_model.dart';
 import '../../providers/live_score_control_provider.dart';
 import '../matches/live_score_control_screen.dart';
 import '../matches/wagon_wheel_screen.dart';
+import '../../core/utils/friendly_error.dart';
 
 class TossScreen extends StatefulWidget {
   final String matchId;
@@ -876,7 +877,7 @@ appBar: AppBar(
           SnackBar(
             content: Text(_match?.toss?.winner != null
                 ? 'Toss already completed. Opening match setup.'
-                : 'Toss failed: $e'),
+                : friendlyError(e, fallback: 'Could not save the toss.')),
             backgroundColor: Colors.orange,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

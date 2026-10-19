@@ -68,7 +68,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading connections: $e'),
+            content: Text(friendlyError(e, fallback: 'Could not load connections.')),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
@@ -98,7 +98,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'Players load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load players.'),
             ),
           ),
         );
@@ -123,7 +123,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'Follow update nahi ho paaya.'),
+              friendlyError(e, fallback: 'Could not update follow.'),
             ),
           ),
         );
@@ -143,7 +143,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyError(e, fallback: 'Something went wrong. Please try again.')),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
@@ -195,7 +195,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'Chat start nahi ho paayi.'),
+              friendlyError(e, fallback: 'Could not start chat.'),
             ),
           ),
         );

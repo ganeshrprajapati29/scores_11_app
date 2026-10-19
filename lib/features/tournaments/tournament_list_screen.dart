@@ -95,7 +95,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
   String _cleanError(Object error) {
     return friendlyError(
       error,
-      fallback: 'Tournaments load nahi ho paaye. Please retry.',
+      fallback: 'Could not load tournaments. Please try again.',
     );
   }
 
@@ -120,7 +120,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'More tournaments load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load more tournaments.'),
             ),
           ),
         );
@@ -149,7 +149,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'More tournaments load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load more tournaments.'),
             ),
           ),
         );
@@ -178,7 +178,7 @@ class _TournamentListScreenState extends State<TournamentListScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'More tournaments load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load more tournaments.'),
             ),
           ),
         );

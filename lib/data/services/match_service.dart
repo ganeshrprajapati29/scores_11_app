@@ -860,6 +860,26 @@ class MatchService {
   }
 
   /// Set the striker (on-strike batsman)
+  /// Offline-queue sender for striker / non-striker / bowler changes.
+  /// Unlike [setStriker] & co. it lets the original [DioException] through,
+  /// so the caller can tell "no internet" (retry later) from "rejected".
+  Future<void> sendScoringRoleRaw(
+    String matchId,
+    String role,
+    String playerId,
+  ) async {
+    final path = role == 'bowler'
+        ? 'bowler'
+        : role == 'nonStriker'
+            ? 'non-striker'
+            : 'striker';
+    await _apiClient.patch(
+      '/scoring/match/$matchId/$path',
+      data: role == 'bowler' ? {'bowlerId': playerId} : {'batsmanId': playerId},
+    );
+    _cacheService.clearMatchCache(matchId);
+  }
+
   Future<void> setStriker(String matchId, String batsmanId) async {
     try {
       final response = await _apiClient.patch(

@@ -17,6 +17,36 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
   late TabController _tabController;
   final StoreService _storeService = StoreService();
   List<Map<String, dynamic>> _orders = [];
+  String _query = '';
+
+  Future<void> _openSearch() async {
+    final controller = TextEditingController(text: _query);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Search orders'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Order number or product',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          if (_query.isNotEmpty)
+            TextButton(onPressed: () => Navigator.pop(ctx, ''), child: const Text('Clear')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value != null && mounted) setState(() => _query = value.trim().toLowerCase());
+  }
   bool _isLoading = false;
 
   @override
@@ -45,7 +75,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendlyError(e, fallback: 'Orders load nahi ho paaye.'))),
+        SnackBar(content: Text(friendlyError(e, fallback: 'Could not load orders.'))),
       );
     }
   }
@@ -67,6 +97,35 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     };
   }
 
+  String _addr(Map<String, dynamic> order, String key) {
+    final raw = order['raw'];
+    final address = raw is Map ? raw['shippingAddress'] : null;
+    if (address is! Map) return '';
+    return (address[key] ?? (key == 'street' ? address['address'] : null) ?? '').toString();
+  }
+
+  /// Steps are ticked up to the order's real status; only the placed time is
+  /// known from the backend, so other steps carry no fabricated timestamp.
+  List<Widget> _statusSteps(Map<String, dynamic> order) {
+    const steps = ['Order Placed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered'];
+    final status = order['status'].toString().toLowerCase();
+    var reached = 0;
+    if (status.contains('process') || status.contains('confirm')) reached = 1;
+    if (status.contains('ship')) reached = 2;
+    if (status.contains('out for')) reached = 3;
+    if (status.contains('deliver') && !status.contains('out for')) reached = 4;
+    final cancelled = status.contains('cancel');
+    return [
+      for (var i = 0; i < steps.length; i++)
+        _buildStatusStepper(
+          steps[i],
+          i == 0 ? order['date'].toString() : '',
+          !cancelled && i <= reached,
+        ),
+      if (cancelled) _buildStatusStepper('Cancelled', '', true),
+    ];
+  }
+
   String _titleCase(String value) {
     if (value.isEmpty) return value;
     return value
@@ -83,8 +142,9 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
         title: 'My Orders',
         actions: [
           IconButton(
-            icon: Icon(Icons.search),
-            onPressed: () {},
+            tooltip: 'Search orders',
+            icon: Icon(Icons.search, color: _query.isEmpty ? null : AppColors.primary),
+            onPressed: _openSearch,
           ),
         ],
         bottom: TabBar(
@@ -119,8 +179,10 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     }
 
     final filteredOrders = _orders.where((order) {
-      if (filter == 'all') return true;
-      return order['status'] == filter;
+      if (filter != 'all' && order['status'] != filter) return false;
+      if (_query.isEmpty) return true;
+      final text = '${order['id']} ${_firstProductName(order)}'.toLowerCase();
+      return text.contains(_query);
     }).toList();
 
     if (filteredOrders.isEmpty) {
@@ -236,7 +298,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          'â‚¹${order['total']}',
+                          '₹${order['total']}',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -339,11 +401,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                 const SizedBox(height: 24),
                 Text('Order Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
-                _buildStatusStepper('Order Placed', '15 Mar, 10:30 AM', true),
-                _buildStatusStepper('Processing', '15 Mar, 02:00 PM', true),
-                _buildStatusStepper('Shipped', '16 Mar, 11:00 AM', true),
-                _buildStatusStepper('Out for Delivery', 'Today, 08:00 AM', order['status'] == 'Out for Delivery'),
-                _buildStatusStepper('Delivered', '', order['status'] == 'Delivered'),
+                ..._statusSteps(order),
                 const SizedBox(height: 24),
                 Text('Order Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
@@ -358,7 +416,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                         Text(_firstProductName(order), style: TextStyle(fontWeight: FontWeight.w500)),
                         Text('Qty: ${order['items']}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                       ])),
-                      Text('â‚¹${order['total']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('₹${order['total']}', style: const TextStyle(fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -371,15 +429,21 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('John Doe', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(_addr(order, 'name').isEmpty ? '—' : _addr(order, 'name'), style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text('123, ABC Apartments, Near Metro Station', style: TextStyle(color: Colors.grey[600])),
-                      Text('Mumbai - 400001', style: TextStyle(color: Colors.grey[600])),
+                      if (_addr(order, 'street').isNotEmpty)
+                        Text(_addr(order, 'street'), style: TextStyle(color: Colors.grey[600])),
+                      Text(
+                        [_addr(order, 'city'), _addr(order, 'state'), _addr(order, 'pincode')]
+                            .where((p) => p.isNotEmpty)
+                            .join(', '),
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
                       const SizedBox(height: 8),
                       Row(children: [
                         Icon(Icons.phone, size: 16, color: Colors.grey),
                         const SizedBox(width: 4),
-                        Text('+91 9876543210', style: TextStyle(color: Colors.grey[600])),
+                        Text(_addr(order, 'phone'), style: TextStyle(color: Colors.grey[600])),
                       ]),
                     ],
                   ),
@@ -392,11 +456,10 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12)),
                   child: Column(
                     children: [
-                      _buildPriceRow('Subtotal', 'â‚¹${order['total']}'),
-                      _buildPriceRow('Shipping', 'â‚¹99'),
-                      _buildPriceRow('Tax', 'â‚¹${(order['total'] * 0.18).round()}'),
+                      _buildPriceRow('Subtotal', '₹${order['total']}'),
+                      _buildPriceRow('Shipping', 'FREE'),
                       const Divider(),
-                      _buildPriceRow('Total', 'â‚¹${(order['total'] + 99 + (order['total'] * 0.18).round())}', isTotal: true),
+                      _buildPriceRow('Total', '₹${order['total']}', isTotal: true),
                     ],
                   ),
                 ),

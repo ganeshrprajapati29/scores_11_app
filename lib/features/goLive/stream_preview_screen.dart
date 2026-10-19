@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import '../../data/services/live_stream_service.dart';
 import '../../data/models/live_stream_model.dart';
 import '../../features/live_stream/live_player_screen.dart';
+import '../../core/utils/friendly_error.dart';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const _black       = Color(0xFF000000);
@@ -155,7 +156,11 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
 
     try {
       await LiveStreamService.startStream(widget.stream.id);
-      if (mounted) _showSnack('🎥 Stream is live!', _green);
+      // The camera here is only a preview; video reaches viewers once an
+      // encoder app publishes to the server URL and key below.
+      if (mounted) {
+        _showSnack('Stream ready. Start your encoder app with the Server URL and Stream Key below.', _green);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -163,7 +168,7 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
           _streamStart = null;
         });
       }
-      if (mounted) _showSnack('Stream failed: $e', _red);
+      if (mounted) _showSnack(friendlyError(e, fallback: 'Could not start the stream.'), _red);
     } finally {
       if (mounted) setState(() => _isStarting = false);
     }
@@ -192,7 +197,7 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
       debugPrint('Stop error: $e');
       if (mounted) {
         setState(() => _isStopping = false);
-        _showSnack('Unable to end stream: $e', _red);
+        _showSnack(friendlyError(e, fallback: 'Could not end the stream.'), _red);
       }
     }
   }
@@ -713,6 +718,21 @@ class _StreamPreviewScreenState extends State<StreamPreviewScreen>
                       size: 16,
                       color: _muted,
                     ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _blueBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    widget.stream.isYoutube
+                        ? 'How to go live: open an RTMP encoder app (Larix Broadcaster, Prism Live or OBS), paste the Server URL and Stream Key, and press its Go Live button. YouTube starts the broadcast automatically when your video arrives. The camera above is only a preview.'
+                        : 'How to go live: open an RTMP encoder app (Larix Broadcaster, Prism Live or OBS), paste the Server URL and Stream Key, and press its Go Live button. The camera above is only a preview.',
+                    style: const TextStyle(fontSize: 12, height: 1.45, color: _white),
                   ),
                 ),
               ],

@@ -12,6 +12,7 @@ import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/auth/complete_profile_screen.dart';
 import 'features/auth/phone_login_screen.dart';
+import 'features/auth/reset_password_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/goLive/go_live_screen.dart';
 import 'features/tournaments/tournament_detail_screen.dart';
@@ -19,13 +20,10 @@ import 'features/tournaments/tournament_list_screen.dart';
 import 'features/tournaments/points_table_screen.dart';
 import 'features/tournaments/fixtures_screen.dart';
 import 'features/tournaments/create_tournament_screen.dart';
-import 'features/home/home_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/profile/cricket_profile_screen.dart';
 import 'features/matches/match_list_screen.dart';
 import 'features/matches/match_detail_screen.dart';
-import 'features/matches/live_match_screen.dart';
-import 'features/matches/score_entry_screen.dart';
 import 'features/matches/create_match_screen.dart';
 import 'features/matches/scorecard_screen.dart';
 import 'features/matches/team_selection_screen.dart';
@@ -57,7 +55,7 @@ import 'features/settings/security_screen.dart';
 import 'features/settings/privacy_policy_screen.dart';
 import 'features/settings/help_support_screen.dart';
 import 'features/settings/terms_of_service_screen.dart';
-import 'features/dashboard/testing_screen.dart';
+import 'features/highlights/highlights_screen.dart';
 import 'features/wallet/wallet_screen.dart';
 import 'features/subscription/subscription_screen.dart';
 import 'features/notifications/notifications_screen.dart';
@@ -131,7 +129,8 @@ class Cric11App extends StatelessWidget {
             );
           }
           // Handle dynamic match route: /match/:id
-          if (settings.name!.startsWith('/match/')) {
+          if (settings.name!.startsWith('/match/') ||
+              settings.name!.startsWith('/live-match/')) {
             final uri = Uri.parse(settings.name!);
             final pathSegments = uri.pathSegments;
             final matchId = pathSegments.isNotEmpty ? pathSegments.last : '';
@@ -183,7 +182,11 @@ class Cric11App extends StatelessWidget {
 
           // Main Screens
           '/dashboard': (context) => const DashboardScreen(),
-          '/home': (context) => const HomeScreen(),
+          // Legacy name kept for older callers; the real home is the dashboard.
+          '/home': (context) => const DashboardScreen(),
+          '/reset-password': (context) => const ResetPasswordScreen(),
+          '/messages': (context) => const ChatListScreen(),
+          '/tournaments/join': (context) => const TournamentListScreen(),
           '/profile': (context) => const ProfileScreen(),
           '/cricket-profile': (context) => const CricketProfileScreen(),
 
@@ -230,8 +233,13 @@ class Cric11App extends StatelessWidget {
                 : const CreateMatchScreen();
           },
 // '/create-match-enhanced': (context) => CreateMatchScreen(), // Temporarily disabled - class not found
-          '/live-match': (context) => const LiveMatchScreen(matchId: ''),
-          '/score-entry': (context) => const ScoreEntryScreen(matchId: ''),
+          '/live-match': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            final matchId = args is Map
+                ? (args['_id'] ?? args['id'] ?? args['matchId'] ?? '').toString()
+                : (args?.toString() ?? '');
+            return MatchDetailScreen(matchId: matchId);
+          },
           '/scorecard': (context) {
             final args = ModalRoute.of(context)!.settings.arguments;
             String matchId = '';
@@ -355,7 +363,10 @@ class Cric11App extends StatelessWidget {
           '/payment': (context) => const CheckoutScreen(),
 
           // Other Routes
-          '/go-live': (context) => const GoLiveScreen(),
+          '/go-live': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            return GoLiveScreen(initialMatchId: args is String ? args : null);
+          },
           '/live-player': (context) => const LivePlayerScreen(streamId: ''),
           '/discover': (context) => const DiscoveryScreen(),
           '/stats': (context) => const CricketProfileScreen(),
@@ -381,7 +392,16 @@ class Cric11App extends StatelessWidget {
           '/purchase-history': (context) => const OrdersScreen(),
           '/followers': (context) => const ConnectionsScreen(),
           '/following': (context) => const ConnectionsScreen(),
-          '/testing': (context) => const TestingScreen(),
+          '/highlights': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            if (args is Map) {
+              return HighlightsScreen(
+                matchId: args['matchId']?.toString(),
+                matchTitle: args['matchTitle']?.toString(),
+              );
+            }
+            return HighlightsScreen(matchId: args is String ? args : null);
+          },
           '/support': (context) => const HelpSupportScreen(),
           '/notifications': (context) => const NotificationsScreen(),
           '/connections': (context) => const ConnectionsScreen(),

@@ -38,6 +38,56 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   bool _isLoadingMore = false;
 
   List<Map<String, dynamic>> _posts = [];
+  String? _tag;
+  String? _search;
+
+  bool get _hasFilter => _tag != null || _search != null;
+
+  void _applyFilter({String? tag, String? search}) {
+    setState(() {
+      _tag = tag;
+      _search = search;
+    });
+    _tabController.animateTo(0);
+    _loadPosts();
+  }
+
+  Future<void> _openSearch() async {
+    final controller = TextEditingController(text: _search ?? '');
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Search posts'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          decoration: const InputDecoration(
+            hintText: 'Words or #hashtag',
+            prefixIcon: Icon(Icons.search_rounded),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null) return;
+    final query = value.trim();
+    if (query.isEmpty) {
+      _applyFilter();
+    } else if (query.startsWith('#')) {
+      _applyFilter(tag: query);
+    } else {
+      _applyFilter(search: query);
+    }
+  }
 
   @override
   void initState() {
@@ -55,7 +105,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   Future<void> _loadPosts() async {
     setState(() => _isLoading = true);
     try {
-      final result = await _communityService.getPosts(page: 1);
+      final result = await _communityService.getPosts(page: 1, tag: _tag, search: _search);
+      if (!mounted) return;
       setState(() {
         _posts = result.posts;
         _hasMore = result.hasMore;
@@ -63,8 +114,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
-      if (mounted) _snack('Error: $e');
+      _snack(friendlyError(e, fallback: 'Could not load posts.'));
     }
   }
 
@@ -73,18 +125,20 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     setState(() => _isLoadingMore = true);
     try {
       _currentPage++;
-      final result = await _communityService.getPosts(page: _currentPage);
+      final result = await _communityService.getPosts(page: _currentPage, tag: _tag, search: _search);
+      if (!mounted) return;
       setState(() {
         _posts.addAll(result.posts);
         _hasMore = result.hasMore;
         _isLoadingMore = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _currentPage--;
         _isLoadingMore = false;
       });
-      if (mounted) _snack('Error loading more: $e');
+      _snack(friendlyError(e, fallback: 'Could not load more posts.'));
     }
   }
 
@@ -108,15 +162,40 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _FeedTab(
-            posts: _posts,
-            isLoading: _isLoading,
-            isLoadingMore: _isLoadingMore,
-            hasMore: _hasMore,
-            loadMore: _loadMorePosts,
-            loadPosts: _loadPosts,
+          Column(
+            children: [
+              if (_hasFilter)
+                Container(
+                  width: double.infinity,
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                  child: Row(children: [
+                    const Icon(Icons.filter_alt_rounded, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _tag ?? '"${_search ?? ''}"',
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: _kTextPrimary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    TextButton(onPressed: () => _applyFilter(), child: const Text('Clear')),
+                  ]),
+                ),
+              Expanded(
+                child: _FeedTab(
+                  posts: _posts,
+                  isLoading: _isLoading,
+                  isLoadingMore: _isLoadingMore,
+                  hasMore: _hasMore,
+                  loadMore: _loadMorePosts,
+                  loadPosts: _loadPosts,
+                  onPostDeleted: (id) => setState(() => _posts.removeWhere((p) => p['id']?.toString() == id)),
+                ),
+              ),
+            ],
           ),
-          _TrendingTab(),
+          _TrendingTab(onTagTap: (tag) => _applyFilter(tag: tag)),
         ],
       ),
       floatingActionButton: _buildFAB(),
@@ -175,7 +254,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         IconButton(
           icon: const Icon(Icons.search_rounded,
               color: _kTextSecondary, size: 22),
-          onPressed: () {},
+          tooltip: 'Search posts',
+          onPressed: _openSearch,
         ),
       ],
       bottom: PreferredSize(
@@ -245,7 +325,10 @@ class _FeedTab extends StatefulWidget {
     required this.hasMore,
     required this.loadMore,
     required this.loadPosts,
+    this.onPostDeleted,
   });
+
+  final void Function(String id)? onPostDeleted;
 
   @override
   State<_FeedTab> createState() => _FeedTabState();
@@ -305,7 +388,12 @@ class _FeedTabState extends State<_FeedTab> {
                   )
                 : const SizedBox.shrink();
           }
-          return _PostCard(post: widget.posts[index], index: index);
+          return _PostCard(
+            key: ValueKey(widget.posts[index]['id'] ?? index),
+            post: widget.posts[index],
+            index: index,
+            onDeleted: widget.onPostDeleted,
+          );
         },
       ),
     );
@@ -377,7 +465,9 @@ class _PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
   final int index;
 
-  const _PostCard({required this.post, required this.index});
+  final void Function(String id)? onDeleted;
+
+  const _PostCard({super.key, required this.post, required this.index, this.onDeleted});
 
   @override
   State<_PostCard> createState() => _PostCardState();
@@ -406,7 +496,7 @@ class _PostCardState extends State<_PostCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e, fallback: 'Post update nahi ho paaya.'))),
+          SnackBar(content: Text(friendlyError(e, fallback: 'Could not update post.'))),
         );
       }
     } finally {
@@ -459,6 +549,72 @@ class _PostCardState extends State<_PostCard> {
     await _run(() => _communityService.addComment(id, {'content': text}));
   }
 
+  Future<void> _showOptions() async {
+    final id = post['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    final myId = await UserService.getUserId();
+    final authorId = post['authorId']?.toString() ?? post['userId']?.toString() ?? '';
+    final isMine = myId != null && myId == authorId;
+    if (!mounted) return;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.share_outlined),
+            title: const Text('Share'),
+            onTap: () => Navigator.pop(ctx, 'share'),
+          ),
+          if (isMine)
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: AppColors.error),
+              title: const Text('Delete post', style: TextStyle(color: AppColors.error)),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            )
+          else
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('Report post'),
+              onTap: () => Navigator.pop(ctx, 'report'),
+            ),
+        ]),
+      ),
+    );
+    if (!mounted || action == null) return;
+    try {
+      if (action == 'share') {
+        await _sharePost();
+      } else if (action == 'delete') {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Delete this post?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+            ],
+          ),
+        );
+        if (ok != true) return;
+        await _communityService.deletePost(id);
+        widget.onDeleted?.call(id);
+      } else if (action == 'report') {
+        await _communityService.reportPost(id, {'reason': 'inappropriate', 'description': 'Reported from app'});
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Thanks, the post has been reported for review.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e, fallback: 'Action could not be completed.'))),
+        );
+      }
+    }
+  }
+
   Future<void> _toggleFollow() async {
     final authorId = post['authorId']?.toString() ?? post['userId']?.toString() ?? '';
     if (authorId.isEmpty || _busy) return;
@@ -475,7 +631,7 @@ class _PostCardState extends State<_PostCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e, fallback: 'Action complete nahi ho paaya.'))),
+          SnackBar(content: Text(friendlyError(e, fallback: 'Could not complete the action.'))),
         );
       }
     } finally {
@@ -540,7 +696,8 @@ class _PostCardState extends State<_PostCard> {
                   IconButton(
                     icon: const Icon(Icons.more_horiz_rounded,
                         color: _kTextHint, size: 20),
-                    onPressed: () {},
+                    tooltip: 'More options',
+                    onPressed: _showOptions,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
                         minWidth: 32, minHeight: 32),
@@ -783,20 +940,61 @@ class _ActionBtn extends StatelessWidget {
 
 // ─── Trending Tab ─────────────────────────────────────────────────────────────
 
-class _TrendingTab extends StatelessWidget {
-  final List<Map<String, String>> _trending = const [
-    {'tag': '#MIvsCSK', 'posts': '12.5K'},
-    {'tag': '#Bumrah', 'posts': '8.2K'},
-    {'tag': '#IPLFinal', 'posts': '6.8K'},
-    {'tag': '#RohitSharma', 'posts': '5.4K'},
-    {'tag': '#Wankhede', 'posts': '3.2K'},
-  ];
+class _TrendingTab extends StatefulWidget {
+  final void Function(String tag) onTagTap;
 
-  const _TrendingTab();
+  const _TrendingTab({required this.onTagTap});
+
+  @override
+  State<_TrendingTab> createState() => _TrendingTabState();
+}
+
+class _TrendingTabState extends State<_TrendingTab> {
+  List<Map<String, dynamic>> _trending = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final tags = await CommunityService().getTrendingTags();
+      if (mounted) setState(() => _trending = tags);
+    } catch (_) {
+      // Shown as the empty state below.
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_trending.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(children: const [
+          SizedBox(height: 140),
+          Icon(Icons.tag_rounded, size: 48, color: _kTextHint),
+          SizedBox(height: 12),
+          Center(
+            child: Text('No trending topics yet',
+                style: TextStyle(color: _kTextSecondary, fontWeight: FontWeight.w600)),
+          ),
+          SizedBox(height: 6),
+          Center(
+            child: Text('Use #hashtags in your posts to start one',
+                style: TextStyle(color: _kTextHint, fontSize: 13)),
+          ),
+        ]),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       children: [
         // Section header
@@ -841,7 +1039,7 @@ class _TrendingTab extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(_kCardRadius),
                 splashColor: AppColors.primary.withOpacity(0.04),
-                onTap: () {},
+                onTap: () => widget.onTagTap((topic['tag'] ?? '').toString()),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 14),
@@ -877,7 +1075,7 @@ class _TrendingTab extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              topic['tag'] ?? '',
+                              (topic['tag'] ?? '').toString(),
                               style: const TextStyle(
                                 color: _kTextPrimary,
                                 fontWeight: FontWeight.w700,
@@ -916,6 +1114,7 @@ class _TrendingTab extends StatelessWidget {
               .slideY(begin: 0.05, end: 0, duration: 260.ms, delay: (i * 60).ms);
         }),
       ],
+      ),
     );
   }
 }

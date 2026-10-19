@@ -99,7 +99,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
       });
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Search error: $e', isError: true);
+        _showSnackBar(friendlyError(e, fallback: 'Search failed. Please try again.'), isError: true);
       }
       setState(() => _isLoading = false);
     }
@@ -202,7 +202,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
         setState(() => _addedPlayerIds.add(player.id));
       }
     } catch (e) {
-      final message = friendlyError(e, fallback: 'Player add nahi ho paaya.');
+      final message = friendlyError(e, fallback: 'Could not add player.');
       final normalized = message.toLowerCase();
       if (normalized.contains('already') || normalized.contains('duplicate')) {
         if (mounted) {
@@ -224,7 +224,7 @@ class _FindPlayerScreenState extends State<FindPlayerScreen> {
       final fullPlayer = await _playerService.getPlayerById(player.id);
       if (mounted) _showDetailsModal(fullPlayer);
     } catch (e) {
-      if (mounted) _showSnackBar(friendlyError(e, fallback: 'Details load nahi ho paayi.'), isError: true);
+      if (mounted) _showSnackBar(friendlyError(e, fallback: 'Could not load details.'), isError: true);
     } finally {
       if (mounted) setState(() => _isDetailLoading = false);
     }
@@ -636,7 +636,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Image.asset(
-            'score 11/Empty States 6.png',
+            'score 11/Empty States 4.png',
             width: 124,
             height: 124,
             fit: BoxFit.contain,

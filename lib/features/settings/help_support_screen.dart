@@ -1,27 +1,45 @@
 import 'package:flutter/material.dart';
-// import 'package:url_launcher/url_launcher.dart'; // Add to pubspec.yaml if needed
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/custom_appbar.dart';
+import '../../data/services/app_config_service.dart';
 
-class HelpSupportScreen extends StatelessWidget {
+class HelpSupportScreen extends StatefulWidget {
   const HelpSupportScreen({super.key});
 
-  static void _launchURL(BuildContext context, String url) {
-    // Open external links - requires url_launcher dependency
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('External Link'),
-        content: Text('Open $url in browser?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Copy Link')),
-        ],
-      ),
-    );
+  @override
+  State<HelpSupportScreen> createState() => _HelpSupportScreenState();
+}
+
+class _HelpSupportScreenState extends State<HelpSupportScreen> {
+  AppConfig _config = const AppConfig();
+
+  @override
+  void initState() {
+    super.initState();
+    AppConfigService.load().then((config) {
+      if (mounted) setState(() => _config = config);
+    });
   }
 
-  static void _showGuide(
+  Future<void> _open(Uri uri) async {
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No app available to open ${uri.scheme == 'mailto' ? 'email' : 'this link'}')),
+      );
+    }
+  }
+
+  void _email(String subject) => _open(Uri(
+        scheme: 'mailto',
+        path: _config.supportEmail,
+        query: 'subject=${Uri.encodeComponent(subject)}',
+      ));
+
+  void _whatsapp() => _open(Uri.parse('https://wa.me/${_config.supportWhatsapp}'));
+
+  void _showGuide(
     BuildContext context, {
     required String title,
     required List<String> points,
@@ -56,7 +74,7 @@ class HelpSupportScreen extends StatelessWidget {
                     height: 42,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF1A56DB), Color(0xFF3B82F6)],
+                        colors: [Color(0xFF1657CC), Color(0xFF3B82F6)],
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -84,7 +102,7 @@ class HelpSupportScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(Icons.check_circle_rounded,
-                          color: Color(0xFF1A56DB), size: 18),
+                          color: Color(0xFF1657CC), size: 18),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -115,6 +133,7 @@ class HelpSupportScreen extends StatelessWidget {
     );
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,10 +154,10 @@ class HelpSupportScreen extends StatelessWidget {
                 points: const [
                   'Open Matches and tap Create Match.',
                   'Select both teams, venue, date, time and match format.',
-                  'Save the match, then initialize live scoring when ready.',
+                  'Do the toss, pick the playing XI and start live scoring.',
                 ],
               ),
-              subtitle: 'Learn how to set up and manage cricket matches',
+              subtitle: 'Set up a match and start scoring',
             ),
             _buildSupportItem(
               icon: Icons.emoji_events,
@@ -149,10 +168,25 @@ class HelpSupportScreen extends StatelessWidget {
                 points: const [
                   'Open Tournaments and choose the tournament you want.',
                   'Check eligibility, schedule and team requirements.',
-                  'Send a join request or contact the organizer from details.',
+                  'Register your team from the tournament page.',
                 ],
               ),
               subtitle: 'Step-by-step guide to participate in tournaments',
+            ),
+            _buildSupportItem(
+              icon: Icons.videocam_rounded,
+              title: 'Going live on YouTube',
+              onTap: () => _showGuide(
+                context,
+                title: 'Going live on YouTube',
+                points: const [
+                  'Open the menu and tap Go Live, or tap the camera icon while scoring.',
+                  'Start a live stream in the YouTube app and paste its link, or connect your channel.',
+                  'Pick the match and tap Go Live Now. Viewers see Watch Live on the match page.',
+                  'When you end the stream, the full replay appears under Highlights.',
+                ],
+              ),
+              subtitle: 'Stream your match and save the replay',
             ),
             const SizedBox(height: 24),
             _buildSectionTitle('Account & Profile'),
@@ -172,22 +206,22 @@ class HelpSupportScreen extends StatelessWidget {
             ),
             _buildSupportItem(
               icon: Icons.lock,
-              title: 'Password Issues',
-              onTap: () => _launchURL(context, 'mailto:support@scores11.com'),
-              subtitle: 'Forgot password or security concerns',
+              title: 'Login & OTP issues',
+              onTap: () => _email('Login / OTP issue'),
+              subtitle: 'Not receiving the OTP or cannot sign in',
             ),
             const SizedBox(height: 24),
             _buildSectionTitle('Technical Issues'),
             _buildSupportItem(
               icon: Icons.live_tv,
               title: 'Live Streaming Problems',
-              onTap: () => _launchURL(context, 'mailto:tech@scores11.com'),
+              onTap: () => _email('Live streaming problem'),
               subtitle: 'Go Live not working or stream quality issues',
             ),
             _buildSupportItem(
               icon: Icons.sports_cricket,
               title: 'Score Entry Errors',
-              onTap: () => _launchURL(context, 'mailto:support@scores11.com'),
+              onTap: () => _email('Scoring problem'),
               subtitle: 'Issues with scorecard or match data',
             ),
             const SizedBox(height: 24),
@@ -208,11 +242,7 @@ class HelpSupportScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const Icon(
-                    Icons.support_agent,
-                    size: 64,
-                    color: const Color(0xFF1A56DB),
-                  ),
+                  const Icon(Icons.support_agent, size: 64, color: Color(0xFF1657CC)),
                   const SizedBox(height: 16),
                   const Text(
                     'Get Help Fast',
@@ -223,82 +253,60 @@ class HelpSupportScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Our team is here 24/7 to help you',
-                    style: TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 14,
-                    ),
+                  Text(
+                    _config.supportEmail,
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
                   ),
                   const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => _launchURL(context, 'mailto:support@scores11.com'),
+                          onPressed: () => _email('Scores11 support'),
                           icon: const Icon(Icons.email, size: 18),
                           label: const Text('Email Support'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFF1A56DB),
+                            backgroundColor: const Color(0xFF1657CC),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _launchURL(context, 'https://wa.me/919876543210'),
-                          icon: const Icon(Icons.message, size: 18),
-                          label: const Text('WhatsApp'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xFF25D366),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      if (_config.supportWhatsapp.isNotEmpty) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _whatsapp,
+                            icon: const Icon(Icons.message, size: 18),
+                            label: const Text('WhatsApp'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF25D366),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
+                  if (_config.supportPhone.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    TextButton.icon(
+                      onPressed: () => _open(Uri(scheme: 'tel', path: _config.supportPhone)),
+                      icon: const Icon(Icons.phone),
+                      label: Text(_config.supportPhone),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 32),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 12,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: const Column(
-                children: [
-                  Text(
-                    '© 2024 Scores11. All rights reserved.',
-                    style: TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Help & Support v1.0',
-                    style: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+            Center(
+              child: Text(
+                '© ${DateTime.now().year} Scores11. All rights reserved.',
+                style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
               ),
             ),
           ],
@@ -353,7 +361,7 @@ class HelpSupportScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF1A56DB), Color(0xFF3B82F6)],
+                      colors: [Color(0xFF1657CC), Color(0xFF3B82F6)],
                     ),
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -396,4 +404,3 @@ class HelpSupportScreen extends StatelessWidget {
     );
   }
 }
-

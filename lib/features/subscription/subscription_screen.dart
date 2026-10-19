@@ -41,7 +41,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = friendlyError(e, fallback: 'Subscription details load nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not load subscription details.');
         _isLoading = false;
       });
     }
@@ -65,7 +65,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyError(e, fallback: 'Something went wrong. Please try again.')),
             backgroundColor: AppColors.error,
           ),
         );
@@ -218,7 +218,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                'â‚¹${plan['price'] ?? '0'}',
+                '₹${plan['price'] ?? '0'}',
                 style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,

@@ -230,7 +230,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
       });
     } catch (e) {
       setState(() {
-        _fetchError = friendlyError(e, fallback: 'Teams load nahi ho paayi.');
+        _fetchError = friendlyError(e, fallback: 'Could not load teams.');
         _loadingTeams = false;
       });
     }
@@ -452,7 +452,7 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
         }
       }
     } catch (e) {
-      _snack(friendlyError(e, fallback: 'Match create nahi ho paaya.'), isError: true);
+      _snack(friendlyError(e, fallback: 'Could not create match.'), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

@@ -50,7 +50,7 @@ class _PointsTableScreenState extends State<PointsTableScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Points table load nahi ho paayi.');
+        _error = friendlyError(e, fallback: 'Could not load points table.');
         _isLoading = false;
       });
     }

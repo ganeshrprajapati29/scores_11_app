@@ -1,5 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
-import 'package:firebase_core/firebase_core.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,16 +22,18 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
 
-  String? _verificationId;
-  String? _verifiedIdToken;
-  int? _resendToken;
   bool _codeSent = false;
   bool _needsProfile = false;
   bool _isLoading = false;
   String? _errorMessage;
 
+  // Seconds until "Resend OTP" is allowed again (server enforces the same).
+  int _resendIn = 0;
+  Timer? _resendTimer;
+
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _phoneController.dispose();
     _nameController.dispose();
     _emailController.dispose();
@@ -39,21 +41,39 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     super.dispose();
   }
 
-  String get _firebasePhone {
+  String get _phoneDigits {
     final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.startsWith('91') && digits.length == 12) return '+$digits';
-    return '+91$digits';
+    if (digits.length == 12 && digits.startsWith('91')) return digits.substring(2);
+    return digits;
   }
 
+  void _startResendCountdown(int seconds) {
+    _resendTimer?.cancel();
+    setState(() => _resendIn = seconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      setState(() => _resendIn = _resendIn > 0 ? _resendIn - 1 : 0);
+      if (_resendIn == 0) timer.cancel();
+    });
+  }
+
+  void _backToPhoneEntry() {
+    _resendTimer?.cancel();
+    setState(() {
+      _codeSent = false;
+      _needsProfile = false;
+      _resendIn = 0;
+      _otpController.clear();
+      _nameController.clear();
+      _emailController.clear();
+      _errorMessage = null;
+    });
+  }
+
+  /// Ask the backend to send an OTP to the number (delivered by APITxT).
   Future<void> _requestOTP() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (Firebase.apps.isEmpty) {
-      setState(() {
-        _errorMessage =
-            'Mobile sign-in is not ready. Please update the app and try again.';
-      });
-      return;
-    }
+    if (!_codeSent && !(_formKey.currentState?.validate() ?? false)) return;
+    if (_resendIn > 0) return;
     FocusScope.of(context).unfocus();
     setState(() {
       _isLoading = true;
@@ -61,143 +81,70 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       _needsProfile = false;
     });
 
-    try {
-      final auth = firebase_auth.FirebaseAuth.instance;
-      await auth.setLanguageCode('en');
-      await auth.setSettings(
-        appVerificationDisabledForTesting: false,
-        forceRecaptchaFlow: false,
-      );
-      await auth.verifyPhoneNumber(
-        phoneNumber: _firebasePhone,
-        forceResendingToken: _codeSent ? _resendToken : null,
-        timeout: const Duration(seconds: 60),
-        verificationCompleted: _completeFirebaseLogin,
-        verificationFailed: (error) {
-          if (!mounted) return;
-          setState(() {
-            _isLoading = false;
-            _errorMessage = _mobileAuthMessage(error);
-          });
-        },
-        codeSent: (verificationId, resendToken) {
-          if (!mounted) return;
-          setState(() {
-            _verificationId = verificationId;
-            _resendToken = resendToken ?? _resendToken;
-            _codeSent = true;
-            _needsProfile = false;
-            _verifiedIdToken = null;
-            _otpController.clear();
-            _isLoading = false;
-            _errorMessage = null;
-          });
-        },
-        codeAutoRetrievalTimeout: (verificationId) {
-          _verificationId = verificationId;
-        },
-      );
-    } on firebase_auth.FirebaseAuthException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = _mobileAuthMessage(error);
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Unable to send OTP right now. Please try again.';
-      });
+    final auth = context.read<AuthProvider>();
+    final sent = await auth.sendPhoneOtp(_phoneDigits);
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      if (sent) {
+        _codeSent = true;
+        _otpController.clear();
+        _errorMessage = null;
+      } else {
+        _errorMessage = auth.errorMessage ?? 'Could not send the OTP. Please try again.';
+      }
+    });
+    if (sent || auth.authActionCode == 'OTP_RESEND_WAIT') {
+      _startResendCountdown(auth.otpResendSeconds);
     }
   }
 
   Future<void> _verifyOTP() async {
-    final verificationId = _verificationId;
     final otp = _otpController.text.trim();
-    if (verificationId == null) {
-      setState(() => _errorMessage = 'Request a new OTP and try again');
-      return;
-    }
     if (!RegExp(r'^\d{6}$').hasMatch(otp)) {
       setState(() => _errorMessage = 'Enter the complete 6-digit OTP');
       return;
     }
-
+    FocusScope.of(context).unfocus();
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    final credential = firebase_auth.PhoneAuthProvider.credential(
-      verificationId: verificationId,
-      smsCode: otp,
-    );
-    await _completeFirebaseLogin(credential);
-  }
-
-  Future<void> _completeFirebaseLogin(
-    firebase_auth.PhoneAuthCredential credential,
-  ) async {
-    try {
-      final result = await firebase_auth.FirebaseAuth.instance
-          .signInWithCredential(credential);
-      final idToken = await result.user?.getIdToken(true);
-      if (idToken == null) {
-        throw firebase_auth.FirebaseAuthException(code: 'missing-token');
-      }
-      if (!mounted) return;
-
-      await _finishMobileLogin(idToken: idToken);
-    } on firebase_auth.FirebaseAuthException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = _mobileAuthMessage(error);
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Unable to complete mobile sign-in. Please try again.';
-      });
-    }
+    await _finishMobileLogin(otp: otp);
   }
 
   Future<void> _finishMobileLogin({
-    required String idToken,
+    String? otp,
     String? name,
     String? email,
-    String? role,
-    String? playerRole,
-    String? battingStyle,
-    String? bowlingStyle,
   }) async {
+    final auth = context.read<AuthProvider>();
     try {
-      final success = await context.read<AuthProvider>().loginWithFirebasePhone(
-            idToken: idToken,
-            name: name,
-            email: email,
-            role: role,
-            playerRole: playerRole,
-            battingStyle: battingStyle,
-            bowlingStyle: bowlingStyle,
-          );
+      final success = await auth.loginWithPhoneOtp(
+        phone: _phoneDigits,
+        otp: otp,
+        name: name,
+        email: email,
+      );
       if (!mounted) return;
       if (!success) {
-        final auth = context.read<AuthProvider>();
         if (auth.authActionCode == 'PROFILE_REQUIRED') {
           setState(() {
             _isLoading = false;
             _needsProfile = true;
-            _verifiedIdToken = idToken;
-            _errorMessage =
-                'This mobile number is verified. Add your name to create your Scores11 account.';
+            _errorMessage = null;
           });
           return;
         }
+        final expired = auth.authActionCode == 'OTP_EXPIRED' ||
+            auth.authActionCode == 'OTP_ATTEMPTS';
         setState(() {
           _isLoading = false;
           _errorMessage = auth.errorMessage ?? 'Mobile sign-in failed';
+          if (expired) {
+            _otpController.clear();
+            _resendIn = 0;
+          }
         });
         return;
       }
@@ -216,12 +163,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   }
 
   Future<void> _createMobileAccount() async {
-    final idToken = _verifiedIdToken;
     final name = _nameController.text.trim();
-    if (idToken == null) {
-      setState(() => _errorMessage = 'Please verify your OTP again.');
-      return;
-    }
     if (name.length < 2) {
       setState(() => _errorMessage = 'Enter your full name to continue.');
       return;
@@ -231,38 +173,15 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       setState(() => _errorMessage = 'Enter a valid email address.');
       return;
     }
+    if (context.read<AuthProvider>().phoneVerificationToken == null) {
+      setState(() => _errorMessage = 'Your verification expired. Please request a new OTP.');
+      return;
+    }
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    await _finishMobileLogin(
-      idToken: idToken,
-      name: name,
-      email: email,
-      role: 'user',
-    );
-  }
-
-  String _mobileAuthMessage(firebase_auth.FirebaseAuthException error) {
-    final rawMessage = '${error.code} ${error.message ?? ''}'.toLowerCase();
-    switch (error.code) {
-      case 'invalid-verification-code':
-      case 'session-expired':
-        return 'Invalid or expired OTP. Please request a new code.';
-      case 'too-many-requests':
-        return 'OTP sending is temporarily blocked by Firebase for this mobile/device. '
-            'Try again after some time or use another number.';
-      case 'network-request-failed':
-        return 'Network issue. Please check your connection.';
-      default:
-        if (rawMessage.contains('17093') ||
-            rawMessage.contains('app-not-authorized') ||
-            rawMessage.contains('app not authorized') ||
-            rawMessage.contains('not authorized')) {
-          return 'This app build is not authorized for mobile OTP. Please uninstall the old app, install the latest build, and try again.';
-        }
-        return 'Unable to send OTP right now. Please try again.';
-    }
+    await _finishMobileLogin(name: name, email: email);
   }
 
   Future<void> _continueAsGuest() async {
@@ -435,7 +354,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                 ).copyWith(prefixText: '+91 '),
                                 validator: (value) {
                                   final digits = value?.replaceAll(RegExp(r'\D'), '') ?? '';
-                                  if (digits.length != 10) {
+                                  if (digits.length != 10 || !RegExp(r'^[6-9]').hasMatch(digits)) {
                                     return 'Enter a valid 10-digit mobile number';
                                   }
                                   return null;
@@ -555,27 +474,18 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   TextButton.icon(
-                                    onPressed: _isLoading ? null : _requestOTP,
+                                    onPressed: _isLoading || _resendIn > 0 ? null : _requestOTP,
                                     icon: const Icon(Icons.refresh_rounded, size: 16),
-                                    label: const Text(
-                                      'Resend OTP',
-                                      style: TextStyle(fontWeight: FontWeight.w800),
+                                    label: Text(
+                                      _resendIn > 0 ? 'Resend in ${_resendIn}s' : 'Resend OTP',
+                                      style: const TextStyle(fontWeight: FontWeight.w800),
                                     ),
                                   ),
                                   Container(width: 1, height: 16, color: AuthDesign.line),
                                   TextButton.icon(
                                     onPressed: _isLoading
                                         ? null
-                                        : () => setState(() {
-                                              _codeSent = false;
-                                              _needsProfile = false;
-                                              _otpController.clear();
-                                              _nameController.clear();
-                                              _emailController.clear();
-                                              _verificationId = null;
-                                              _verifiedIdToken = null;
-                                              _errorMessage = null;
-                                            }),
+                                        : _backToPhoneEntry,
                                     icon: const Icon(Icons.edit_rounded, size: 16),
                                     label: const Text('Change mobile'),
                                   ),
@@ -588,16 +498,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                 child: TextButton(
                                   onPressed: _isLoading
                                       ? null
-                                      : () => setState(() {
-                                            _codeSent = false;
-                                            _needsProfile = false;
-                                            _otpController.clear();
-                                            _nameController.clear();
-                                            _emailController.clear();
-                                            _verificationId = null;
-                                            _verifiedIdToken = null;
-                                            _errorMessage = null;
-                                          }),
+                                      : _backToPhoneEntry,
                                   child: const Text('Use a different mobile number'),
                                 ),
                               ),

@@ -146,12 +146,17 @@ class ApiClient {
     String path, {
     required FormData formData,
     Function(int, int)? onSendProgress,
+    Duration? timeout,
   }) async {
     return _dio.post(
       path,
       data: formData,
       onSendProgress: onSendProgress,
-      options: Options(contentType: 'multipart/form-data'),
+      options: Options(
+        contentType: 'multipart/form-data',
+        sendTimeout: timeout,
+        receiveTimeout: timeout,
+      ),
     );
   }
 

@@ -1,6 +1,6 @@
 class AppStrings {
   // App
-  static const String appName = 'Cric11';
+  static const String appName = 'Scores11';
   static const String appTagline = 'Play Cricket. Win Glory.';
   
   // Auth

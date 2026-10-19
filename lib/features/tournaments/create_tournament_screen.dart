@@ -8,6 +8,7 @@ import '../../../core/widgets/custom_textfield.dart';
 import '../../../data/services/tournament_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../core/utils/validators.dart';
+import '../../core/utils/friendly_error.dart';
 
 // ── Design tokens (compile-time constants — no runtime cost) ──────────────────
 const _white       = Color(0xFFFFFFFF);
@@ -156,7 +157,7 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyError(e, fallback: 'Something went wrong. Please try again.')),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -469,11 +470,13 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen>
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                           ),
+                          // Must match the backend's tournament formats.
                           items: const [
                             DropdownMenuItem(value: 'T20', child: Text('T20')),
+                            DropdownMenuItem(value: 'T10', child: Text('T10')),
                             DropdownMenuItem(value: 'ODI', child: Text('ODI')),
                             DropdownMenuItem(
-                                value: 'TEST', child: Text('Test')),
+                                value: 'CUSTOM', child: Text('Custom overs')),
                           ],
                           onChanged: (v) =>
                               setState(() => _format = v ?? 'T20'),
@@ -493,14 +496,14 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen>
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                           ),
+                          // League = round robin (every team plays each other).
                           items: const [
                             DropdownMenuItem(
-                                value: 'LEAGUE', child: Text('League')),
+                                value: 'LEAGUE', child: Text('League (round robin)')),
                             DropdownMenuItem(
                                 value: 'KNOCKOUT', child: Text('Knockout')),
                             DropdownMenuItem(
-                                value: 'ROUND_ROBIN',
-                                child: Text('Round Robin')),
+                                value: 'HYBRID', child: Text('League + Knockout')),
                           ],
                           onChanged: (v) =>
                               setState(() => _type = v ?? 'LEAGUE'),

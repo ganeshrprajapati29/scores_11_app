@@ -96,7 +96,7 @@ class _PlayerSearchScreenState extends State<PlayerSearchScreen> {
       setState(() {
         _isLoading = false;
         _isLoadingMore = false;
-        _error = friendlyError(e, fallback: 'Players search nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not search players.');
       });
     }
   }
@@ -884,7 +884,7 @@ class _ErrorState extends StatelessWidget {
             const Icon(Icons.error_outline_rounded, size: 52, color: Colors.redAccent),
             const SizedBox(height: 12),
             const Text(
-              'Public players load nahi ho paaye',
+              'Could not load public players.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
@@ -922,7 +922,7 @@ class _EmptyState extends StatelessWidget {
         children: [
           SizedBox(height: MediaQuery.of(context).size.height * 0.18),
           Image.asset(
-            'score 11/Empty States 6.png',
+            'score 11/Empty States 4.png',
             width: 124,
             height: 124,
             fit: BoxFit.contain,
@@ -942,8 +942,8 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             hasSearch
-                ? 'Search text ya filter change karke try karo.'
-                : 'Player role se signup hone wale users yahan show honge.',
+                ? 'Try a different search or filter.'
+                : 'Players who sign up will appear here.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey[500], fontSize: 12),
           ),

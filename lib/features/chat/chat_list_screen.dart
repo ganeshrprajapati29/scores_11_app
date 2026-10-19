@@ -18,6 +18,17 @@ class _ChatListScreenState extends State<ChatListScreen> {
   final ChatService _chatService = ChatService();
   final UserService _userService = UserService();
   List<Map<String, dynamic>> _chats = [];
+  bool _searching = false;
+  String _query = '';
+
+  List<Map<String, dynamic>> get _visibleChats {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return _chats;
+    return _chats.where((chat) {
+      final other = _getOtherUser(chat);
+      return other != null && _displayName(other).toLowerCase().contains(q);
+    }).toList();
+  }
   bool _isLoading = true;
   String? _currentUserId;
 
@@ -44,7 +55,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'Chats load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load chats.'),
             ),
           ),
         );
@@ -124,15 +135,47 @@ class _ChatListScreenState extends State<ChatListScreen> {
         title: 'Chats',
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {},
+            icon: Icon(_searching ? Icons.close : Icons.search),
+            tooltip: _searching ? 'Close search' : 'Search chats',
+            onPressed: () => setState(() {
+              _searching = !_searching;
+              _query = '';
+            }),
           ),
         ],
+        bottom: _searching
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(60),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: TextField(
+                    autofocus: true,
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: InputDecoration(
+                      hintText: 'Search by name',
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: Colors.white,
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : null,
       ),
       body: RefreshIndicator(
         onRefresh: _loadChats,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
+            : _visibleChats.isEmpty && _query.isNotEmpty
+                ? ListView(children: const [
+                    SizedBox(height: 120),
+                    Center(child: Text('No chats match your search')),
+                  ])
             : _chats.isEmpty
                 ? Center(
                     child: Column(
@@ -151,9 +194,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: _chats.length,
+                    itemCount: _visibleChats.length,
                     itemBuilder: (context, index) {
-                      final chat = _chats[index];
+                      final chat = _visibleChats[index];
                       final otherUser = _getOtherUser(chat);
                       if (otherUser == null) return const SizedBox.shrink();
 

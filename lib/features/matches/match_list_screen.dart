@@ -46,6 +46,7 @@ class _MatchListScreenState extends State<MatchListScreen>
   List<Match> _completedMatches = [];
 
   DateTime? _selectedDate;
+  String _searchQuery = '';
 
   static const List<String> _liveStatuses = [
     'live',
@@ -238,7 +239,7 @@ class _MatchListScreenState extends State<MatchListScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading matches: $e'),
+            content: Text(friendlyError(e, fallback: 'Could not load matches.')),
             behavior: SnackBarBehavior.floating,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -302,7 +303,7 @@ class _MatchListScreenState extends State<MatchListScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'More matches load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load more matches.'),
             ),
           ),
         );
@@ -342,7 +343,7 @@ class _MatchListScreenState extends State<MatchListScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'More matches load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load more matches.'),
             ),
           ),
         );
@@ -382,7 +383,7 @@ class _MatchListScreenState extends State<MatchListScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'More matches load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load more matches.'),
             ),
           ),
         );
@@ -421,14 +422,55 @@ class _MatchListScreenState extends State<MatchListScreen>
     }
   }
 
+  /// Date filter plus the team/venue search from the app bar.
   List<Match> _applyDateFilter(List<Match> matches) {
-    if (_selectedDate == null) return matches;
+    final query = _searchQuery.trim().toLowerCase();
     return matches.where((match) {
-      final date = match.scheduledDate;
-      return date.year == _selectedDate!.year &&
-          date.month == _selectedDate!.month &&
-          date.day == _selectedDate!.day;
+      if (_selectedDate != null) {
+        final date = match.scheduledDate;
+        final sameDay = date.year == _selectedDate!.year &&
+            date.month == _selectedDate!.month &&
+            date.day == _selectedDate!.day;
+        if (!sameDay) return false;
+      }
+      if (query.isEmpty) return true;
+      final haystack = [
+        match.team1,
+        match.team2,
+        match.venue?.name ?? '',
+      ].join(' ').toLowerCase();
+      return haystack.contains(query);
     }).toList();
+  }
+
+  Future<void> _openSearch() async {
+    final controller = TextEditingController(text: _searchQuery);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Search matches'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          decoration: const InputDecoration(
+            hintText: 'Team or venue',
+            prefixIcon: Icon(Icons.search_rounded),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          if (_searchQuery.isNotEmpty)
+            TextButton(onPressed: () => Navigator.pop(ctx, ''), child: const Text('Clear')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value != null && mounted) setState(() => _searchQuery = value.trim());
   }
 
   @override
@@ -717,8 +759,9 @@ class _MatchListScreenState extends State<MatchListScreen>
       ),
       actions: [
         IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+          onPressed: _openSearch,
+          icon: Icon(Icons.search_rounded,
+              color: _searchQuery.isEmpty ? AppColors.textSecondary : AppColors.primary),
           tooltip: 'Search',
         ),
         IconButton(
@@ -728,7 +771,7 @@ class _MatchListScreenState extends State<MatchListScreen>
           tooltip: 'Pick date',
         ),
         IconButton(
-          onPressed: () {},
+          onPressed: () => Navigator.pushNamed(context, '/notifications'),
           icon: const Icon(Icons.notifications_none_rounded,
               color: AppColors.textSecondary),
           tooltip: 'Notifications',

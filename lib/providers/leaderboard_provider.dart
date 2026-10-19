@@ -69,7 +69,7 @@ class LeaderboardProvider extends ChangeNotifier {
       
       _isLoadingMoreBatsmen = false;
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Leaderboard load nahi ho paaya.');
+      _error = friendlyError(e, fallback: 'Could not load leaderboard.');
       debugPrint('LeaderboardProvider error: \$e');
     } finally {
       _isLoadingBatsmen = false;
@@ -92,7 +92,7 @@ class LeaderboardProvider extends ChangeNotifier {
       
       _topBowlers = result.entries;
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Leaderboard load nahi ho paaya.');
+      _error = friendlyError(e, fallback: 'Could not load leaderboard.');
     } finally {
       _isLoadingBowlers = false;
       notifyListeners();
@@ -107,7 +107,7 @@ class LeaderboardProvider extends ChangeNotifier {
       
       _mvpRankings = await _leaderboardService.getMVPRankings(limit: limit, timeframe: timeframe);
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Leaderboard load nahi ho paaya.');
+      _error = friendlyError(e, fallback: 'Could not load leaderboard.');
     } finally {
       notifyListeners();
     }
@@ -121,7 +121,7 @@ class LeaderboardProvider extends ChangeNotifier {
       
       _teamRankings = await _leaderboardService.getTeamRankings(limit: limit, tournamentId: tournamentId);
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Leaderboard load nahi ho paaya.');
+      _error = friendlyError(e, fallback: 'Could not load leaderboard.');
     } finally {
       notifyListeners();
     }
@@ -135,7 +135,7 @@ class LeaderboardProvider extends ChangeNotifier {
       
       _playerRanking = await _leaderboardService.getPlayerRanking(playerId);
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Ranking details load nahi ho paayi.');
+      _error = friendlyError(e, fallback: 'Could not load ranking details.');
     } finally {
       notifyListeners();
     }
@@ -149,7 +149,7 @@ class LeaderboardProvider extends ChangeNotifier {
       
       _teamRanking = await _leaderboardService.getTeamRanking(teamId);
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Ranking details load nahi ho paayi.');
+      _error = friendlyError(e, fallback: 'Could not load ranking details.');
     } finally {
       notifyListeners();
     }

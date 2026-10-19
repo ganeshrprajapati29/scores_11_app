@@ -8,6 +8,7 @@ import '../../core/utils/friendly_error.dart';
 import '../../data/services/live_stream_service.dart';
 import '../../data/services/match_service.dart';
 import '../goLive/stream_preview_screen.dart';
+import 'live_broadcast_screen.dart';
 import '../live_stream/live_player_screen.dart';
 import '../../data/models/live_stream_model.dart';
 import '../../data/models/match_model.dart' as match_model;
@@ -21,9 +22,9 @@ const _border       = Color(0xFFE4E8F0);
 const _textPrimary  = Color(0xFF0D1B2A);
 const _textSecondary= Color(0xFF4B5563);
 const _textMuted    = Color(0xFF9CA3AF);
-const _primary      = Color(0xFF1B8A4E);
-const _primaryBg    = Color(0xFFE6F5ED);
-const _primaryBorder= Color(0xFF9DCDB5);
+const _primary      = Color(0xFF1657CC); // app brand blue (AppColors.primary)
+const _primaryBg    = Color(0xFFE8F0FE);
+const _primaryBorder= Color(0xFFB6CCF5);
 const _red          = Color(0xFFE53935);
 const _redBg        = Color(0xFFFFF0F0);
 const _redBorder    = Color(0xFFFFCDD2);
@@ -35,14 +36,17 @@ const _shadow       = Color(0x08000000);
 const _cardShadow   = Color(0x0A000000);
 
 class GoLiveScreen extends StatefulWidget {
-  const GoLiveScreen({super.key});
+  /// Opened from a match's scoring screen: preselect it and YouTube.
+  final String? initialMatchId;
+
+  const GoLiveScreen({super.key, this.initialMatchId});
 
   @override
   State<GoLiveScreen> createState() => _GoLiveScreenState();
 }
 
 class _GoLiveScreenState extends State<GoLiveScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
 
   late TabController _tabController;
 
@@ -57,11 +61,24 @@ class _GoLiveScreenState extends State<GoLiveScreen>
   bool   _isCreating       = false;
   bool _isYoutubeChecking = false;
   bool _isYoutubeConnected = false;
+  // False until the server has YOUTUBE_CLIENT_ID/SECRET; then only the
+  // paste-a-link flow is offered.
+  bool _youtubeOAuthConfigured = false;
   String _youtubeChannelTitle = '';
+  // Phone-camera broadcasting works once a channel exists to send it to:
+  // the host's own, or the official Scores11 channel an admin connected.
+  bool _canBroadcastFromApp = false;
+  bool _isPlatformChannel = false;
+  String _platformChannelTitle = '';
+  bool _showPasteLink = false;
+  // -1 = unknown. 0 means today's shared YouTube quota is used up.
+  int _broadcastsLeftToday = -1;
 
   final _titleCtrl = TextEditingController();
   final _descCtrl  = TextEditingController();
   final _reqCtrl   = TextEditingController();
+  final _youtubeUrlCtrl = TextEditingController();
+  bool _awaitingYoutubeAuth = false;
 
   String _streamType   = 'mobile';
   String? _selectedMatchId;
@@ -76,7 +93,14 @@ class _GoLiveScreenState extends State<GoLiveScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 4, vsync: this);
+    final initialMatchId = widget.initialMatchId;
+    if (initialMatchId != null && initialMatchId.isNotEmpty) {
+      _selectedMatchId = initialMatchId;
+      _streamType = 'youtube';
+      _tabController.index = 1;
+    }
     _initService();
     _loadStreams();
     _loadMatchOptions();
@@ -89,12 +113,24 @@ class _GoLiveScreenState extends State<GoLiveScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _youtubeUrlCtrl.dispose();
     LiveStreamService.dispose();
     _tabController.dispose();
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _reqCtrl.dispose();
     super.dispose();
+  }
+
+  /// Returning from the Google consent page: refresh the connection badge
+  /// automatically instead of making the user tap "Check".
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _awaitingYoutubeAuth) {
+      _awaitingYoutubeAuth = false;
+      _loadYoutubeStatus();
+    }
   }
 
   String _t(String en, String hi) =>
@@ -180,7 +216,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
         setState(() {
           _error = friendlyError(
             e,
-            fallback: 'Live streams load nahi ho paaye.',
+            fallback: 'Could not load live streams.',
           );
           _isLoading = false;
         });
@@ -221,7 +257,13 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       if (!mounted) return;
       setState(() {
         _isYoutubeConnected = status['connected'] == true;
+        _youtubeOAuthConfigured = status['configured'] == true;
         _youtubeChannelTitle = status['channelTitle']?.toString() ?? '';
+        _canBroadcastFromApp = status['canBroadcastFromApp'] == true;
+        _isPlatformChannel = status['isPlatformChannel'] == true;
+        _platformChannelTitle = status['platformChannelTitle']?.toString() ?? '';
+        _broadcastsLeftToday = int.tryParse('${status['broadcastsLeftToday'] ?? -1}') ?? -1;
+        if (!_canBroadcastFromApp || _broadcastsLeftToday == 0) _showPasteLink = true;
       });
     } catch (e) {
       debugPrint('YouTube status load skipped: $e');
@@ -247,7 +289,8 @@ class _GoLiveScreenState extends State<GoLiveScreen>
         _snack('Could not open Google login', isError: true);
         return;
       }
-      _snack('Complete Google login, then tap Check connection.', isError: false);
+      _awaitingYoutubeAuth = true;
+      _snack('Complete Google login, then return to the app.', isError: false);
     } catch (e) {
       _snack(friendlyError(e), isError: true);
     } finally {
@@ -267,8 +310,14 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       return;
     }
 
-    if (_streamType == 'youtube' && !_isYoutubeConnected) {
-      _snack('Connect YouTube channel first', isError: true);
+    final youtubeUrl = _showPasteLink ? _youtubeUrlCtrl.text.trim() : '';
+    if (_streamType == 'youtube' && youtubeUrl.isNotEmpty &&
+        !_looksLikeYoutube(youtubeUrl)) {
+      _snack('Enter a valid YouTube live link', isError: true);
+      return;
+    }
+    if (_streamType == 'youtube' && !_canBroadcastFromApp && youtubeUrl.isEmpty) {
+      _snack('Live from the app is not set up yet. Paste the link of your YouTube live stream.', isError: true);
       return;
     }
     if (_streamType == 'youtube' &&
@@ -286,6 +335,8 @@ class _GoLiveScreenState extends State<GoLiveScreen>
             : _descCtrl.text.trim(),
         'streamType': _streamType,
         'provider': _streamType == 'youtube' ? 'youtube' : 'zenstream',
+        if (_streamType == 'youtube' && youtubeUrl.isNotEmpty)
+          'youtubeUrl': youtubeUrl,
         if (_selectedMatchId != null && _selectedMatchId!.isNotEmpty)
           'matchId': _selectedMatchId,
         'streamQuality': _quality,
@@ -302,31 +353,27 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       };
 
       final created = await LiveStreamService.createStream(data);
-      debugPrint('🎥 Created stream ${created.id}, starting...');
-      await LiveStreamService.startStream(created.id);
-      _snack(
-        created.isYoutube
-            ? 'YouTube Live added. Viewers can watch now.'
-            : 'RTMP Ready! Server: ${LiveStreamService.zenstreamRtmpServer} | Key: ${created.streamKey.isNotEmpty ? created.streamKey : created.id}',
-        isError: false,
-      );
-
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                created.isYoutube && created.youtubeBroadcastId == null
-                    ? LivePlayerScreen(streamId: created.id, isHost: true)
-                    : StreamPreviewScreen(stream: created),
-          ),
-        );
+      debugPrint('🎥 Created stream ${created.id}');
+      final pastedLink = created.isYoutube && created.youtubeBroadcastId == null;
+      if (pastedLink) {
+        // Already live on YouTube: list it for viewers right away.
+        await LiveStreamService.startStream(created.id);
+        _snack('YouTube Live added. Viewers can watch now.', isError: false);
       }
+      if (!mounted) return;
+      // The camera screen marks the stream live once video reaches the
+      // server; "Professional" shows the RTMP details for an encoder (OBS).
+      final Widget next = pastedLink
+          ? LivePlayerScreen(streamId: created.id, isHost: true)
+          : _streamType == 'professional'
+              ? StreamPreviewScreen(stream: created)
+              : LiveBroadcastScreen(stream: created);
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => next));
     } catch (e) {
       debugPrint('❌ _createStream error: $e');
-      String msg = _t(
-          'Failed to start stream. Please try again.',
-          'स्ट्रीम शुरू करने में विफल। पुनः प्रयास करें।');
+      String msg = friendlyError(e,
+          fallback: _t('Failed to start stream. Please try again.',
+              'स्ट्रीम शुरू करने में विफल। पुनः प्रयास करें।'));
       if (e.toString().contains('401')) {
         await performLogout(context);
         msg = _t('Session expired. Please login again.',
@@ -815,7 +862,16 @@ class _GoLiveScreenState extends State<GoLiveScreen>
                 Column(
                   children: [
                     IconButton(
-                      onPressed: () {},
+                      tooltip: 'Like',
+                      onPressed: () async {
+                        if (!await _checkAuth()) return;
+                        try {
+                          await LiveStreamService.likeStream(stream.id);
+                          await _loadStreams();
+                        } catch (e) {
+                          _snack(friendlyError(e), isError: true);
+                        }
+                      },
                       icon: const Icon(Icons.favorite_border_rounded,
                           color: _red, size: 20),
                       padding: EdgeInsets.zero,
@@ -909,7 +965,11 @@ class _GoLiveScreenState extends State<GoLiveScreen>
           _sectionLabel('Linked Match Scorecard'),
           _card(
             child: DropdownButtonFormField<String>(
-              value: _selectedMatchId,
+              // Must be one of the items, or Flutter asserts while the
+              // match list is still loading.
+              value: _matchOptions.any((m) => m.id == _selectedMatchId)
+                  ? _selectedMatchId
+                  : null,
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Match for live scorecard',
@@ -947,7 +1007,7 @@ class _GoLiveScreenState extends State<GoLiveScreen>
 
           // Stream type
           _sectionLabel('Stream Type'),
-          _streamTypeCard('youtube', 'YT', 'YouTube Live', 'Create from channel'),
+          _streamTypeCard('youtube', 'YT', 'YouTube Live', 'Phone camera to YouTube, score on video'),
           if (_streamType == 'youtube') ...[
             const SizedBox(height: 12),
             _buildYoutubeConnectCard(),
@@ -1065,14 +1125,14 @@ class _GoLiveScreenState extends State<GoLiveScreen>
                                       fontWeight: FontWeight.w700)),
                             ],
                           )
-                        : const Row(
+                        : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.stream_rounded,
+                              const Icon(Icons.stream_rounded,
                                   color: _white, size: 20),
-                              SizedBox(width: 10),
-                              Text('Go Live Now',
-                                  style: TextStyle(
+                              const SizedBox(width: 10),
+                              Text(_goLiveButtonLabel,
+                                  style: const TextStyle(
                                       color: _white,
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700)),
@@ -1128,70 +1188,211 @@ class _GoLiveScreenState extends State<GoLiveScreen>
       );
 
   Widget _buildYoutubeConnectCard() {
-    final connectedText = _youtubeChannelTitle.isEmpty
-        ? 'YouTube channel connected'
-        : 'Connected: $_youtubeChannelTitle';
+    final destination = _isYoutubeConnected
+        ? (_youtubeChannelTitle.isEmpty ? 'your YouTube channel' : _youtubeChannelTitle)
+        : (_platformChannelTitle.isEmpty ? 'the Scores11 YouTube channel' : _platformChannelTitle);
+    final destinationNote = _isYoutubeConnected
+        ? (_isPlatformChannel ? 'Official Scores11 channel' : 'Your own channel')
+        : 'Official Scores11 channel';
 
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                _isYoutubeConnected ? Icons.verified_rounded : Icons.link_rounded,
-                color: _isYoutubeConnected ? _primary : _red,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _isYoutubeConnected
-                      ? connectedText
-                      : 'Connect YouTube channel to create live from app',
-                  style: const TextStyle(
-                    color: _textPrimary,
-                    fontWeight: FontWeight.w800,
+          if (_canBroadcastFromApp) ...[
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(color: _redBg, borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.videocam_rounded, color: _red),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Live from this phone camera',
+                          style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w800, fontSize: 14.5)),
+                      SizedBox(height: 2),
+                      Text('Live score is added on the video automatically',
+                          style: TextStyle(color: _textSecondary, fontSize: 12.5)),
+                    ],
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _surfaceGrey,
+                borderRadius: BorderRadius.circular(10),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _isYoutubeChecking ? null : _connectYoutube,
-                  icon: const Icon(Icons.login_rounded),
-                  label: Text(_isYoutubeConnected ? 'Reconnect' : 'Connect'),
+              child: Row(
+                children: [
+                  const Icon(Icons.smart_display_rounded, color: _red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(children: [
+                        const TextSpan(text: 'Streams to ', style: TextStyle(color: _textSecondary)),
+                        TextSpan(
+                            text: destination,
+                            style: const TextStyle(color: _textPrimary, fontWeight: FontWeight.w700)),
+                        TextSpan(text: '  ·  $destinationNote', style: const TextStyle(color: _textMuted)),
+                      ]),
+                      style: const TextStyle(fontSize: 12.5),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else
+            const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: _amber),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Live from the phone camera is not set up yet. Start the live stream in the YouTube app and paste its link below.',
+                    style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
                 ),
+              ],
+            ),
+          if (_canBroadcastFromApp && _broadcastsLeftToday == 0)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: _amberBg, borderRadius: BorderRadius.circular(10)),
+              child: const Text(
+                'All live slots for today are in use. Start the live stream in the YouTube app and paste its link, or try again after 1:30 PM IST.',
+                style: TextStyle(color: _textPrimary, fontSize: 12.5),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
+            ),
+          if (_canBroadcastFromApp)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => setState(() => _showPasteLink = !_showPasteLink),
+                icon: Icon(_showPasteLink ? Icons.expand_less_rounded : Icons.link_rounded, size: 18),
+                label: Text(_showPasteLink
+                    ? 'Use phone camera instead'
+                    : 'Already live in the YouTube app? Paste link'),
+              ),
+            ),
+          if (_showPasteLink) ...[
+            const SizedBox(height: 8),
+            TextField(
+              controller: _youtubeUrlCtrl,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: 'YouTube live link',
+                hintText: 'https://youtube.com/live/...',
+                helperText: 'In YouTube tap Share, then Copy link',
+                prefixIcon: const Icon(Icons.smart_display_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                isDense: true,
+              ),
+            ),
+          ],
+          if (_youtubeOAuthConfigured && _isAdmin) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _primaryBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _primaryBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Admin: Scores11 official channel',
+                      style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text(
+                    _isPlatformChannel
+                        ? 'Connected. Every host without their own channel now goes live on $_youtubeChannelTitle.'
+                        : 'One-time setup: connect the Scores11 YouTube channel. After this, every scorer can go live from their phone onto it. On Google\'s "unverified app" screen tap Advanced, then continue.',
+                    style: const TextStyle(color: _textSecondary, fontSize: 12.5, height: 1.4),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isYoutubeChecking ? null : _connectYoutube,
+                      style: ElevatedButton.styleFrom(backgroundColor: _red, foregroundColor: _white),
+                      icon: const Icon(Icons.smart_display_rounded, size: 18),
+                      label: Text(_isPlatformChannel
+                          ? 'Reconnect official channel'
+                          : 'Connect Scores11 official channel'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (_youtubeOAuthConfigured) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (_isAdmin)
+                  const Expanded(
+                    child: Text('Refresh after connecting',
+                        style: TextStyle(color: _textMuted, fontSize: 12.5)),
+                  )
+                else
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isYoutubeChecking ? null : _connectYoutube,
+                      icon: const Icon(Icons.login_rounded, size: 18),
+                      label: Text(
+                        _isYoutubeConnected ? 'Reconnect my channel' : 'Use my own channel',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 10),
+                IconButton.filledTonal(
+                  tooltip: 'Refresh',
                   onPressed: _isYoutubeChecking ? null : _loadYoutubeStatus,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _primary,
-                    foregroundColor: _white,
-                  ),
                   icon: _isYoutubeChecking
                       ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: _white,
-                          ),
-                        )
+                          width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.refresh_rounded),
-                  label: const Text('Check'),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  bool get _isAdmin =>
+      (Provider.of<AuthProvider>(context, listen: false).userRole ?? '').toLowerCase() == 'admin';
+
+  String get _goLiveButtonLabel {
+    if (_streamType == 'professional') return 'Create Stream';
+    if (_streamType == 'youtube' && _showPasteLink) return 'Add YouTube Live';
+    return 'Open Camera';
+  }
+
+  bool _looksLikeYoutube(String value) {
+    if (RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(value)) return true;
+    // Links copied without "https://" (e.g. youtube.com/live/...) are fine too.
+    final uri = Uri.tryParse(
+        value.contains('://') ? value : 'https://$value');
+    final host = uri?.host.toLowerCase() ?? '';
+    return host.contains('youtube.com') || host.contains('youtu.be');
   }
 
   Widget _field({

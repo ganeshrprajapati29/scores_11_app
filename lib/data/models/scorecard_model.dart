@@ -18,6 +18,9 @@ class BatsmanStats extends Equatable {
   final bool notOut;
   final double scoringPoints;
   final Map<String, dynamic> pointsBreakdown;
+  // Batting position in the innings (1 = opener, 11 = last). Used for
+  // display and may be used to explain position-weighted bowling points.
+  final int battingPosition;
 
   const BatsmanStats({
     required this.playerId,
@@ -35,6 +38,7 @@ class BatsmanStats extends Equatable {
     this.notOut = false,
     this.scoringPoints = 0,
     this.pointsBreakdown = const {},
+    this.battingPosition = 0,
   });
 
   factory BatsmanStats.fromJson(Map<String, dynamic> json) {
@@ -81,6 +85,7 @@ class BatsmanStats extends Equatable {
       pointsBreakdown: json['pointsBreakdown'] is Map
           ? Map<String, dynamic>.from(json['pointsBreakdown'] as Map)
           : const {},
+      battingPosition: _toInt(json['battingPosition']),
     );
   }
 
@@ -189,6 +194,7 @@ class BatsmanStats extends Equatable {
     'wicketNumber': wicketNumber,
     'scoringPoints': scoringPoints,
     'pointsBreakdown': pointsBreakdown,
+    'battingPosition': battingPosition,
   };
 
   // ✅ ADD: howOut getter for UI compatibility
@@ -255,6 +261,7 @@ class BatsmanStats extends Equatable {
     fielderName,
     scoringPoints,
     pointsBreakdown,
+    battingPosition,
   ];
 }
 

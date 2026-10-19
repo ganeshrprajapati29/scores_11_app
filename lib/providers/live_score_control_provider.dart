@@ -1,5 +1,9 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../data/services/offline_scoring_store.dart';
 import '../data/services/match_service.dart';
 import '../data/services/team_service.dart';
 import '../data/services/player_service.dart';
@@ -134,10 +138,22 @@ String _normalizeWicketType(String wicketType) {
 }
 
 class LiveScoreControlProvider extends ChangeNotifier {
-  final MatchService _matchService = MatchService();
-  final TeamService _teamService = TeamService();
-  final PlayerService _playerService = PlayerService();
+  final MatchService _matchService;
+  final TeamService _teamService;
+  final PlayerService _playerService;
+  // Socket + connectivity listeners; tests switch them off.
+  final bool _realtime;
   SocketService? _socketService;
+
+  LiveScoreControlProvider({
+    MatchService? matchService,
+    TeamService? teamService,
+    PlayerService? playerService,
+    bool realtime = true,
+  })  : _matchService = matchService ?? MatchService(),
+        _teamService = teamService ?? TeamService(),
+        _playerService = playerService ?? PlayerService(),
+        _realtime = realtime;
 
   // State
   String? _matchId;
@@ -147,6 +163,15 @@ class LiveScoreControlProvider extends ChangeNotifier {
   bool _isInitializing = false;
   bool _isUndoing = false;
   String? _error;
+
+  // Offline scoring: every scoring action is queued on the phone first and
+  // sent to the server in order, so a lost connection never loses a ball.
+  List<PendingScoreAction> _queue = [];
+  bool _isSyncing = false;
+  bool _isOffline = false;
+  bool _replaying = false;
+  Timer? _syncRetryTimer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   // Toss
   String? _tossWinnerKey;
@@ -182,6 +207,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
   int get updatePulse => _updatePulse;
 
   void _signalScoreUpdated() {
+    if (_replaying) return;
     _updatePulse++;
     try {
       HapticFeedback.mediumImpact();
@@ -200,6 +226,8 @@ class LiveScoreControlProvider extends ChangeNotifier {
   int _legalBalls = 0;
   int get currentBall => _currentBall;
   bool _isFreeHit = false;
+  // Bowler of the over that just finished (Law 17.8: cannot bowl the next one).
+  String? _lastOverBowlerId;
   Map<String, int> _extras = {
     'wides': 0,
     'noBalls': 0,
@@ -228,6 +256,19 @@ class LiveScoreControlProvider extends ChangeNotifier {
   bool get isInitializing => _isInitializing;
   bool get isUndoing => _isUndoing;
   String? get error => _error;
+
+  /// Scoring actions saved on this phone and not yet on the server.
+  int get pendingSyncCount => _queue.where((a) => !a.isSent).length;
+  int get pendingBallCount => _queue.where((a) => a.isBall && !a.isSent).length;
+  bool get isSyncing => _isSyncing;
+  bool get isOffline => _isOffline;
+  bool get hasUnsyncedScore => _queue.any((a) => !a.isSent);
+  PendingScoreAction? get rejectedAction {
+    for (final action in _queue) {
+      if (action.isRejected) return action;
+    }
+    return null;
+  }
   LiveScoreState get currentScore => _currentScore;
   String get currentStatus => (_match?.status ?? 'scheduled').toLowerCase();
   bool get canStartMatch =>
@@ -262,6 +303,15 @@ class LiveScoreControlProvider extends ChangeNotifier {
   String? get team2ViceCaptainId => _team2ViceCaptainId;
   List<Map<String, dynamic>> get currentOverBalls => _currentOverBalls;
   bool get isFreeHit => _isFreeHit;
+
+  /// Player id that may not bowl the over about to start, if known.
+  /// Mirrors the server rule: standard and professional matches only.
+  String? get barredBowlerId {
+    final category = _match?.scoringRules.matchCategory ?? 'standard';
+    if (category != 'standard' && category != 'professional') return null;
+    if (_legalBalls == 0 || _legalBalls % 6 != 0) return null;
+    return _lastOverBowlerId;
+  }
   bool get continueAfterTarget => _continueAfterTarget;
   bool get continueAfterOvers => _continueAfterOvers;
   bool get continueAfterAllOut => _continueAfterAllOut;
@@ -426,8 +476,6 @@ class LiveScoreControlProvider extends ChangeNotifier {
   bool get canProceedToToss =>
       _selectedTeam1Players.length >= 2 && _selectedTeam2Players.isNotEmpty;
 
-  LiveScoreControlProvider();
-
   void setUserRole(String? role) {
     _userRole = role;
     notifyListeners();
@@ -444,6 +492,10 @@ class LiveScoreControlProvider extends ChangeNotifier {
     // Determine flow status from match status
     _updateFlowStatus();
 
+    if (matchId.isNotEmpty) {
+      _queue = await OfflineScoringStore.loadQueue(matchId);
+    }
+
     try {
       if (matchId.isNotEmpty) {
         _match = await _matchService.getMatchById(matchId, forceRefresh: true);
@@ -452,14 +504,31 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await _loadTeamPlayers();
       _hydrateTossAndLineups();
       await _loadLiveData();
-      await _setupSocketListeners();
+      _isOffline = false;
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Match scoring open nahi ho paayi.');
+      // No internet: carry on from the last score saved on this phone.
+      final restored = await _restoreFromSnapshot();
+      if (restored) {
+        _isOffline = true;
+        _error = null;
+      } else {
+        _error = friendlyError(e, fallback: 'Could not open match scoring.');
+      }
       debugPrint('❌ Init error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+
+    if (_realtime) {
+      try {
+        await _setupSocketListeners();
+      } catch (e) {
+        debugPrint('Score socket unavailable: $e');
+      }
+      _watchConnectivity();
+    }
+    if (hasUnsyncedScore) unawaited(_flushQueue());
   }
 
   void _updateFlowStatus() {
@@ -493,7 +562,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       _hydrateTossAndLineups();
       await refreshLiveData();
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Match data refresh nahi ho paaya.');
+      _error = friendlyError(e, fallback: 'Could not refresh match data.');
       debugPrint('❌ Refresh error: $e');
     }
     notifyListeners();
@@ -705,11 +774,30 @@ class LiveScoreControlProvider extends ChangeNotifier {
     if (_matchId == null) return;
 
     Map<String, dynamic> liveData = {};
+    var fetched = false;
     try {
       liveData = await _matchService.getLiveScore(_matchId!);
+      fetched = true;
     } catch (_) {
       liveData = {};
     }
+    if (!fetched && hasUnsyncedScore) {
+      // Offline: keep the score on screen, which already includes queued balls.
+      notifyListeners();
+      return;
+    }
+    _applyLiveData(liveData);
+    if (fetched) {
+      // Balls the server confirmed are now part of its state.
+      _queue.removeWhere((a) => a.isSent);
+      await _persistQueue();
+      await _saveSnapshot(liveData);
+      if (hasUnsyncedScore) _replayQueuedLocally();
+    }
+    notifyListeners();
+  }
+
+  void _applyLiveData(Map<String, dynamic> liveData) {
     final scorecard = liveData['scorecard'] is Map
         ? liveData['scorecard'] as Map<String, dynamic>
         : <String, dynamic>{};
@@ -748,14 +836,13 @@ class LiveScoreControlProvider extends ChangeNotifier {
     final recentBalls = liveData['recentBalls'];
     _currentOverBalls = _normalizeRecentBalls(recentBalls);
     _isFreeHit = _freeHitFromRecentBalls(recentBalls);
-    notifyListeners();
   }
 
   Future<void> refreshLiveData() async {
     try {
       await _loadLiveData();
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Live score refresh nahi ho paaya.');
+      _error = friendlyError(e, fallback: 'Could not refresh live score.');
       debugPrint('Refresh error: $e');
       notifyListeners();
     }
@@ -773,6 +860,8 @@ class LiveScoreControlProvider extends ChangeNotifier {
   }
 
   void _updateFromSocket(Map<String, dynamic> data) {
+    // While this phone has unsynced balls its own score is the newest one.
+    if (hasUnsyncedScore || _isSyncing) return;
     if (data['action'] == 'matchCompleted') {
       refreshMatchData();
       return;
@@ -820,6 +909,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
 
   Future<void> submitToss() async {
     if (!canSubmitToss || _matchId == null || _match == null) return;
+    if (_blockedWhileSyncing()) return;
 
     _isTossSaving = true;
     _error = null;
@@ -838,7 +928,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await refreshMatchData();
       _error = tossDone
           ? null
-          : friendlyError(e, fallback: 'Toss update nahi ho paaya.');
+          : friendlyError(e, fallback: 'Could not update toss.');
     } finally {
       _isTossSaving = false;
     }
@@ -847,6 +937,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
 
   Future<bool> undoToss() async {
     if (_matchId == null || !tossDone) return false;
+    if (_blockedWhileSyncing()) return false;
     _error = null;
     notifyListeners();
     try {
@@ -1006,7 +1097,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await refreshMatchData();
       _error = null;
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Match initialize nahi ho paaya.');
+      _error = friendlyError(e, fallback: 'Could not initialize match.');
       rethrow;
     } finally {
       _isInitializing = false;
@@ -1024,7 +1115,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await initializeMatch();
       _error = null;
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Match initialize nahi ho paaya.');
+      _error = friendlyError(e, fallback: 'Could not initialize match.');
       rethrow;
     }
   }
@@ -1039,18 +1130,9 @@ class LiveScoreControlProvider extends ChangeNotifier {
     }
     if (_currentNonStriker?.id == player.id) _currentNonStriker = null;
     _currentStriker = player;
+    _error = null;
     notifyListeners();
-    try {
-      await _ensureScoringReady();
-      await _matchService.setStriker(_matchId!, player.id);
-      _error = null;
-    } catch (e) {
-      _error = friendlyError(
-        e,
-        fallback: 'Striker saved locally. Server sync nahi ho paaya.',
-      );
-    }
-    notifyListeners();
+    await _queueRoleChange('striker', player.id);
   }
 
   Future<void> setNonStriker(Player player) async {
@@ -1062,34 +1144,16 @@ class LiveScoreControlProvider extends ChangeNotifier {
     }
     if (_currentStriker?.id == player.id) _currentStriker = null;
     _currentNonStriker = player;
+    _error = null;
     notifyListeners();
-    try {
-      await _ensureScoringReady();
-      await _matchService.setNonStriker(_matchId!, player.id);
-      _error = null;
-    } catch (e) {
-      _error = friendlyError(
-        e,
-        fallback: 'Non-striker saved locally. Server sync nahi ho paaya.',
-      );
-    }
-    notifyListeners();
+    await _queueRoleChange('nonStriker', player.id);
   }
 
   Future<void> setBowler(Player player) async {
     _currentBowler = player;
+    _error = null;
     notifyListeners();
-    try {
-      await _ensureScoringReady();
-      await _matchService.setBowler(_matchId!, player.id);
-      _error = null;
-    } catch (e) {
-      _error = friendlyError(
-        e,
-        fallback: 'Bowler saved locally. Server sync nahi ho paaya.',
-      );
-    }
-    notifyListeners();
+    await _queueRoleChange('bowler', player.id);
   }
 
   String _serverErrorMessage(Object error) {
@@ -1133,14 +1197,9 @@ class LiveScoreControlProvider extends ChangeNotifier {
       'allowAllOutContinue': true,
     };
 
+    final local = _ballReplayInfo(runs: runs);
     _applyLocalBall(runs: runs);
-    try {
-      await _matchService.addBall(_matchId!, ballData);
-      await refreshMatchData();
-      await _syncAutoResultIfNeeded();
-    } catch (e) {
-      await _recoverFromScoreSyncFailure(e);
-    }
+    await _queueBall(ballData, local);
   }
 
   Future<void> addWagonShot({
@@ -1169,14 +1228,9 @@ class LiveScoreControlProvider extends ChangeNotifier {
       'allowAllOutContinue': true,
     };
 
+    final local = _ballReplayInfo(runs: scoredRuns, wagonZone: zone, wagonLabel: label);
     _applyLocalBall(runs: scoredRuns, wagonZone: zone, wagonLabel: label);
-    try {
-      await _matchService.addBall(_matchId!, ballData);
-      await refreshMatchData();
-      await _syncAutoResultIfNeeded();
-    } catch (e) {
-      await _recoverFromScoreSyncFailure(e);
-    }
+    await _queueBall(ballData, local);
   }
 
   Future<void> addExtra(String type, {int runs = 0}) async {
@@ -1205,14 +1259,9 @@ class LiveScoreControlProvider extends ChangeNotifier {
       'continueAfterTarget': _continueAfterTarget,
       'allowAllOutContinue': true,
     };
+    final local = _ballReplayInfo(runs: scoredRuns, extraType: type);
     _applyLocalBall(runs: scoredRuns, extraType: type);
-    try {
-      await _matchService.addBall(_matchId!, ballData);
-      await refreshMatchData();
-      await _syncAutoResultIfNeeded();
-    } catch (e) {
-      await _recoverFromScoreSyncFailure(e);
-    }
+    await _queueBall(ballData, local);
   }
 
   Future<void> addCustomRuns({
@@ -1238,18 +1287,17 @@ class LiveScoreControlProvider extends ChangeNotifier {
           ? '$runs penalty run${runs == 1 ? '' : 's'}'
           : '$runs custom run${runs == 1 ? '' : 's'}',
     };
+    final local = _ballReplayInfo(
+      runs: runs,
+      extraType: isPenalty ? 'penalty' : null,
+      forceStrikeChange: forceStrikeChange,
+    );
     _applyLocalBall(
       runs: runs,
       extraType: isPenalty ? 'penalty' : null,
       forceStrikeChange: forceStrikeChange,
     );
-    try {
-      await _matchService.addBall(_matchId!, ballData);
-      await refreshMatchData();
-      await _syncAutoResultIfNeeded();
-    } catch (e) {
-      await _recoverFromScoreSyncFailure(e);
-    }
+    await _queueBall(ballData, local);
   }
 
   Future<void> addWicket(String wicketType) async {
@@ -1276,7 +1324,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
       return;
     }
     if (_isFreeHit && !_isFreeHitWicketAllowed(normalizedWicketType)) {
-      _error = 'Free hit par $normalizedWicketType out allowed nahi hai';
+      _error = '$normalizedWicketType is not allowed on a free hit';
       notifyListeners();
       return;
     }
@@ -1292,22 +1340,29 @@ class LiveScoreControlProvider extends ChangeNotifier {
       'continueAfterTarget': _continueAfterTarget,
       'allowAllOutContinue': true,
     };
+    final local = _ballReplayInfo(
+      runs: completedRuns,
+      wicketType: normalizedWicketType,
+      dismissedPlayerId: dismissed.id,
+    );
     _applyLocalBall(
       runs: completedRuns,
       wicketType: normalizedWicketType,
       dismissedPlayer: dismissed,
     );
-    try {
-      await _matchService.addBall(_matchId!, ballData);
-      await refreshMatchData();
-      await _syncAutoResultIfNeeded();
-    } catch (e) {
-      await _recoverFromScoreSyncFailure(e);
-    }
+    await _queueBall(ballData, local);
   }
 
   Future<bool> undoLastBall() async {
     if (_matchId == null || _isUndoing) return false;
+    if (_queue.any((a) => a.isBall && !a.isSent)) {
+      return _undoQueuedBall();
+    }
+    if (hasUnsyncedScore || _isSyncing) {
+      _error = 'Please wait a moment - the last change is still syncing.';
+      notifyListeners();
+      return false;
+    }
     _isUndoing = true;
     _error = null;
     notifyListeners();
@@ -1335,6 +1390,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     required String reason,
   }) async {
     if (_matchId == null) return false;
+    if (_blockedWhileSyncing()) return false;
     _error = null;
     notifyListeners();
     try {
@@ -1360,6 +1416,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     required bool afterTarget,
   }) async {
     if (_matchId == null) return false;
+    if (_blockedWhileSyncing()) return false;
     _error = null;
     notifyListeners();
     try {
@@ -1390,6 +1447,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     bool completeMatch = false,
   }) async {
     if (_matchId == null) return;
+    if (_blockedWhileSyncing()) return;
     _error = null;
     notifyListeners();
     try {
@@ -1429,18 +1487,20 @@ class LiveScoreControlProvider extends ChangeNotifier {
   }
 
   Future<void> startMatch() async {
+    if (_blockedWhileSyncing()) return;
     _error = null;
     notifyListeners();
     try {
       await _ensureScoringReady();
       await refreshMatchData();
     } catch (e) {
-      _error = friendlyError(e, fallback: 'Match start nahi ho paaya.');
+      _error = friendlyError(e, fallback: 'Could not start match.');
     }
     notifyListeners();
   }
 
   Future<void> endInnings() async {
+    if (_blockedWhileSyncing()) return;
     _error = null;
     notifyListeners();
     try {
@@ -1451,13 +1511,14 @@ class LiveScoreControlProvider extends ChangeNotifier {
       await refreshMatchData();
     } catch (e) {
       _error = inningsNumber == 1
-          ? 'First innings end failed: $e'
-          : 'Match finish failed: $e';
+          ? friendlyError(e, fallback: 'Could not end the first innings.')
+          : friendlyError(e, fallback: 'Could not finish the match.');
       notifyListeners();
     }
   }
 
   Future<void> _syncAutoResultIfNeeded() async {
+    if (hasUnsyncedScore) return;
     if (_continueAfterTarget ||
         _matchId == null ||
         _autoCompletingMatch ||
@@ -1482,7 +1543,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     } catch (e) {
       _error = friendlyError(
         e,
-        fallback: 'Result ready locally. Server publish nahi ho paaya.',
+        fallback: 'Result saved on this device but could not be published. Please try again.',
       );
       notifyListeners();
     } finally {
@@ -1499,6 +1560,8 @@ class LiveScoreControlProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _syncRetryTimer?.cancel();
+    _connectivitySub?.cancel();
     if (_matchId != null) _socketService?.leaveMatch(_matchId!);
     _socketService?.offLiveScoreUpdate();
     super.dispose();
@@ -1769,6 +1832,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
     }
     if (isLegal && _currentBall == 0) {
       swapStrike();
+      _lastOverBowlerId = bowler.id;
       _currentBowler = null;
     }
     _refreshChaseProjection();
@@ -1897,6 +1961,369 @@ class LiveScoreControlProvider extends ChangeNotifier {
     return bestPlayer?.name;
   }
 
+  // ===========================================================================
+  // Offline scoring engine
+  // ===========================================================================
+
+  /// What [_replayQueuedLocally] needs to re-apply a ball exactly as scored.
+  Map<String, dynamic> _ballReplayInfo({
+    required int runs,
+    String? extraType,
+    String? wicketType,
+    int? wagonZone,
+    String? wagonLabel,
+    String? dismissedPlayerId,
+    bool? forceStrikeChange,
+  }) =>
+      {
+        'runs': runs,
+        if (extraType != null) 'extraType': extraType,
+        if (wicketType != null) 'wicketType': wicketType,
+        if (wagonZone != null) 'wagonZone': wagonZone,
+        if (wagonLabel != null) 'wagonLabel': wagonLabel,
+        if (dismissedPlayerId != null) 'dismissedPlayerId': dismissedPlayerId,
+        if (forceStrikeChange != null) 'forceStrikeChange': forceStrikeChange,
+        'strikerId': _currentStriker?.id,
+        'nonStrikerId': _currentNonStriker?.id,
+        'bowlerId': _currentBowler?.id,
+      };
+
+  Future<void> _queueBall(Map<String, dynamic> ballData, Map<String, dynamic> local) async {
+    if (_matchId == null) return;
+    final id = OfflineScoringStore.newActionId();
+    _queue.add(PendingScoreAction(
+      id: id,
+      type: 'ball',
+      payload: {...ballData, 'clientBallId': id},
+      local: local,
+    ));
+    await _persistQueue();
+    notifyListeners();
+    await _flushQueue();
+  }
+
+  Future<void> _queueRoleChange(String role, String playerId) async {
+    if (_matchId == null) return;
+    // Only the latest choice for a role matters if it has not been sent yet.
+    if (_queue.isNotEmpty) {
+      final last = _queue.last;
+      if (last.type == role && last.isPending && !_isSyncing) _queue.removeLast();
+    }
+    _queue.add(PendingScoreAction(
+      id: OfflineScoringStore.newActionId(),
+      type: role,
+      payload: {'playerId': playerId},
+      local: {'playerId': playerId},
+    ));
+    await _persistQueue();
+    notifyListeners();
+    await _flushQueue();
+  }
+
+  Future<void> _persistQueue() async {
+    final id = _matchId;
+    if (id == null || id.isEmpty) return;
+    await OfflineScoringStore.saveQueue(id, _queue);
+  }
+
+  /// Send queued actions to the server, oldest first, stopping at the first
+  /// one that cannot go through (no internet, or the server refused it).
+  Future<void> _flushQueue() async {
+    if (_isSyncing || _matchId == null) return;
+    if (!_queue.any((a) => a.isPending)) return;
+    _isSyncing = true;
+    notifyListeners();
+
+    var sentAny = false;
+    try {
+      while (true) {
+        PendingScoreAction? next;
+        for (final action in _queue) {
+          if (action.isRejected) break; // wait for the scorer to decide
+          if (action.isPending) {
+            next = action;
+            break;
+          }
+        }
+        if (next == null) break;
+
+        try {
+          await _sendQueuedAction(next);
+          next.status = 'sent';
+          next.error = null;
+          sentAny = true;
+          _isOffline = false;
+          await _persistQueue();
+          notifyListeners();
+        } on DioException catch (e) {
+          if (_isRetryableError(e)) {
+            _isOffline = true;
+            break;
+          }
+          await _handleRejected(next, _serverErrorMessage(e));
+          break;
+        } catch (e) {
+          if (_looksLikeNetworkFailure(e)) {
+            _isOffline = true;
+            break;
+          }
+          await _handleRejected(next, friendlyError(e, fallback: 'The server did not accept this ball.'));
+          break;
+        }
+      }
+    } finally {
+      _isSyncing = false;
+    }
+
+    if (sentAny && !hasUnsyncedScore) {
+      await refreshMatchData();
+      await _syncAutoResultIfNeeded();
+    }
+    _scheduleRetryIfNeeded();
+    notifyListeners();
+  }
+
+  Future<void> _sendQueuedAction(PendingScoreAction action) async {
+    final matchId = _matchId!;
+    if (action.isBall) {
+      await _matchService.addBall(matchId, action.payload);
+      return;
+    }
+    await _ensureScoringReady();
+    await _matchService.sendScoringRoleRaw(
+      matchId,
+      action.type,
+      action.payload['playerId'].toString(),
+    );
+  }
+
+  /// No response at all, a timeout, or a server/gateway failure: keep the
+  /// action and try again later. A 4xx answer means the server refused it.
+  bool _isRetryableError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.connectionError:
+      case DioExceptionType.unknown:
+        return true;
+      case DioExceptionType.badResponse:
+        final status = e.response?.statusCode ?? 0;
+        return status >= 500 || status == 408 || status == 429 || status == 401;
+      default:
+        return false;
+    }
+  }
+
+  /// Some service methods wrap Dio errors in a plain Exception; recognise a
+  /// lost connection from the wrapped text so it is retried, not discarded.
+  bool _looksLikeNetworkFailure(Object e) {
+    final text = friendlyError(e).toLowerCase();
+    return text.contains('internet connection') || text.contains('took too long');
+  }
+
+  Future<void> _handleRejected(PendingScoreAction action, String message) async {
+    final hasLaterActions = _queue.indexOf(action) < _queue.length - 1;
+    if (!hasLaterActions) {
+      // Same as before offline support: drop it and show the server's score.
+      _queue.remove(action);
+      await _persistQueue();
+      if (action.isBall) {
+        await _recoverFromScoreSyncFailure(DioException(
+          requestOptions: RequestOptions(path: ''),
+          message: message,
+        ));
+      } else {
+        _error = message;
+        await refreshMatchData();
+      }
+      return;
+    }
+    // Later balls depend on this one: pause and let the scorer decide.
+    action.status = 'rejected';
+    action.error = message;
+    await _persistQueue();
+    _error = 'A saved ${action.isBall ? 'ball' : 'change'} was not accepted: $message';
+    notifyListeners();
+  }
+
+  /// Scorer chose to drop the refused action; send the rest.
+  Future<void> discardRejectedAction() async {
+    final rejected = rejectedAction;
+    if (rejected == null) return;
+    _queue.remove(rejected);
+    await _persistQueue();
+    _error = null;
+    await _rebuildFromSnapshotAndQueue();
+    await _flushQueue();
+  }
+
+  /// "Sync now" button, and the automatic retries.
+  Future<void> retrySync() async {
+    for (final action in _queue) {
+      if (action.isRejected) {
+        action.status = 'pending';
+        action.error = null;
+      }
+    }
+    await _persistQueue();
+    await _flushQueue();
+    if (!hasUnsyncedScore && !_isOffline) await refreshMatchData();
+  }
+
+  void _scheduleRetryIfNeeded() {
+    _syncRetryTimer?.cancel();
+    if (!_queue.any((a) => a.isPending)) return;
+    _syncRetryTimer = Timer(const Duration(seconds: 15), () => _flushQueue());
+  }
+
+  void _watchConnectivity() {
+    _connectivitySub?.cancel();
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      final online = results.any((r) => r != ConnectivityResult.none);
+      if (online && hasUnsyncedScore) _flushQueue();
+      if (!online && hasUnsyncedScore) {
+        _isOffline = true;
+        notifyListeners();
+      }
+    });
+  }
+
+  bool _blockedWhileSyncing() {
+    if (!hasUnsyncedScore && !_isSyncing) return false;
+    final count = pendingSyncCount;
+    _error = count > 0
+        ? '$count scoring update${count == 1 ? ' is' : 's are'} still saved only on this phone. '
+            'Connect to the internet and wait for them to sync first.'
+        : 'Please wait a moment - scoring is syncing.';
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> _undoQueuedBall() async {
+    final index = _queue.lastIndexWhere((a) => a.isBall && !a.isSent);
+    if (index < 0) return false;
+    if (_isSyncing && index == _queue.indexWhere((a) => a.isPending)) {
+      _error = 'This ball is being sent right now. Try undo again in a moment.';
+      notifyListeners();
+      return false;
+    }
+    // Role changes made after that ball go with it.
+    _queue.removeRange(index, _queue.length);
+    await _persistQueue();
+    _localResultMessage = null;
+    _localPlayerOfMatch = null;
+    _error = null;
+    await _rebuildFromSnapshotAndQueue();
+    return true;
+  }
+
+  Future<void> _saveSnapshot(Map<String, dynamic> liveData) async {
+    final id = _matchId;
+    final match = _match;
+    if (id == null || id.isEmpty || match == null) return;
+    try {
+      await OfflineScoringStore.saveSnapshot(id, {
+        'match': match.toJson(),
+        'live': liveData,
+        'team1Players': _team1Players.map((p) => p.toJson()).toList(),
+        'team2Players': _team2Players.map((p) => p.toJson()).toList(),
+      });
+    } catch (e) {
+      debugPrint('Offline snapshot not saved: $e');
+    }
+  }
+
+  /// Rebuild the screen from the last server-confirmed state saved on the
+  /// phone. Returns false when nothing was saved for this match yet.
+  Future<bool> _restoreFromSnapshot() async {
+    final id = _matchId;
+    if (id == null || id.isEmpty) return false;
+    final snapshot = await OfflineScoringStore.loadSnapshot(id);
+    if (snapshot == null) return false;
+    try {
+      final matchJson = snapshot['match'];
+      if (matchJson is Map) {
+        _match = Match.fromJson(Map<String, dynamic>.from(matchJson));
+        _updateFlowStatus();
+      }
+      List<Player> players(dynamic raw) => raw is List
+          ? raw.whereType<Map>().map((p) => Player.fromJson(Map<String, dynamic>.from(p))).toList()
+          : <Player>[];
+      final team1 = players(snapshot['team1Players']);
+      final team2 = players(snapshot['team2Players']);
+      if (team1.isNotEmpty) _team1Players = team1;
+      if (team2.isNotEmpty) _team2Players = team2;
+      _hydrateTossAndLineups();
+
+      _battingStats.clear();
+      _bowlingStats.clear();
+      _extras = {'wides': 0, 'noBalls': 0, 'byes': 0, 'legByes': 0, 'penalty': 0};
+      _currentOverBalls = [];
+      _currentScore = const LiveScoreState();
+      final live = snapshot['live'];
+      _applyLiveData(live is Map ? Map<String, dynamic>.from(live) : <String, dynamic>{});
+      _replayQueuedLocally();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Offline snapshot unreadable: $e');
+      return false;
+    }
+  }
+
+  Future<void> _rebuildFromSnapshotAndQueue() async {
+    final restored = await _restoreFromSnapshot();
+    if (!restored) await refreshMatchData();
+    notifyListeners();
+  }
+
+  /// Re-apply every queued action on top of the server state on screen.
+  void _replayQueuedLocally() {
+    if (_queue.isEmpty) return;
+    _replaying = true;
+    try {
+      // Every action still in the queue is missing from the state on screen:
+      // "sent" ones are purged at the same moment a fresh server state is
+      // saved, so any that remain are newer than the snapshot.
+      for (final action in _queue) {
+        final local = action.local;
+        if (!action.isBall) {
+          final player = _findPlayerById(local['playerId']?.toString() ?? '');
+          if (player == null) continue;
+          if (action.type == 'striker') {
+            if (_currentNonStriker?.id == player.id) _currentNonStriker = null;
+            _currentStriker = player;
+          } else if (action.type == 'nonStriker') {
+            if (_currentStriker?.id == player.id) _currentStriker = null;
+            _currentNonStriker = player;
+          } else if (action.type == 'bowler') {
+            _currentBowler = player;
+          }
+          continue;
+        }
+        final striker = _findPlayerById(local['strikerId']?.toString() ?? '');
+        final bowler = _findPlayerById(local['bowlerId']?.toString() ?? '');
+        final nonStriker = _findPlayerById(local['nonStrikerId']?.toString() ?? '');
+        if (striker != null) _currentStriker = striker;
+        if (bowler != null) _currentBowler = bowler;
+        if (nonStriker != null) _currentNonStriker = nonStriker;
+        final dismissedId = local['dismissedPlayerId']?.toString();
+        _applyLocalBall(
+          runs: (local['runs'] as num?)?.toInt() ?? 0,
+          extraType: local['extraType']?.toString(),
+          wicketType: local['wicketType']?.toString(),
+          wagonZone: (local['wagonZone'] as num?)?.toInt(),
+          wagonLabel: local['wagonLabel']?.toString(),
+          dismissedPlayer: dismissedId == null ? null : _findPlayerById(dismissedId),
+          forceStrikeChange: local['forceStrikeChange'] as bool?,
+        );
+      }
+    } finally {
+      _replaying = false;
+    }
+  }
+
   void swapStrike() {
     final oldStriker = _currentStriker;
     _currentStriker = _currentNonStriker;
@@ -1909,6 +2336,8 @@ class LiveScoreControlProvider extends ChangeNotifier {
   /// refresh, unlike the local-only swap above.
   Future<bool> swapStrikeManual() async {
     if (_matchId == null) return false;
+    if (_blockedWhileSyncing()) return false;
+
     if (currentStriker == null || currentNonStriker == null) {
       _error = 'Set both striker and non-striker first';
       notifyListeners();

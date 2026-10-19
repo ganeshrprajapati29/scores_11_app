@@ -4,6 +4,7 @@ import '../data/services/match_service.dart';
 import '../data/models/scorecard_model.dart';
 import '../data/models/match_model.dart';
 import '../core/services/cache_service.dart';
+import '../core/services/socket_service.dart';
 
 class ScorecardProvider extends ChangeNotifier {
   final MatchService _matchService = MatchService();
@@ -407,7 +408,48 @@ class ScorecardProvider extends ChangeNotifier {
   // ===============================
   // 🔥 AUTO REFRESH
   // ===============================
+  // Socket push (per ball) on top of the 15s poll below.
+  final SocketService _socketService = SocketService();
+  String? _socketMatchId;
+  Timer? _socketDebounce;
+
+  Future<void> _subscribeSocket(String matchId) async {
+    if (_socketMatchId == matchId) return;
+    _unsubscribeSocket();
+    _socketMatchId = matchId;
+    try {
+      await _socketService.connect();
+      _socketService.joinMatch(matchId);
+      _socketService.listen('liveScoreUpdate', _onSocketUpdate);
+      _socketService.listen('scoreUpdated', _onSocketUpdate);
+    } catch (e) {
+      debugPrint('Scorecard socket unavailable, polling only: $e');
+    }
+  }
+
+  void _onSocketUpdate(dynamic data) {
+    final matchId = _socketMatchId;
+    if (matchId == null) return;
+    final id = data is Map ? (data['matchId'] ?? data['_id'])?.toString() : null;
+    if (id != null && id != matchId) return;
+    _socketDebounce?.cancel();
+    _socketDebounce = Timer(const Duration(milliseconds: 600), () {
+      loadScorecard(matchId, forceRefresh: true, showLoading: false);
+    });
+  }
+
+  void _unsubscribeSocket() {
+    _socketDebounce?.cancel();
+    final matchId = _socketMatchId;
+    if (matchId == null) return;
+    _socketService.unlisten('liveScoreUpdate', _onSocketUpdate);
+    _socketService.unlisten('scoreUpdated', _onSocketUpdate);
+    _socketService.leaveMatch(matchId);
+    _socketMatchId = null;
+  }
+
   void _startAutoRefresh(String matchId) {
+    _subscribeSocket(matchId);
     if (_refreshTimer != null) return;
 
     _refreshTimer = Timer.periodic(
@@ -425,6 +467,7 @@ class ScorecardProvider extends ChangeNotifier {
   void _stopTimer() {
     _refreshTimer?.cancel();
     _refreshTimer = null;
+    _unsubscribeSocket();
   }
 
   @override

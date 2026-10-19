@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../../data/services/team_service.dart';
 import '../../../data/services/player_service.dart';
 import '../../../data/models/player_model.dart';
+import '../../core/utils/friendly_error.dart';
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const _kRadius = 14.0;
@@ -267,7 +268,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
       });
     } catch (e) {
       setState(() {
-        _searchMessage = 'Error: $e';
+        _searchMessage = friendlyError(e, fallback: 'Something went wrong. Please try again.');
         _searchResults = [];
         _isLoadingPlayers = false;
       });
@@ -349,7 +350,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
       if (np.id != null) _addToTeam(np);
       _toast('${np.name} created & added ⚡');
     } catch (e) {
-      _toast('Error: $e', isError: true);
+      _toast(friendlyError(e, fallback: 'Something went wrong. Please try again.'), isError: true);
     } finally {
       setState(() => _isCreatingPlayer = false);
     }
@@ -410,7 +411,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen>
         }
       }
     } catch (e) {
-      _toast('Error: $e', isError: true);
+      _toast(friendlyError(e, fallback: 'Something went wrong. Please try again.'), isError: true);
     } finally {
       setState(() => _isSubmitting = false);
     }

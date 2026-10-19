@@ -140,7 +140,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             '• ',
             style: TextStyle(
               fontSize: 16,
-              color: Color(0xFF1A56DB),
+              color: Color(0xFF1657CC),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -167,7 +167,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         style: const TextStyle(
           fontSize: 14,
           height: 1.6,
-          color: Color(0xFF1A56DB),
+          color: Color(0xFF1657CC),
           fontWeight: FontWeight.w500,
           decoration: TextDecoration.underline,
         ),

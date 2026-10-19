@@ -55,7 +55,7 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'Products load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load products.'),
             ),
           ),
         );
@@ -89,7 +89,7 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'More products load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load more products.'),
             ),
           ),
         );
@@ -101,7 +101,7 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Cric11 Store',
+        title: 'Scores11 Store',
         actions: [
           Stack(
             children: [
@@ -180,7 +180,7 @@ class _StoreHomeScreenState extends State<StoreHomeScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Image.asset(
-                              'score 11/Empty States 5.png',
+                              'score 11/Empty States 4.png',
                               width: 124,
                               height: 124,
                               fit: BoxFit.contain,
@@ -366,7 +366,7 @@ class _ProductCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                     child: Image.network(
-                      product['image'] ?? 'https://picsum.photos/200/200',
+                      (product['image'] ?? '').toString(),
                       height: 120,
                       width: double.infinity,
                       fit: BoxFit.cover,
@@ -441,7 +441,7 @@ class _ProductCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'â‚¹${product['originalPrice']}',
+                                '₹${product['originalPrice']}',
                                 style: TextStyle(
                                   decoration: TextDecoration.lineThrough,
                                   color: Colors.grey[400],
@@ -449,7 +449,7 @@ class _ProductCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                'â‚¹${product['price']}',
+                                '₹${product['price']}',
                                 style: const TextStyle(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,

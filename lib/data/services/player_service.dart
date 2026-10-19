@@ -211,8 +211,10 @@ class PlayerService {
         if (filter != null && filter != 'all') 'role': filter,
       };
       
+      // Guests (no session) read the public listing instead of getting 401.
+      final hasSession = ((await _apiClient.getAccessToken()) ?? '').isNotEmpty;
       final response = await _apiClient.get(
-        '${ApiConfig.baseUrl}/players',
+        hasSession ? '${ApiConfig.baseUrl}/players' : '${ApiConfig.baseUrl}/players/public',
         queryParameters: queryParams,
       );
       

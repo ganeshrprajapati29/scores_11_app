@@ -53,7 +53,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Post load nahi ho paaya.');
+        _error = friendlyError(e, fallback: 'Could not load post.');
         _loading = false;
       });
     }
@@ -94,7 +94,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      _snack(friendlyError(e, fallback: 'Action complete nahi ho paaya.'));
+      _snack(friendlyError(e, fallback: 'Could not complete the action.'));
     }
   }
 
@@ -105,7 +105,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       final updated = await action();
       return updated.isEmpty ? null : updated;
     } catch (e) {
-      if (mounted) _snack(friendlyError(e, fallback: 'Comment add nahi ho paaya.'));
+      if (mounted) _snack(friendlyError(e, fallback: 'Could not add comment.'));
       return null;
     }
   }

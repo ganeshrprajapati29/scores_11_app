@@ -101,7 +101,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
       _animationController.forward();
     } catch (e) {
       setState(() {
-        _error = friendlyError(e, fallback: 'Team details load nahi ho paayi.');
+        _error = friendlyError(e, fallback: 'Could not load team details.');
         _isLoading = false;
         _isPlayersLoading = false;
       });
@@ -773,6 +773,117 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
     );
   }
 
+  Future<void> _showEditTeamSheet() async {
+    final team = _team;
+    if (team == null) return;
+    final formKey = GlobalKey<FormState>();
+    final name = TextEditingController(text: team.name);
+    final shortName = TextEditingController(text: team.shortName ?? '');
+    final city = TextEditingController(text: team.city ?? '');
+    final ground = TextEditingController(text: team.homeGround ?? '');
+    final about = TextEditingController(text: team.description ?? '');
+    var saving = false;
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          InputDecoration deco(String label) => InputDecoration(
+                labelText: label,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                isDense: true,
+              );
+          Future<void> save() async {
+            if (!(formKey.currentState?.validate() ?? false)) return;
+            setSheet(() => saving = true);
+            try {
+              await _teamService.updateTeam(team.id, {
+                'name': name.text.trim(),
+                'shortName': shortName.text.trim().toUpperCase(),
+                'city': city.text.trim(),
+                'homeGround': ground.text.trim(),
+                'description': about.text.trim(),
+              });
+              if (ctx.mounted) Navigator.pop(ctx, true);
+            } catch (e) {
+              setSheet(() => saving = false);
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(friendlyError(e, fallback: 'Could not update the team.'))),
+                );
+              }
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('Edit team', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: name,
+                      decoration: deco('Team name'),
+                      validator: (v) => (v == null || v.trim().length < 2) ? 'Enter a team name' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: shortName,
+                      decoration: deco('Short name (e.g. MI)'),
+                      maxLength: 5,
+                      textCapitalization: TextCapitalization.characters,
+                    ),
+                    TextFormField(controller: city, decoration: deco('City')),
+                    const SizedBox(height: 12),
+                    TextFormField(controller: ground, decoration: deco('Home ground')),
+                    const SizedBox(height: 12),
+                    TextFormField(controller: about, decoration: deco('About'), maxLines: 3, minLines: 1),
+                    const SizedBox(height: 18),
+                    ElevatedButton(
+                      onPressed: saving ? null : save,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: saving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Save changes'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    for (final c in [name, shortName, city, ground, about]) {
+      c.dispose();
+    }
+    if (saved == true && mounted) {
+      await _loadTeam();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Team updated')),
+        );
+      }
+    }
+  }
+
   Future<void> _showAddByContactSheet() async {
     _contactNameController.clear();
     _contactEmailController.clear();
@@ -926,7 +1037,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
       await _loadTeam();
       _showMessage('Player added to team');
     } catch (e) {
-      _showMessage(friendlyError(e, fallback: 'Player add nahi ho paaya.'), isError: true);
+      _showMessage(friendlyError(e, fallback: 'Could not add player.'), isError: true);
     } finally {
       if (mounted) setState(() => _isAddingByContact = false);
     }
@@ -1060,7 +1171,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Player link open karke apna naam, mobile/email daal kar team join kar sakta hai.',
+                  'Players open the link and enter their name and mobile/email to join the team.',
                   style: TextStyle(color: _textSecondary, fontSize: 13, height: 1.4),
                 ),
                 const SizedBox(height: 14),
@@ -1103,7 +1214,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
       );
       _showMessage('Invite link copied');
     } catch (e) {
-      _showMessage(friendlyError(e, fallback: 'Invite link create nahi ho paaya.'), isError: true);
+      _showMessage(friendlyError(e, fallback: 'Could not create invite link.'), isError: true);
     } finally {
       if (mounted) setState(() => _isGeneratingInvite = false);
     }
@@ -1155,7 +1266,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen>
                 label: 'Edit Team',
                 icon: Icons.edit_rounded,
                 color: _primary,
-                onTap: () {},
+                onTap: _showEditTeamSheet,
               ),
             ),
             const SizedBox(width: 10),

@@ -52,7 +52,7 @@ class TournamentService {
       // API not 200, fallback
       return _emptyTournaments(page, limit);
     } catch (networkError) {
-      debugPrint('🌐 Tournament API error (fallback to mock): $networkError');
+      debugPrint('🌐 Tournament API error, showing none: $networkError');
       return _emptyTournaments(page, limit);
     }
   }
@@ -89,7 +89,7 @@ class TournamentService {
         hasMore: safeTournaments.length == 20,
       );
     } catch (parseError) {
-      debugPrint('❌ Tournament parsing failed, using mocks: $parseError');
+      debugPrint('❌ Tournament parsing failed, showing none: $parseError');
       return _emptyTournaments(1, 20);
     }
   }

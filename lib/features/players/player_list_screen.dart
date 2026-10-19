@@ -5,6 +5,7 @@ import '../../../core/widgets/custom_appbar.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/player_service.dart';
 import '../../../data/models/player_model.dart';
+import '../../core/utils/friendly_error.dart';
 
 // ─── Design tokens (matching community feed) ─────────────────────────────────
 const _kBg = Color(0xFFF8F9FA);
@@ -143,7 +144,7 @@ Future<void> _loadPlayers({bool loadMore = false}) async {
               const Icon(Icons.error_outline_rounded,
                   color: Colors.white, size: 16),
               const SizedBox(width: 8),
-              Text('Load error: $e'),
+              Text(friendlyError(e, fallback: 'Could not load players.')),
             ]),
             backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating,
@@ -182,7 +183,7 @@ Future<void> _loadPlayers({bool loadMore = false}) async {
         });
       } catch (e) {
         if (mounted) {
-          _snack('Search error: $e');
+          _snack(friendlyError(e, fallback: 'Search failed. Please try again.'));
         }
       } finally {
         if (mounted) setState(() => _isLoading = false);
@@ -608,7 +609,7 @@ Widget _buildSearchFilterSection() {
             try {
               Navigator.pushNamed(context, '/player-profile/${player.id}');
             } catch (e) {
-              _snack('Navigation error: $e');
+              _snack(friendlyError(e, fallback: 'Could not open this page.'));
             }
           },
           child: Padding(
@@ -723,7 +724,7 @@ Widget _buildSearchFilterSection() {
                           Navigator.pushNamed(
                               context, '/player-profile/${player.id}');
                         } catch (e) {
-                          _snack('Navigation error: $e');
+                          _snack(friendlyError(e, fallback: 'Could not open this page.'));
                         }
                       },
                     ),
@@ -840,7 +841,7 @@ Widget _buildSearchFilterSection() {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Image.asset(
-            'score 11/Empty States 6.png',
+            'score 11/Empty States 4.png',
             width: 124,
             height: 124,
             fit: BoxFit.contain,

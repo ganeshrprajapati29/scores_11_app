@@ -269,7 +269,7 @@ CustomButton(
           children: [
             Icon(Icons.sports_cricket, color: AppColors.primary),
             SizedBox(width: 8),
-            Text('Cric11'),
+            Text('Scores11'),
           ],
         ),
         content: Column(

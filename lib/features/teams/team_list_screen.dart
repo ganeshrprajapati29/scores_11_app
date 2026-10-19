@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../../data/models/team_model.dart';
 import '../../../data/services/team_service.dart';
+import '../../core/utils/friendly_error.dart';
 
 class TeamListScreen extends StatefulWidget {
   const TeamListScreen({super.key});
@@ -60,7 +61,7 @@ class _TeamListScreenState extends State<TeamListScreen>
             children: [
               const Icon(Icons.error_outline, color: Colors.white, size: 20),
               const SizedBox(width: 10),
-              Text('Error loading teams: $e'),
+              Text(friendlyError(e, fallback: 'Could not load teams.')),
             ],
           ),
           backgroundColor: const Color(0xFFEF4444),

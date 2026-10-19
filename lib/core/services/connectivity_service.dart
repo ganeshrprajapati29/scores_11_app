@@ -8,8 +8,10 @@ class ConnectivityService {
   final Connectivity _connectivity = Connectivity();
 
   Future<bool> isConnected() async {
-    final result = await _connectivity.checkConnectivity();
-    return result != ConnectivityResult.none;
+    // connectivity_plus 6 returns a list; comparing the list itself to
+    // `none` was always true, so the app thought it was always online.
+    final results = await _connectivity.checkConnectivity();
+    return results.any((r) => r != ConnectivityResult.none);
   }
 
 /// Returns a stream of single [ConnectivityResult] by mapping from the list

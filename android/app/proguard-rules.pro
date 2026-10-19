@@ -77,3 +77,9 @@
 # Keep entire Play Core library (alternative - uncomment if needed)
 # -keep class com.google.android.play.core.** { *; }
 
+
+# HaishinKit RTMP broadcaster (uses kotlinx.serialization via reflection)
+-keep class com.haishinkit.** { *; }
+-keepclassmembers class kotlinx.serialization.json.** { *; }
+-keepattributes *Annotation*, InnerClasses
+-dontwarn kotlinx.serialization.**

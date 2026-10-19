@@ -74,7 +74,7 @@ class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Players load nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not load players.');
         _isLoading = false;
       });
     }
@@ -196,7 +196,7 @@ class _PublicPlayersScreenState extends State<PublicPlayersScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'score 11/Empty States 6.png',
+              'score 11/Empty States 4.png',
               width: 124,
               height: 124,
               fit: BoxFit.contain,
@@ -345,7 +345,7 @@ Future<void> _addPlayerToTeam(Team team, PublicPlayer player) async {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e, fallback: 'Player add nahi ho paaya.'))),
+          SnackBar(content: Text(friendlyError(e, fallback: 'Could not add player.'))),
         );
       }
     } finally {
@@ -546,7 +546,7 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _followError = friendlyError(e, fallback: 'Follow update nahi ho paaya.');
+        _followError = friendlyError(e, fallback: 'Could not update follow.');
       });
     }
     if (!mounted) return;
@@ -591,7 +591,7 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            friendlyError(e, fallback: 'Action complete nahi ho paaya.'),
+            friendlyError(e, fallback: 'Could not complete the action.'),
           ),
         ),
       );
@@ -623,7 +623,7 @@ class _PublicPlayerProfileViewState extends State<PublicPlayerProfileView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            friendlyError(e, fallback: 'Chat open nahi ho paayi.'),
+            friendlyError(e, fallback: 'Could not open chat.'),
           ),
         ),
       );

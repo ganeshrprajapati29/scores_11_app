@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/config/api_config.dart';
 import '../../core/services/api_client.dart';
+import '../../core/utils/friendly_error.dart';
 
 class UploadService {
   final ApiClient _apiClient = ApiClient();
@@ -97,7 +98,7 @@ class UploadService {
     } catch (e) {
       return {
         'success': false,
-        'message': 'Error uploading image: $e',
+        'message': friendlyError(e, fallback: 'Could not upload the image.'),
       };
     }
   }
@@ -131,7 +132,7 @@ class UploadService {
     } catch (e) {
       return {
         'success': false,
-        'message': 'Error uploading video: $e',
+        'message': friendlyError(e, fallback: 'Could not upload the video.'),
       };
     }
   }
@@ -168,7 +169,7 @@ class UploadService {
     } catch (e) {
       return {
         'success': false,
-        'message': 'Error uploading images: $e',
+        'message': friendlyError(e, fallback: 'Could not upload the images.'),
       };
     }
   }
@@ -186,7 +187,7 @@ class UploadService {
     } on DioException catch (e) {
       return {'success': false, 'message': _handleDioError(e)};
     } catch (e) {
-      return {'success': false, 'message': 'Error deleting file: $e'};
+      return {'success': false, 'message': friendlyError(e, fallback: 'Could not delete the file.')};
     }
   }
 

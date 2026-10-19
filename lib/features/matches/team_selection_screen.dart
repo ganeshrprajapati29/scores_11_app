@@ -78,7 +78,7 @@ class _TeamSelectionScreenState extends State<TeamSelectionScreen>
       _slideController.forward();
     } catch (e) {
       setState(() {
-        _error = friendlyError(e, fallback: 'Team selection load nahi ho paayi.');
+        _error = friendlyError(e, fallback: 'Could not load team selection.');
         _isLoading = false;
       });
     }

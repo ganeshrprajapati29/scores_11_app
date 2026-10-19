@@ -66,7 +66,7 @@ class _ScheduledMatchesScreenState extends State<ScheduledMatchesScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Matches load nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not load matches.');
         _isLoading = false;
       });
     }
@@ -83,7 +83,7 @@ class _ScheduledMatchesScreenState extends State<ScheduledMatchesScreen>
       builder: (context) => AlertDialog(
         title: const Text('Initialize Live Match?'),
         content: Text(
-          '${match.team1} vs ${match.team2} ko live initialize karna hai?',
+          'Start ${match.team1} vs ${match.team2} live now?',
         ),
         actions: [
           TextButton(
@@ -110,7 +110,7 @@ class _ScheduledMatchesScreenState extends State<ScheduledMatchesScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${match.team1} vs ${match.team2} ab live matches me dikhega'),
+          content: Text('${match.team1} vs ${match.team2} is now live'),
         ),
       );
       await _loadMatches();
@@ -120,7 +120,7 @@ class _ScheduledMatchesScreenState extends State<ScheduledMatchesScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Matches load nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not load matches.');
         _isLoading = false;
       });
     }
@@ -824,7 +824,7 @@ class _ErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline_rounded, size: 52, color: Colors.redAccent),
             const SizedBox(height: 12),
-            const Text('Matches load nahi ho paaye', style: TextStyle(fontWeight: FontWeight.w800)),
+            const Text('Could not load matches.', style: TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 16),

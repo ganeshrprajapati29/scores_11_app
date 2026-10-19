@@ -54,7 +54,7 @@ class _TeamInviteJoinScreenState extends State<TeamInviteJoinScreen> {
       final invite = await _teamService.getInviteInfo(widget.code);
       setState(() => _invite = invite);
     } catch (e) {
-      setState(() => _error = friendlyError(e, fallback: 'Invite load nahi ho paaya.'));
+      setState(() => _error = friendlyError(e, fallback: 'Could not load invite.'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -82,7 +82,7 @@ class _TeamInviteJoinScreenState extends State<TeamInviteJoinScreen> {
       _showMessage('Team joined successfully');
       Navigator.pop(context, true);
     } catch (e) {
-      _showMessage(friendlyError(e, fallback: 'Team join nahi ho paaya.'), isError: true);
+      _showMessage(friendlyError(e, fallback: 'Could not join team.'), isError: true);
     } finally {
       if (mounted) setState(() => _isJoining = false);
     }

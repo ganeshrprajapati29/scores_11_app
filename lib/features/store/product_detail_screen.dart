@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/config/theme_config.dart';
 import '../../core/utils/friendly_error.dart';
@@ -81,7 +82,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         if (product['weight'] != null) 'Weight': product['weight'],
         if (product['color'] != null) 'Color': product['color'],
       },
-      'seller': {'name': 'Scores11 Store', 'rating': 0, 'products': 0},
+      'seller': {'name': 'Scores11 Store'},
     };
   }
 
@@ -111,12 +112,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             foregroundColor: Colors.white,
             actions: [
               IconButton(
-                icon: Icon(Icons.share),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: Icon(Icons.favorite_border),
-                onPressed: () {},
+                tooltip: 'Share',
+                icon: const Icon(Icons.share),
+                onPressed: () => Share.share(
+                  '${_product['name']} - ₹${((_product['price'] as num?) ?? 0).toStringAsFixed(0)} on Scores11 Store',
+                ),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -248,7 +248,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'â‚¹${_product['price']}',
+                        '₹${_product['price']}',
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -257,7 +257,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        'â‚¹${_product['originalPrice']}',
+                        '₹${_product['originalPrice']}',
                         style: TextStyle(
                           fontSize: 18,
                           decoration: TextDecoration.lineThrough,
@@ -420,12 +420,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               ),
                               Row(
                                 children: [
-                                  Icon(Icons.star, color: Colors.amber, size: 16),
+                                  const Icon(Icons.verified, color: AppColors.success, size: 16),
                                   const SizedBox(width: 4),
-                                  Text('${_product['seller']['rating']} rating'),
-                                  const SizedBox(width: 8),
                                   Text(
-                                    '(${_product['seller']['products']} products)',
+                                    'Official store',
                                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
                                   ),
                                 ],
@@ -434,8 +432,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                         ),
                         OutlinedButton(
-                          onPressed: () {},
-                          child: Text('View Shop'),
+                          onPressed: () => Navigator.pushNamed(context, '/store'),
+                          child: const Text('View Shop'),
                         ),
                       ],
                     ),
@@ -514,7 +512,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            friendlyError(e, fallback: 'Cart me add nahi ho paaya.'),
+            friendlyError(e, fallback: 'Could not add to cart.'),
           ),
         ),
       );

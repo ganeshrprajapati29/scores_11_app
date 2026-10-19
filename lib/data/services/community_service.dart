@@ -24,10 +24,14 @@ class CommunityService {
   Future<PaginatedPosts> getPosts({
     int page = 1,
     int limit = 20,
+    String? tag,
+    String? search,
   }) async {
     final response = await _apiClient.get('/community/posts', queryParameters: {
       'page': page,
       'limit': limit,
+      if (tag != null && tag.isNotEmpty) 'tag': tag,
+      if (search != null && search.isNotEmpty) 'search': search,
     });
 
     final posts = _extractPosts(response.data).map(_normalizePost).toList();
@@ -51,6 +55,14 @@ class CommunityService {
   }) async {
     final result = await getPosts(page: page, limit: limit);
     return result.posts;
+  }
+
+  /// Most-used hashtags of the last 30 days: [{tag: '#cricket', posts: 12}].
+  Future<List<Map<String, dynamic>>> getTrendingTags({int limit = 10}) async {
+    final response = await _apiClient.get('/community/trending-tags', queryParameters: {'limit': limit});
+    final data = response.data is Map ? response.data['data'] : null;
+    if (data is! List) return [];
+    return data.whereType<Map>().map(Map<String, dynamic>.from).toList();
   }
 
   Future<Map<String, dynamic>> getPostById(String id) async {
@@ -180,9 +192,17 @@ class CommunityService {
     final likes = post['likes'];
     final comments = post['comments'];
     final authorId = (post['userId'] ?? user?['_id'] ?? user?['id'] ?? '').toString();
-    final userName =
-        (post['userName'] ?? post['name'] ?? user?['name'] ?? user?['fullName'] ?? 'Scores11 User')
-            .toString();
+    // First non-empty value: posts carry an empty top-level "name" field.
+    final userName = [
+      post['userName'],
+      user?['name'],
+      user?['fullName'],
+      user?['username'],
+      post['name'],
+    ].map((v) => v?.toString().trim() ?? '').firstWhere(
+          (v) => v.isNotEmpty,
+          orElse: () => 'Scores11 User',
+        );
     final userAvatar = _readImageUrl(
       post['userAvatar'] ?? post['avatar'] ?? user?['avatar'] ?? user?['profileImage'],
     );
@@ -213,14 +233,12 @@ class CommunityService {
 
   String? _readImageUrl(dynamic value) {
     if (value == null) return null;
-    if (value is String) return value.isEmpty ? null : value;
-    if (value is Map) {
-      final url = value['url'] ?? value['secureUrl'] ?? value['path'];
-      final text = url?.toString() ?? '';
-      return text.isEmpty ? null : text;
-    }
-    final text = value.toString();
-    return text.isEmpty ? null : text;
+    final raw = value is Map
+        ? (value['url'] ?? value['secureUrl'] ?? value['path'])
+        : value;
+    final text = raw?.toString().trim() ?? '';
+    // Placeholders like "default-avatar-url" are not loadable images.
+    return text.startsWith('http') ? text : null;
   }
 
   int _readInt(dynamic value, int fallback) {

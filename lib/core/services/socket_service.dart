@@ -56,6 +56,16 @@ class SocketService {
     _socket?.off(event);
   }
 
+  /// Add/remove one specific handler, leaving other screens' listeners on
+  /// the same event intact (unlike [off]).
+  void listen(String event, void Function(dynamic) handler) {
+    _socket?.on(event, handler);
+  }
+
+  void unlisten(String event, void Function(dynamic) handler) {
+    _socket?.off(event, handler);
+  }
+
   void disconnect() {
     _socket?.disconnect();
     _socket = null;

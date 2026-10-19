@@ -1,6 +1,7 @@
 class ApiConfig {
-  static const String _productionHost = 'http://68.178.171.95:3000';
-// Production remote backend (currently unreachable)
+  // HTTPS through nginx (API, socket.io and /uploads are proxied there).
+  static const String _productionHost = 'https://scores11.com';
+
 // Change this to your backend URL
   // Production remote backend  
   static const String apiHost = String.fromEnvironment(

@@ -101,7 +101,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Notifications load nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not load notifications.');
         _isLoading = false;
         _isLoadingMore = false;
       });
@@ -158,7 +158,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       if (!mounted) return;
       setState(() => _notifications.insert(removedIndex, notification));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendlyError(e, fallback: 'Notification delete nahi ho payi.'))),
+        SnackBar(content: Text(friendlyError(e, fallback: 'Could not delete notification.'))),
       );
     }
   }
@@ -271,7 +271,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     if (_error != null && _notifications.isEmpty) {
       return _EmptyPanel(
         icon: Icons.cloud_off_rounded,
-        title: 'Notifications load nahi ho paaye',
+        title: 'Could not load notifications.',
         message: _error!,
         actionLabel: 'Retry',
         onAction: _refresh,
@@ -281,7 +281,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       return _EmptyPanel(
         icon: Icons.notifications_none_rounded,
         title: 'No notifications yet',
-        message: 'Match, team, chat, social aur system updates yahan dynamic aayenge.',
+        message: 'Match, team, chat and social updates will appear here.',
         actionLabel: 'Refresh',
         onAction: _refresh,
       );

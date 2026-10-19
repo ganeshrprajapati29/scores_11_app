@@ -68,7 +68,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'Messages load nahi ho paaye.'),
+              friendlyError(e, fallback: 'Could not load messages.'),
             ),
           ),
         );
@@ -115,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(e, fallback: 'Message send nahi ho paaya.'))),
+          SnackBar(content: Text(friendlyError(e, fallback: 'Could not send message.'))),
         );
         _messageController.text = text; // Restore
       }

@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/services/location_service.dart';
@@ -15,7 +16,7 @@ class DiscoveryScreen extends StatefulWidget {
 }
 
 class _DiscoveryScreenState extends State<DiscoveryScreen> {
-  static const _primary = Color(0xFF1A56DB);
+  static const _primary = Color(0xFF1657CC);
   static const _ink = Color(0xFF0F172A);
   static const _muted = Color(0xFF64748B);
   static const _line = Color(0xFFE8EEFF);
@@ -41,7 +42,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   final LatLng _defaultLocation = const LatLng(19.0760, 72.8777);
 
   final List<_DiscoveryCategory> _categories = const [
-    _DiscoveryCategory('all', 'All', 'Explore', Icons.apps_rounded, Color(0xFF1A56DB)),
+    _DiscoveryCategory('all', 'All', 'Explore', Icons.apps_rounded, Color(0xFF1657CC)),
     _DiscoveryCategory('opponentTeam', 'Opponent Team', 'Find teams', Icons.groups_2_rounded, Color(0xFFEF4444)),
     _DiscoveryCategory('player', 'Join Player', 'Players', Icons.person_add_alt_1_rounded, Color(0xFF10B981)),
     _DiscoveryCategory('tournamentTeam', 'Tournament Team', 'Teams', Icons.diversity_3_rounded, Color(0xFF7C3AED)),
@@ -585,12 +586,16 @@ class _DiscoveryCard extends StatelessWidget {
               const SizedBox(width: 8),
               Column(
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 16),
-                      Text(item.rating.toStringAsFixed(1), style: const TextStyle(color: _DiscoveryScreenState._ink, fontWeight: FontWeight.w900, fontSize: 12)),
-                    ],
-                  ),
+                  // Only real ratings are shown; unrated listings show nothing.
+                  if (item.rating > 0)
+                    Row(
+                      children: [
+                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 16),
+                        Text(item.rating.toStringAsFixed(1), style: const TextStyle(color: _DiscoveryScreenState._ink, fontWeight: FontWeight.w900, fontSize: 12)),
+                      ],
+                    )
+                  else
+                    const SizedBox(height: 16),
                   const SizedBox(height: 24),
                   const Icon(Icons.chevron_right_rounded, color: _DiscoveryScreenState._muted),
                 ],
@@ -692,7 +697,7 @@ class _DiscoveryDetailsSheet extends StatelessWidget {
             const SizedBox(height: 18),
             Row(
               children: [
-                _Metric(icon: Icons.star_rounded, label: item.rating.toStringAsFixed(1), sub: 'Rating'),
+                _Metric(icon: Icons.star_rounded, label: item.rating > 0 ? item.rating.toStringAsFixed(1) : 'New', sub: 'Rating'),
                 const SizedBox(width: 10),
                 _Metric(icon: Icons.visibility_rounded, label: '${item.views}', sub: 'Views'),
                 const SizedBox(width: 10),
@@ -715,10 +720,10 @@ class _DiscoveryDetailsSheet extends StatelessWidget {
             Row(
               children: [
                 if ((item.phone ?? '').trim().isNotEmpty)
-                  Expanded(child: _SheetButton(icon: Icons.phone_rounded, label: 'Call', color: color, onTap: () {})),
+                  Expanded(child: _SheetButton(icon: Icons.phone_rounded, label: 'Call', color: color, onTap: () => launchUrl(Uri(scheme: 'tel', path: item.phone!.trim())))),
                 if ((item.phone ?? '').trim().isNotEmpty && (item.email ?? '').trim().isNotEmpty) const SizedBox(width: 10),
                 if ((item.email ?? '').trim().isNotEmpty)
-                  Expanded(child: _SheetButton(icon: Icons.email_rounded, label: 'Email', color: color, onTap: () {})),
+                  Expanded(child: _SheetButton(icon: Icons.email_rounded, label: 'Email', color: color, onTap: () => launchUrl(Uri(scheme: 'mailto', path: item.email!.trim())))),
               ],
             ),
             if (onMapTap != null) ...[

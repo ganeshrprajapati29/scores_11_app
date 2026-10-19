@@ -5,6 +5,7 @@ import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_loader.dart';
 import '../../data/services/wallet_service.dart';
 import '../../data/models/wallet_model.dart';
+import '../../core/utils/friendly_error.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -127,7 +128,7 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'â‚¹${_wallet?.balance.toStringAsFixed(2) ?? '0.00'}',
+            '₹${_wallet?.balance.toStringAsFixed(2) ?? '0.00'}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 36,
@@ -140,7 +141,7 @@ class _WalletScreenState extends State<WalletScreen> {
               Expanded(
                 child: _buildBalanceItem(
                   'Credits',
-                  'â‚¹${_wallet?.totalCredits.toStringAsFixed(2) ?? '0.00'}',
+                  '₹${_wallet?.totalCredits.toStringAsFixed(2) ?? '0.00'}',
                   Icons.arrow_downward,
                 ),
               ),
@@ -148,7 +149,7 @@ class _WalletScreenState extends State<WalletScreen> {
               Expanded(
                 child: _buildBalanceItem(
                   'Debits',
-                  'â‚¹${_wallet?.totalDebits.toStringAsFixed(2) ?? '0.00'}',
+                  '₹${_wallet?.totalDebits.toStringAsFixed(2) ?? '0.00'}',
                   Icons.arrow_upward,
                 ),
               ),
@@ -359,7 +360,7 @@ class _WalletScreenState extends State<WalletScreen> {
             ),
           ),
           Text(
-            '${isCredit ? '+' : '-'}â‚¹${transaction.amount.toStringAsFixed(2)}',
+            '${isCredit ? '+' : '-'}₹${transaction.amount.toStringAsFixed(2)}',
             style: TextStyle(
               color: isCredit ? AppColors.success : AppColors.error,
               fontWeight: FontWeight.bold,
@@ -408,7 +409,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixText: 'â‚¹ ',
+                  prefixText: '₹ ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -441,7 +442,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Error: $e'),
+                              content: Text(friendlyError(e, fallback: 'Something went wrong. Please try again.')),
                               backgroundColor: AppColors.error,
                             ),
                           );
@@ -488,7 +489,7 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Available balance: â‚¹${_wallet?.balance.toStringAsFixed(2) ?? '0.00'}',
+                'Available balance: ₹${_wallet?.balance.toStringAsFixed(2) ?? '0.00'}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(height: 24),
@@ -497,7 +498,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixText: 'â‚¹ ',
+                  prefixText: '₹ ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -539,7 +540,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Error: $e'),
+                              content: Text(friendlyError(e, fallback: 'Something went wrong. Please try again.')),
                               backgroundColor: AppColors.error,
                             ),
                           );

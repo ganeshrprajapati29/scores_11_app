@@ -70,10 +70,15 @@ class LiveStreamService {
   static Future<List<LiveStreamModel>> getLiveStreams({
     String status = 'live',
     int page = 1,
+    String? matchId,
   }) async {
     final res = await _apiClient.get(
       '/live-streams',
-      queryParameters: {'page': page, 'status': status},
+      queryParameters: {
+        'page': page,
+        'status': status,
+        if (matchId != null && matchId.isNotEmpty) 'matchId': matchId,
+      },
     );
     final payload = _extractPayload(res.data);
     final dynamic rawList = payload is List
@@ -108,6 +113,21 @@ class LiveStreamService {
       throw Exception('Missing stream id');
     }
     await _apiClient.post('/live-streams/$streamId/start');
+  }
+
+  /// What YouTube receives from the host: streamStatus (active/inactive),
+  /// health (good/ok/bad/noData) and lifeCycleStatus (ready/live/complete).
+  static Future<Map<String, dynamic>> getStreamHealth(String streamId) async {
+    final res = await _apiClient.get('/live-streams/$streamId/health');
+    final payload = _extractPayload(res.data);
+    return payload is Map ? Map<String, dynamic>.from(payload) : {};
+  }
+
+  /// RTMP server + key of the host's own stream (hidden from public reads).
+  static Future<Map<String, dynamic>> getStreamIngest(String streamId) async {
+    final res = await _apiClient.get('/live-streams/$streamId/ingest');
+    final payload = _extractPayload(res.data);
+    return payload is Map ? Map<String, dynamic>.from(payload) : {};
   }
 
   static Future<void> endStream(String streamId) async {
@@ -239,7 +259,11 @@ class LiveStreamService {
     callback(Map<String, dynamic>.from(data));
   }
 
-  static void joinStreamRoom(String streamId) => _socket?.emit('joinStream', streamId);
+  /// Viewers can open a stream without visiting Go Live, so connect lazily.
+  static Future<void> joinStreamRoom(String streamId) async {
+    if (_socket == null) await initSocket();
+    _socket?.emit('joinStream', streamId);
+  }
   static void leaveStreamRoom(String streamId) => _socket?.emit('leaveStream', streamId);
 
   static void registerChatCallback(Function(Map<String, dynamic>) callback) =>

@@ -72,26 +72,33 @@ class Match extends Equatable {
   factory Match.fromJson(Map<String, dynamic> json) {
     return Match(
       id: json['_id'] ?? json['id'] ?? '',
-      tournament: json['tournament'] is String 
-          ? json['tournament'] 
+      tournament: json['tournament'] is String
+          ? json['tournament']
           : json['tournament']?['_id'],
-      team1: json['team1'] is String ? json['team1'] : json['team1']?['name'] ?? json['team1']?['_id'] ?? '',
-      team2: json['team2'] is String ? json['team2'] : json['team2']?['name'] ?? json['team2']?['_id'] ?? '',
+      team1: json['team1'] is String
+          ? json['team1']
+          : json['team1']?['name'] ?? json['team1']?['_id'] ?? '',
+      team2: json['team2'] is String
+          ? json['team2']
+          : json['team2']?['name'] ?? json['team2']?['_id'] ?? '',
       matchNumber: json['matchNumber'],
       format: json['format'] ?? 'T20',
       matchType: json['matchType'] ?? 'LEAGUE',
       venue: json['venue'] != null ? Venue.fromJson(json['venue']) : null,
-      scheduledDate: json['scheduledDate'] != null 
-          ? DateTime.parse(json['scheduledDate']) 
+      // Issue-6 fix: parse ISO string and convert to local timezone so that
+      // _formatTime() in match_detail_screen shows the correct local time.
+      scheduledDate: json['scheduledDate'] != null
+          ? DateTime.parse(json['scheduledDate']).toLocal()
           : DateTime.now(),
       startTime: json['startTime'],
       overs: json['overs'] ?? 20,
       scoringRules: json['scoringRules'] is Map
-          ? MatchScoringRules.fromJson(Map<String, dynamic>.from(json['scoringRules'] as Map))
+          ? MatchScoringRules.fromJson(
+              Map<String, dynamic>.from(json['scoringRules'] as Map))
           : const MatchScoringRules(),
       status: json['status'] ?? 'SCHEDULED',
       toss: _parseToss(json),
-      innings: json['innings'] != null 
+      innings: json['innings'] != null
           ? (json['innings'] as List).map((e) => Innings.fromJson(e)).toList()
           : [],
       currentInnings: int.tryParse(
@@ -102,29 +109,47 @@ class Match extends Equatable {
                 .toString(),
           ) ??
           1,
-      battingOrder: json['battingOrder'] != null 
-          ? (json['battingOrder'] as List).map((e) => BattingOrder.fromJson(e as Map<String, dynamic>)).toList()
+      battingOrder: json['battingOrder'] != null
+          ? (json['battingOrder'] as List)
+              .map((e) => BattingOrder.fromJson(e as Map<String, dynamic>))
+              .toList()
           : [],
       score: json['score'] is Map
           ? MatchScore.fromJson(Map<String, dynamic>.from(json['score'] as Map))
           : MatchScore.fromJson(json),
       result: json['result'] is Map
-          ? MatchResult.fromJson(Map<String, dynamic>.from(json['result'] as Map))
+          ? MatchResult.fromJson(
+              Map<String, dynamic>.from(json['result'] as Map))
           : MatchResult.fromJson(json),
-      officials: json['officials'] != null ? MatchOfficials.fromJson(json['officials']) : null,
-      weather: json['weather'] != null ? Weather.fromJson(json['weather']) : null,
+      officials: json['officials'] != null
+          ? MatchOfficials.fromJson(json['officials'])
+          : null,
+      weather:
+          json['weather'] != null ? Weather.fromJson(json['weather']) : null,
       pitch: json['pitch'] != null ? Pitch.fromJson(json['pitch']) : null,
-      commentary: json['commentary'] != null 
-          ? (json['commentary'] as List).map((e) => Commentary.fromJson(e)).toList()
+      commentary: json['commentary'] != null
+          ? (json['commentary'] as List)
+              .map((e) => Commentary.fromJson(e))
+              .toList()
           : [],
-      powerplay: json['powerplay'] != null ? Powerplay.fromJson(json['powerplay']) : null,
+      powerplay: json['powerplay'] != null
+          ? Powerplay.fromJson(json['powerplay'])
+          : null,
       stats: json['stats'] != null ? MatchStats.fromJson(json['stats']) : null,
-      createdBy: json['createdBy'] is String ? json['createdBy'] : json['createdBy']?['_id'],
+      createdBy: json['createdBy'] is String
+          ? json['createdBy']
+          : json['createdBy']?['_id'],
       isActive: json['isActive'] ?? true,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
-      team1Data: json['team1Data'] ?? (json['team1'] is Map ? json['team1'] : null),
-      team2Data: json['team2Data'] ?? (json['team2'] is Map ? json['team2'] : null),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'])
+          : DateTime.now(),
+      team1Data:
+          json['team1Data'] ?? (json['team1'] is Map ? json['team1'] : null),
+      team2Data:
+          json['team2Data'] ?? (json['team2'] is Map ? json['team2'] : null),
       canOptOut: json['canOptOut'] == true,
     );
   }
@@ -171,7 +196,8 @@ class Match extends Equatable {
     if (json['toss'] is Map<String, dynamic>) {
       parsedToss = Toss.fromJson(json['toss'] as Map<String, dynamic>);
     } else if (json['toss'] is Map) {
-      parsedToss = Toss.fromJson(Map<String, dynamic>.from(json['toss'] as Map));
+      parsedToss =
+          Toss.fromJson(Map<String, dynamic>.from(json['toss'] as Map));
     }
 
     final winner = json['tossWinner'] ??
@@ -245,8 +271,12 @@ class Match extends Equatable {
       }.contains(normalizedStatus);
   bool get isTeamSelecting => normalizedStatus == 'team_selecting';
   bool get isReady => normalizedStatus == 'ready';
-  String get team1Id => team1Data is Map ? (team1Data['_id'] ?? team1Data['id'] ?? team1).toString() : team1;
-  String get team2Id => team2Data is Map ? (team2Data['_id'] ?? team2Data['id'] ?? team2).toString() : team2;
+  String get team1Id => team1Data is Map
+      ? (team1Data['_id'] ?? team1Data['id'] ?? team1).toString()
+      : team1;
+  String get team2Id => team2Data is Map
+      ? (team2Data['_id'] ?? team2Data['id'] ?? team2).toString()
+      : team2;
 
   String get team1ScoreDisplay {
     return '${score.team1.runs}/${score.team1.wickets} (${score.team1.overs})';
@@ -258,12 +288,37 @@ class Match extends Equatable {
 
   @override
   List<Object?> get props => [
-    id, tournament, team1, team2, matchNumber, format, matchType, venue,
-    scheduledDate, startTime, overs, scoringRules, status, toss, innings, currentInnings,
-    battingOrder, score, result, officials, weather, pitch, commentary,
-    powerplay, stats, createdBy, isActive, createdAt, updatedAt,
-    canOptOut,
-  ];
+        id,
+        tournament,
+        team1,
+        team2,
+        matchNumber,
+        format,
+        matchType,
+        venue,
+        scheduledDate,
+        startTime,
+        overs,
+        scoringRules,
+        status,
+        toss,
+        innings,
+        currentInnings,
+        battingOrder,
+        score,
+        result,
+        officials,
+        weather,
+        pitch,
+        commentary,
+        powerplay,
+        stats,
+        createdBy,
+        isActive,
+        createdAt,
+        updatedAt,
+        canOptOut,
+      ];
 }
 
 // [Rest of all classes unchanged - Venue, Toss, Innings, Extras, BattingOrder, MatchScore, TeamScore, MatchResult, MatchOfficials, Weather, Pitch, Commentary, Powerplay, PowerplayInnings, MatchStats, HighestScore, BestBowling, HighestPartnership, MostSixes, MostFours remain exactly the same as original]
@@ -382,20 +437,29 @@ class Innings extends Equatable {
   factory Innings.fromJson(Map<String, dynamic> json) {
     final oversText = json['overs']?.toString();
     final parsedBalls = json['totalBalls'] ?? _ballsFromOversText(oversText);
-    final parsedOvers = json['totalOvers'] ?? _oversDecimalFromBalls(parsedBalls);
+    final parsedOvers =
+        json['totalOvers'] ?? _oversDecimalFromBalls(parsedBalls);
     final currentPartnership = json['currentPartnership'];
     return Innings(
       inningsNumber: json['inningsNumber'] ?? 1,
-      battingTeam: json['battingTeam'] is String ? json['battingTeam'] : (json['battingTeam']?['shortName'] ?? json['battingTeam']?['name']),
-      bowlingTeam: json['bowlingTeam'] is String ? json['bowlingTeam'] : (json['bowlingTeam']?['shortName'] ?? json['bowlingTeam']?['name']),
+      battingTeam: json['battingTeam'] is String
+          ? json['battingTeam']
+          : (json['battingTeam']?['shortName'] ?? json['battingTeam']?['name']),
+      bowlingTeam: json['bowlingTeam'] is String
+          ? json['bowlingTeam']
+          : (json['bowlingTeam']?['shortName'] ?? json['bowlingTeam']?['name']),
       totalRuns: json['totalRuns'] ?? 0,
       totalWickets: json['totalWickets'] ?? 0,
       totalOvers: _toDouble(parsedOvers),
       totalBalls: _toInt(parsedBalls),
-      extras: json['extras'] != null ? Extras.fromJson(json['extras']) : const Extras(),
+      extras: json['extras'] != null
+          ? Extras.fromJson(json['extras'])
+          : const Extras(),
       isCompleted: json['isCompleted'] ?? false,
-      currentPartnershipRuns: currentPartnership is Map ? _toInt(currentPartnership['runs']) : 0,
-      currentPartnershipBalls: currentPartnership is Map ? _toInt(currentPartnership['balls']) : 0,
+      currentPartnershipRuns:
+          currentPartnership is Map ? _toInt(currentPartnership['runs']) : 0,
+      currentPartnershipBalls:
+          currentPartnership is Map ? _toInt(currentPartnership['balls']) : 0,
     );
   }
 
@@ -441,22 +505,29 @@ class Innings extends Equatable {
   }
 
   String get oversDisplay {
-    final overs = totalBalls ~/ 6;
-    final balls = totalBalls % 6;
-    return '$overs.$balls';
+    return '${totalOvers.toInt()}.$totalBalls';
   }
 
   double get runRate {
-    if (totalBalls == 0) return 0.0;
-    return (totalRuns / totalBalls) * 6;
+    final legalBalls = (totalOvers.toInt() * 6) + totalBalls;
+    if (legalBalls == 0) return 0.0;
+    return (totalRuns / legalBalls) * 6;
   }
 
   @override
   List<Object?> get props => [
-    inningsNumber, battingTeam, bowlingTeam, totalRuns, totalWickets,
-    totalOvers, totalBalls, extras, isCompleted,
-    currentPartnershipRuns, currentPartnershipBalls,
-  ];
+        inningsNumber,
+        battingTeam,
+        bowlingTeam,
+        totalRuns,
+        totalWickets,
+        totalOvers,
+        totalBalls,
+        extras,
+        isCompleted,
+        currentPartnershipRuns,
+        currentPartnershipBalls,
+      ];
 }
 
 class Extras extends Equatable {
@@ -524,7 +595,8 @@ class BattingOrder extends Equatable {
       team: json['team'] is String ? json['team'] : json['team']?['_id'],
       players: rawPlayers is List
           ? rawPlayers
-              .map((e) => e is String ? e : (e['_id'] ?? e['id'] ?? '').toString())
+              .map((e) =>
+                  e is String ? e : (e['_id'] ?? e['id'] ?? '').toString())
               .where((id) => id.isNotEmpty)
               .toList()
           : [],
@@ -532,7 +604,10 @@ class BattingOrder extends Equatable {
           ? rawPlayers
               .map((e) {
                 if (e is String) return '';
-                final name = e['playerName'] ?? e['name'] ?? e['fullName'] ?? e['displayName'];
+                final name = e['playerName'] ??
+                    e['name'] ??
+                    e['fullName'] ??
+                    e['displayName'];
                 final text = name?.toString().trim() ?? '';
                 return RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(text) ? '' : text;
               })
@@ -585,7 +660,8 @@ class MatchScore extends Equatable {
     dynamic wickets,
     dynamic overs,
   }) {
-    final map = value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
+    final map =
+        value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
     if (runs != null) map['runs'] = runs;
     if (wickets != null) map['wickets'] = wickets;
     if (overs != null) map['overs'] = overs;
@@ -626,15 +702,20 @@ class TeamScore extends Equatable {
   factory TeamScore.fromJson(Map<String, dynamic> json) {
     return TeamScore(
       runs: int.tryParse(
-            (json['runs'] ?? json['totalRuns'] ?? json['score'] ?? 0).toString(),
+            (json['runs'] ?? json['totalRuns'] ?? json['score'] ?? 0)
+                .toString(),
           ) ??
           0,
       wickets: int.tryParse(
-            (json['wickets'] ?? json['wkts'] ?? json['totalWickets'] ?? 0).toString(),
+            (json['wickets'] ?? json['wkts'] ?? json['totalWickets'] ?? 0)
+                .toString(),
           ) ??
           0,
-      overs: (json['overs'] ?? json['totalOvers'] ?? json['over'] ?? '0.0').toString(),
-      innings: int.tryParse((json['innings'] ?? json['inningsNumber'] ?? 1).toString()) ?? 1,
+      overs: (json['overs'] ?? json['totalOvers'] ?? json['over'] ?? '0.0')
+          .toString(),
+      innings: int.tryParse(
+              (json['innings'] ?? json['inningsNumber'] ?? 1).toString()) ??
+          1,
     );
   }
 
@@ -683,14 +764,18 @@ class MatchResult extends Equatable {
 
   factory MatchResult.fromJson(Map<String, dynamic> json) {
     return MatchResult(
-      winner: _readName(json['winner'] ?? json['winnerTeam'] ?? json['winningTeam']),
+      winner: _readName(
+          json['winner'] ?? json['winnerTeam'] ?? json['winningTeam']),
       margin: json['margin']?.toString(),
       method: json['method']?.toString(),
       message: json['message']?.toString() ?? json['resultMessage']?.toString(),
       playerOfMatch: _readName(json['playerOfMatch'] ?? json['mom']),
-      target: int.tryParse((json['target'] ?? json['targetRuns'] ?? '').toString()),
-      requiredRuns: int.tryParse((json['requiredRuns'] ?? json['runsRequired'] ?? '').toString()),
-      requiredBalls: int.tryParse((json['requiredBalls'] ?? json['ballsRemaining'] ?? '').toString()),
+      target:
+          int.tryParse((json['target'] ?? json['targetRuns'] ?? '').toString()),
+      requiredRuns: int.tryParse(
+          (json['requiredRuns'] ?? json['runsRequired'] ?? '').toString()),
+      requiredBalls: int.tryParse(
+          (json['requiredBalls'] ?? json['ballsRemaining'] ?? '').toString()),
     );
   }
 
@@ -723,7 +808,16 @@ class MatchResult extends Equatable {
   }
 
   @override
-  List<Object?> get props => [winner, margin, method, message, playerOfMatch, target, requiredRuns, requiredBalls];
+  List<Object?> get props => [
+        winner,
+        margin,
+        method,
+        message,
+        playerOfMatch,
+        target,
+        requiredRuns,
+        requiredBalls
+      ];
 }
 
 class MatchScoringRules extends Equatable {
@@ -751,7 +845,10 @@ class MatchScoringRules extends Equatable {
         'penaltyOvers': penaltyOvers,
       };
 
-  bool get isChildMatch => matchCategory == 'child' || matchCategory == 'indoor' || ballType == 'rubber';
+  bool get isChildMatch =>
+      matchCategory == 'child' ||
+      matchCategory == 'indoor' ||
+      ballType == 'rubber';
   String get ballTypeLabel {
     switch (ballType) {
       case 'tennis':
@@ -779,6 +876,7 @@ class MatchScoringRules extends Equatable {
         return 'Standard / professional cricket';
     }
   }
+
   int effectiveChaseBalls(int matchOvers, {int inningsNumber = 2}) {
     final safeOvers = matchOvers.clamp(1, 100).toInt();
     if (inningsNumber != 2 || penaltyOvers <= 0) return safeOvers * 6;
@@ -805,9 +903,15 @@ class MatchOfficials extends Equatable {
 
   factory MatchOfficials.fromJson(Map<String, dynamic> json) {
     return MatchOfficials(
-      umpire1: json['umpire1'] is String ? json['umpire1'] : json['umpire1']?['name'],
-      umpire2: json['umpire2'] is String ? json['umpire2'] : json['umpire2']?['name'],
-      referee: json['referee'] is String ? json['referee'] : json['referee']?['name'],
+      umpire1: json['umpire1'] is String
+          ? json['umpire1']
+          : json['umpire1']?['name'],
+      umpire2: json['umpire2'] is String
+          ? json['umpire2']
+          : json['umpire2']?['name'],
+      referee: json['referee'] is String
+          ? json['referee']
+          : json['referee']?['name'],
     );
   }
 
@@ -904,7 +1008,8 @@ class Commentary extends Equatable {
       batsmanRuns: json['batsmanRuns'],
       totalRuns: json['totalRuns'],
       isWicket: json['isWicket'],
-      timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp']) : null,
+      timestamp:
+          json['timestamp'] != null ? DateTime.parse(json['timestamp']) : null,
     );
   }
 
@@ -927,7 +1032,8 @@ class Commentary extends Equatable {
   }
 
   @override
-  List<Object?> get props => [over, ball, text, batsmanRuns, totalRuns, isWicket, timestamp];
+  List<Object?> get props =>
+      [over, ball, text, batsmanRuns, totalRuns, isWicket, timestamp];
 }
 
 class Powerplay extends Equatable {
@@ -938,8 +1044,12 @@ class Powerplay extends Equatable {
 
   factory Powerplay.fromJson(Map<String, dynamic> json) {
     return Powerplay(
-      firstInnings: json['firstInnings'] != null ? PowerplayInnings.fromJson(json['firstInnings']) : null,
-      secondInnings: json['secondInnings'] != null ? PowerplayInnings.fromJson(json['secondInnings']) : null,
+      firstInnings: json['firstInnings'] != null
+          ? PowerplayInnings.fromJson(json['firstInnings'])
+          : null,
+      secondInnings: json['secondInnings'] != null
+          ? PowerplayInnings.fromJson(json['secondInnings'])
+          : null,
     );
   }
 
@@ -1006,15 +1116,21 @@ class MatchStats extends Equatable {
 
   factory MatchStats.fromJson(Map<String, dynamic> json) {
     return MatchStats(
-      highestIndividualScore: json['highestIndividualScore'] != null 
-          ? HighestScore.fromJson(json['highestIndividualScore']) 
+      highestIndividualScore: json['highestIndividualScore'] != null
+          ? HighestScore.fromJson(json['highestIndividualScore'])
           : null,
-      bestBowling: json['bestBowling'] != null ? BestBowling.fromJson(json['bestBowling']) : null,
-      highestPartnership: json['highestPartnership'] != null 
-          ? HighestPartnership.fromJson(json['highestPartnership']) 
+      bestBowling: json['bestBowling'] != null
+          ? BestBowling.fromJson(json['bestBowling'])
           : null,
-      mostSixes: json['mostSixes'] != null ? MostSixes.fromJson(json['mostSixes']) : null,
-      mostFours: json['mostFours'] != null ? MostFours.fromJson(json['mostFours']) : null,
+      highestPartnership: json['highestPartnership'] != null
+          ? HighestPartnership.fromJson(json['highestPartnership'])
+          : null,
+      mostSixes: json['mostSixes'] != null
+          ? MostSixes.fromJson(json['mostSixes'])
+          : null,
+      mostFours: json['mostFours'] != null
+          ? MostFours.fromJson(json['mostFours'])
+          : null,
     );
   }
 
@@ -1029,7 +1145,13 @@ class MatchStats extends Equatable {
   }
 
   @override
-  List<Object?> get props => [highestIndividualScore, bestBowling, highestPartnership, mostSixes, mostFours];
+  List<Object?> get props => [
+        highestIndividualScore,
+        bestBowling,
+        highestPartnership,
+        mostSixes,
+        mostFours
+      ];
 }
 
 class HighestScore extends Equatable {
@@ -1041,7 +1163,9 @@ class HighestScore extends Equatable {
   factory HighestScore.fromJson(Map<String, dynamic> json) {
     return HighestScore(
       runs: json['runs'] ?? 0,
-      player: json['player'] is String ? json['player'] : json['player']?['playerName'],
+      player: json['player'] is String
+          ? json['player']
+          : json['player']?['playerName'],
     );
   }
 
@@ -1067,7 +1191,9 @@ class BestBowling extends Equatable {
     return BestBowling(
       wickets: json['wickets'] ?? 0,
       runs: json['runs'] ?? 0,
-      player: json['player'] is String ? json['player'] : json['player']?['playerName'],
+      player: json['player'] is String
+          ? json['player']
+          : json['player']?['playerName'],
     );
   }
 
@@ -1094,8 +1220,10 @@ class HighestPartnership extends Equatable {
   factory HighestPartnership.fromJson(Map<String, dynamic> json) {
     return HighestPartnership(
       runs: json['runs'] ?? 0,
-      players: json['players'] != null 
-          ? (json['players'] as List).map((e) => e is String ? e : e['playerName'] as String).toList()
+      players: json['players'] != null
+          ? (json['players'] as List)
+              .map((e) => e is String ? e : e['playerName'] as String)
+              .toList()
           : [],
     );
   }
@@ -1120,7 +1248,9 @@ class MostSixes extends Equatable {
   factory MostSixes.fromJson(Map<String, dynamic> json) {
     return MostSixes(
       count: json['count'] ?? 0,
-      player: json['player'] is String ? json['player'] : json['player']?['playerName'],
+      player: json['player'] is String
+          ? json['player']
+          : json['player']?['playerName'],
     );
   }
 
@@ -1144,7 +1274,9 @@ class MostFours extends Equatable {
   factory MostFours.fromJson(Map<String, dynamic> json) {
     return MostFours(
       count: json['count'] ?? 0,
-      player: json['player'] is String ? json['player'] : json['player']?['playerName'],
+      player: json['player'] is String
+          ? json['player']
+          : json['player']?['playerName'],
     );
   }
 
@@ -1158,4 +1290,3 @@ class MostFours extends Equatable {
   @override
   List<Object?> get props => [count, player];
 }
-

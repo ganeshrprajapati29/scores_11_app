@@ -41,6 +41,8 @@ import '../../core/services/notification_effect_service.dart';
 import '../../core/services/socket_service.dart';
 import '../../data/models/blog_model.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../data/services/banner_service.dart';
 import '../../data/models/tournament_model.dart';
 
 import 'dart:async';
@@ -140,7 +142,7 @@ class _DS {
         blurRadius: 20,
         offset: const Offset(0, -4)),
     BoxShadow(
-        color: const Color(0xFF1A56DB).withOpacity(0.04),
+        color: const Color(0xFF1657CC).withOpacity(0.04),
         blurRadius: 10,
         offset: const Offset(0, -2)),
   ];
@@ -716,6 +718,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                       Navigator.pushNamed(context, '/live-matches');
                     }),
                 _DrawerNavItem(
+                    icon: Icons.videocam_rounded,
+                    label: 'Go Live',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/go-live');
+                    }),
+                _DrawerNavItem(
+                    icon: Icons.video_library_rounded,
+                    label: 'Highlights',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/highlights');
+                    }),
+                _DrawerNavItem(
                     icon: Icons.analytics_outlined,
                     label: 'Scorecards',
                     onTap: () {
@@ -979,7 +995,7 @@ class _DrawerHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user?.name ?? 'Cric11 User',
+                      user?.name ?? 'Scores11 User',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 17,
@@ -1021,13 +1037,14 @@ class _DrawerHeader extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           // Stat chips row
+          // Real profile facts only (role + playing style).
           Row(
             children: [
-              _StatChip(label: '🏏 Player'),
-              const SizedBox(width: 8),
-              _StatChip(label: '⭐ Pro'),
-              const SizedBox(width: 8),
-              _StatChip(label: '🏆 Active'),
+              _StatChip(label: '🏏 ${_titleCase(user?.role ?? 'Player')}'),
+              if ((user?.playingStyle ?? '').trim().isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Flexible(child: _StatChip(label: user!.playingStyle.trim())),
+              ],
             ],
           ),
         ],
@@ -1105,6 +1122,10 @@ class _DefaultAvatar extends StatelessWidget {
     );
   }
 }
+
+String _titleCase(String value) => value.isEmpty
+    ? value
+    : value[0].toUpperCase() + value.substring(1).toLowerCase();
 
 class _StatChip extends StatelessWidget {
   final String label;
@@ -1362,7 +1383,7 @@ class _NotificationCenterSheetState extends State<_NotificationCenterSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Notifications load nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not load notifications.');
         _isLoading = false;
       });
     }
@@ -2183,7 +2204,7 @@ class _StoryRailState extends State<_StoryRail> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'Story upload nahi ho paayi.'),
+              friendlyError(e, fallback: 'Could not upload story.'),
             ),
           ));
     } finally {
@@ -2804,7 +2825,7 @@ class _HomeTabState extends State<HomeTab> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Community posts load nahi ho paye: $e'),
+          content: Text(friendlyError(e, fallback: 'Could not load community posts.')),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -2957,10 +2978,10 @@ class _HomeTabState extends State<HomeTab> {
     return SingleChildScrollView(
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
+      // With extendBodyBehindAppBar the Scaffold already folds the app bar
+      // height into padding.top; adding kToolbarHeight again left a blank band.
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top +
-            kToolbarHeight +
-            (screenWidth < 360 ? 4 : 6),
+        top: MediaQuery.of(context).padding.top + (screenWidth < 360 ? 4 : 6),
         bottom: 32,
       ),
       child: Column(
@@ -2990,6 +3011,8 @@ class _HomeTabState extends State<HomeTab> {
           ],
 
           const _CricHeroQuickActions(),
+          // Promotional banners managed from the admin panel (hidden when none).
+          const _BannerCarousel(),
           SizedBox(height: screenWidth < 360 ? 12 : 14),
           _CricheroMatchHub(
             liveMatches: dashboardLiveMatches,
@@ -3261,7 +3284,7 @@ class _HomeTabState extends State<HomeTab> {
         subtitle: '${stats.weekMatches} this week',
         icon: Icons.sports_cricket_rounded,
         color: _DS.primary,
-        gradient: const [Color(0xFF1A56DB), Color(0xFF3B82F6)],
+        gradient: const [Color(0xFF1657CC), Color(0xFF3B82F6)],
       ),
       _QuickStatCard(
         title: 'Live',
@@ -3431,6 +3454,12 @@ class _HomeTabState extends State<HomeTab> {
           subtitle: 'Go live',
           color: const Color(0xFFDB2777),
           route: '/go-live'),
+      _ActionData(
+          icon: Icons.video_library_rounded,
+          title: 'Highlights',
+          subtitle: 'Replays',
+          color: const Color(0xFFE11D48),
+          route: '/highlights'),
     ];
 
     return Container(
@@ -5530,65 +5559,138 @@ class _BannerCarousel extends StatefulWidget {
   State<_BannerCarousel> createState() => _BannerCarouselState();
 }
 
+class _BannerSlide {
+  final ImageProvider image;
+  final String title;
+  final String cta;
+  final VoidCallback? onTap;
+  const _BannerSlide(this.image, this.title, this.cta, this.onTap);
+}
+
 class _BannerCarouselState extends State<_BannerCarousel> {
   final PageController _pageController = PageController(viewportFraction: 0.92);
   int _currentIndex = 0;
-  late Timer _timer;
+  Timer? _timer;
+  List<_BannerSlide> _slides = const [];
 
-  final List<String> _bannerImages = [
-    'https://static.vecteezy.com/system/resources/thumbnails/023/406/904/small/cricket-championship-banner-design-with-3d-red-ball-wicket-stumps-helmet-on-green-and-blue-playground-view-vector.jpg',
-    'https://www.shutterstock.com/image-vector/illustration-batsman-playing-cricket-championship-600nw-2481429069.jpg',
-    'https://t4.ftcdn.net/jpg/02/53/94/65/360_F_253946510_p1P2Izhc8XTglKaj025hTfFHxJwzVfIB.jpg',
-    'https://static.vecteezy.com/system/resources/thumbnails/023/419/300/small/t20-cricket-fever-is-back-concept-with-cartoon-cricketer-players-in-action-pose-and-abstract-waves-on-blue-halftone-background-vector.jpg',
-    'https://img.freepik.com/premium-vector/banner-with-cricket-tournaments-bat_1302-18992.jpg?semt=ais_incoming&w=740&q=80',
-  ];
-
+  // Slides are the active banners from Admin panel → Banners (position
+  // "home"). With none configured the carousel takes no space.
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      final next = (_currentIndex + 1) % _bannerImages.length;
+    _startTimer();
+    _loadBanners();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!_pageController.hasClients || _slides.length < 2) return;
+      final next = (_currentIndex + 1) % _slides.length;
       _pageController.animateToPage(next,
           duration: const Duration(milliseconds: 450), curve: Curves.easeInOut);
     });
   }
 
+  Future<void> _loadBanners() async {
+    final banners = await BannerService().getDashboardBanners();
+    final usable = banners.where((b) => b.image.trim().isNotEmpty).toList();
+    if (!mounted || usable.isEmpty) return;
+    setState(() {
+      _currentIndex = 0;
+      _slides = usable.map((b) {
+        final link = (b.link ?? '').trim();
+        VoidCallback? onTap;
+        if (link.startsWith('/')) {
+          onTap = () => Navigator.pushNamed(context, link);
+        } else if (link.startsWith('http')) {
+          onTap = () => launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+        }
+        return _BannerSlide(
+          CachedNetworkImageProvider(b.image),
+          b.title,
+          onTap == null ? '' : 'Open',
+          onTap,
+        );
+      }).toList();
+    });
+    if (_pageController.hasClients) _pageController.jumpToPage(0);
+  }
+
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final slides = _slides;
+    if (slides.isEmpty) return const SizedBox.shrink();
+    return Container(
       height: 196,
+      margin: const EdgeInsets.only(top: 14),
       child: Stack(
         children: [
           PageView.builder(
             controller: _pageController,
             onPageChanged: (index) => setState(() => _currentIndex = index),
-            itemCount: _bannerImages.length,
+            itemCount: slides.length,
             itemBuilder: (context, index) {
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(_DS.radiusXL),
-                  image: DecorationImage(
-                    image: CachedNetworkImageProvider(_bannerImages[index]),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+              final slide = slides[index];
+              return GestureDetector(
+                onTap: slide.onTap,
                 child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
+                    color: _DS.primary,
                     borderRadius: BorderRadius.circular(_DS.radiusXL),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.65)
+                    image: DecorationImage(image: slide.image, fit: BoxFit.cover),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
+                    alignment: Alignment.bottomLeft,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(_DS.radiusXL),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Colors.black.withOpacity(0.65)],
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            slide.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              height: 1.3,
+                              shadows: [
+                                Shadow(color: Colors.black54, offset: Offset(1, 1), blurRadius: 4)
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (slide.cta.isNotEmpty && slide.onTap != null)
+                          ElevatedButton(
+                            onPressed: slide.onTap,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _DS.gold,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                            ),
+                            child: Text(slide.cta,
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                          ),
                       ],
                     ),
                   ),
@@ -5596,70 +5698,27 @@ class _BannerCarouselState extends State<_BannerCarousel> {
               );
             },
           ),
-          // CTA overlay
-          Positioned(
-            bottom: 18,
-            left: 28,
-            right: 28,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text(
-                  'Join Live\nContests Now!',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    height: 1.3,
-                    shadows: [
-                      Shadow(
-                          color: Colors.black54,
-                          offset: Offset(1, 1),
-                          blurRadius: 4)
-                    ],
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pushNamed(context, '/tournaments'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _DS.gold,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24)),
-                  ),
-                  child: const Text('Play Now',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                ),
-              ],
+          if (slides.length > 1)
+            Positioned(
+              bottom: 12,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(slides.length, (index) {
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 280),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: _currentIndex == index ? 20 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(_currentIndex == index ? 1.0 : 0.45),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  );
+                }),
+              ),
             ),
-          ),
-          // Dots
-          Positioned(
-            bottom: 58,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_bannerImages.length, (index) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 280),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: _currentIndex == index ? 20 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: Colors.white
-                        .withOpacity(_currentIndex == index ? 1.0 : 0.45),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                );
-              }),
-            ),
-          ),
         ],
       ),
     );
@@ -6465,9 +6524,6 @@ class _DashboardPostCardState extends State<_DashboardPostCard> {
     final comments = _count(post['comments']);
     final shares = _count(post['shares']);
     final postId = (post['id'] ?? post['_id'] ?? '').toString();
-    final link = postId.isEmpty
-        ? 'scores11://community'
-        : 'scores11://community/post/$postId';
 
     return InkWell(
       onTap: widget.onOpen,
@@ -6600,18 +6656,6 @@ class _DashboardPostCardState extends State<_DashboardPostCard> {
                           fontWeight: FontWeight.w700),
                     ),
                   ),
-                  Flexible(
-                    child: Text(
-                      link,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                      style: const TextStyle(
-                          color: _DS.primary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -6723,7 +6767,7 @@ class _DashboardCommentSheetState extends State<_DashboardCommentSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Community updates load nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not load community updates.');
         _loading = false;
       });
     }
@@ -6751,7 +6795,7 @@ class _DashboardCommentSheetState extends State<_DashboardCommentSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = friendlyError(e, fallback: 'Community updates load nahi ho paaye.');
+        _error = friendlyError(e, fallback: 'Could not load community updates.');
         _submitting = false;
       });
     }
@@ -7119,7 +7163,7 @@ class _FollowingYouRailState extends State<_FollowingYouRail> {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'Following you',
+                  'Players to follow',
                   style: TextStyle(
                     color: _DS.textPrimary,
                     fontSize: 17,
@@ -7438,89 +7482,6 @@ class _FollowingCard extends StatelessWidget {
 // ─────────────────────────────────────────────
 //  Other Tabs
 // ─────────────────────────────────────────────
-class MatchesTab extends StatelessWidget {
-  const MatchesTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final dashboardProvider = context.watch<DashboardProvider>();
-
-    return RefreshIndicator(
-      color: _DS.primary,
-      onRefresh: () => dashboardProvider.refreshDashboard(context),
-      child: ListView(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-          left: 16,
-          right: 16,
-          bottom: 24,
-        ),
-        children: [
-          if (dashboardProvider.hasLiveMatches) ...[
-            _SectionTitle(
-                title: 'Live Matches', icon: Icons.circle, iconColor: _DS.live),
-            const SizedBox(height: 12),
-            ...dashboardProvider.liveMatches
-                .map((match) => _LiveMatchDetailCard(match: match)),
-            const SizedBox(height: 24),
-          ],
-          if (dashboardProvider.hasUpcomingMatches) ...[
-            const _SectionTitle(
-                title: 'Upcoming Matches', icon: Icons.schedule_rounded),
-            const SizedBox(height: 12),
-            ...dashboardProvider.upcomingMatches
-                .map((match) => _UpcomingMatchDetailCard(match: match)),
-          ],
-          if (!dashboardProvider.hasLiveMatches &&
-              !dashboardProvider.hasUpcomingMatches)
-            const _EmptyState(message: 'No matches available right now'),
-        ],
-      ),
-    );
-  }
-}
-
-class TournamentsTab extends StatelessWidget {
-  const TournamentsTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final dashboardProvider = context.watch<DashboardProvider>();
-    final tournaments = dashboardProvider.latestTournaments;
-
-    return RefreshIndicator(
-      color: _DS.primary,
-      onRefresh: () => dashboardProvider.refreshDashboard(context),
-      child: ListView(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-          left: 16,
-          right: 16,
-          bottom: 24,
-        ),
-        children: [
-          const _SectionTitle(
-              title: 'Tournaments', icon: Icons.emoji_events_rounded),
-          const SizedBox(height: 12),
-          if (tournaments.isNotEmpty)
-            ...tournaments.map((t) => _TournamentCard(tournament: t))
-          else
-            const _EmptyState(message: 'No tournaments available'),
-        ],
-      ),
-    );
-  }
-}
-
-class TeamsTab extends StatelessWidget {
-  const TeamsTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Teams feature coming soon!'));
-  }
-}
-
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
 
@@ -8526,7 +8487,7 @@ class _QrScanEntryScreenState extends State<_QrScanEntryScreen> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(
             content: Text(
-              friendlyError(e, fallback: 'Player add nahi ho paaya.'),
+              friendlyError(e, fallback: 'Could not add player.'),
             ),
           ));
     }

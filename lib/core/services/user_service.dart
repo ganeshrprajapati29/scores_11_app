@@ -24,13 +24,10 @@ class UserService {
 
   static Future<String?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
-    String? userId = prefs.getString(_userIdKey);
-    if (userId == null || userId.isEmpty) {
-      debugPrint('⚠️ No user ID found, using demo');
-      await createDemoUser();
-      userId = 'demo_user_123';
-    }
-    return userId;
+    final userId = prefs.getString(_userIdKey);
+    // No fabricated fallback: a fake id made chat screens mistake the
+    // signed-in user for the other participant.
+    return (userId == null || userId.isEmpty) ? null : userId;
   }
 
   static Future<String?> getUserName() async {
@@ -55,13 +52,6 @@ class UserService {
     await prefs.remove(_userEmailKey);
   }
 
-  static Future<void> createDemoUser() async {
-    await saveUserData(
-      userId: 'demo_user_123',
-      userName: 'Demo User',
-      userEmail: 'demo@example.com',
-    );
-  }
 
   List<dynamic> _extractList(dynamic raw, String key) {
     if (raw is List) return raw;
