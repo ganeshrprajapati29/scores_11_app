@@ -199,6 +199,16 @@ class BatsmanStats extends Equatable {
 
   // ✅ ADD: howOut getter for UI compatibility
   String? get howOut => dismissal;
+
+  /// Left the crease without being out (retired hurt / retired).
+  bool get isRetired {
+    final text = dismissal?.toLowerCase().trim() ?? '';
+    return text == 'retired_hurt' || text == 'retired hurt' || text == 'retired';
+  }
+
+  /// Still batting (or unbeaten at the end): the scorecard's "*".
+  bool get isNotOut => !isOut && !isRetired;
+
   bool get isOut {
     final text = dismissal?.toLowerCase().trim();
     return text != null &&

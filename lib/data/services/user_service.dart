@@ -13,7 +13,11 @@ class UserService {
       case DioExceptionType.receiveTimeout:
         return 'Connection timeout. Please check your internet.';
       case DioExceptionType.badResponse:
-        return e.response?.data['message'] ?? 'Server error (${e.response?.statusCode})';
+        final data = e.response?.data;
+        final status = e.response?.statusCode;
+        if (data is Map && data['message'] != null) return data['message'].toString();
+        if (status == 413) return 'This photo is too large. Please choose a smaller one.';
+        return 'Something went wrong on the server. Please try again.';
       case DioExceptionType.cancel:
         return 'Request cancelled';
       case DioExceptionType.connectionError:

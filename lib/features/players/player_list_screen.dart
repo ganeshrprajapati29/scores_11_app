@@ -668,21 +668,26 @@ Widget _buildSearchFilterSection() {
                                 shape: BoxShape.circle,
                               ),
                             ),
-                            Flexible(
+                            // Flexible is only valid inside Row/Column; inside
+                            // this Wrap it broke the card (grey box in release).
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 150),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.group_rounded, size: 11, color: _kTextHint),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    player.teamName!,
-                                    style: TextStyle(
-                                      color: _kTextSecondary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
+                                  Flexible(
+                                    child: Text(
+                                      player.teamName!,
+                                      style: TextStyle(
+                                        color: _kTextSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),

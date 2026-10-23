@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 // ── Replace with your actual imports ─────────────────────────────────────────
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/profile_avatar.dart';
+import '../../core/utils/friendly_error.dart';
 import '../../data/services/user_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/utils/logout_helper.dart';
@@ -191,7 +192,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 onTap: () async {
                   Navigator.pop(ctx);
                   final XFile? img = await _imagePicker.pickImage(
-                      source: ImageSource.camera);
+                      source: ImageSource.camera,
+                      maxWidth: 1080,
+                      maxHeight: 1080,
+                      imageQuality: 85);
                   if (img != null) _uploadPhoto(img.path);
                 },
               ),
@@ -202,7 +206,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                 onTap: () async {
                   Navigator.pop(ctx);
                   final XFile? img = await _imagePicker.pickImage(
-                      source: ImageSource.gallery);
+                      source: ImageSource.gallery,
+                      maxWidth: 1080,
+                      maxHeight: 1080,
+                      imageQuality: 85);
                   if (img != null) _uploadPhoto(img.path);
                 },
               ),
@@ -261,12 +268,22 @@ class _ProfileScreenState extends State<ProfileScreen>
     setState(() => _isLoading = true);
     try {
       final result = await _userService.uploadProfilePhoto(imagePath);
-      if (result['success'] == true && mounted) {
-        _showSnack('Photo uploaded successfully');
+      if (!mounted) return;
+      if (result['success'] == true) {
+        _showSnack('Profile photo updated');
+        // Pulls the new avatar into the profile, home header and menus.
+        await _loadProfileData();
+      } else {
+        final message = result['message']?.toString().trim() ?? '';
+        _showSnack(message.isNotEmpty ? message : 'Could not upload the photo. Please try again.',
+            isError: true);
       }
     } catch (e) {
       debugPrint('Error uploading photo: $e');
-      if (mounted) _showSnack('Failed to upload photo', isError: true);
+      if (mounted) {
+        _showSnack(friendlyError(e, fallback: 'Could not upload the photo. Please try again.'),
+            isError: true);
+      }
     }
     if (mounted) setState(() => _isLoading = false);
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 // lib/presentation/screens/live_score_control_screen.dart
 
 import 'package:flutter/material.dart';
@@ -322,20 +323,61 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
               ),
             ],
           ),
-          floatingActionButton: Consumer<LiveScoreControlProvider>(
-            builder: (context, provider, _) => _buildFAB(provider),
-          ),
+          // Add Player lives in the bottom bar (no floating button covering
+          // the score): Score tab = Scorecard | Add Player | Add Ball,
+          // Playing XI tab = Add Player.
           bottomNavigationBar: AnimatedBuilder(
             animation: _tabController.animation ?? _tabController,
-            builder: (context, _) =>
-                _tabController.index == 2 ? _buildScoreTabActionBar() : const SizedBox.shrink(),
+            builder: (context, _) {
+              if (_tabController.index == 2) return _buildScoreTabActionBar();
+              if (_tabController.index == 1) return _buildPlayingXiActionBar();
+              return const SizedBox.shrink();
+            },
           ),
         ),
       ),
     );
   }
 
-  // ── Bottom action bar (Score tab only) ─────
+  ButtonStyle get _barOutlinedStyle => OutlinedButton.styleFrom(
+        foregroundColor: _D.primary,
+        side: BorderSide(color: _D.primary.withOpacity(0.35)),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+      );
+
+  Widget _actionBarShell(Widget child) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -4)),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 10), child: child),
+      ),
+    );
+  }
+
+  Widget _addPlayerButton() {
+    final provider = context.read<LiveScoreControlProvider>();
+    return OutlinedButton.icon(
+      onPressed: () => _showAddPlayerOptions(context, provider),
+      icon: const Icon(Icons.person_add_rounded, size: 18),
+      label: const FittedBox(child: Text('Add Player')),
+      style: _barOutlinedStyle,
+    );
+  }
+
+  // ── Bottom action bar (Playing XI tab) ─────
+  Widget _buildPlayingXiActionBar() {
+    return _actionBarShell(SizedBox(width: double.infinity, child: _addPlayerButton()));
+  }
+
+  // ── Bottom action bar (Score tab) ─────
   Widget _buildScoreTabActionBar() {
     return Container(
       decoration: BoxDecoration(
@@ -347,7 +389,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Row(
             children: [
               Expanded(
@@ -359,26 +401,23 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                     ),
                   ),
                   icon: const Icon(Icons.bar_chart_rounded, size: 18),
-                  label: const Text('Scorecard'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _D.primary,
-                    side: BorderSide(color: _D.primary.withOpacity(0.35)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
-                  ),
+                  label: const FittedBox(child: Text('Scorecard')),
+                  style: _barOutlinedStyle,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
+              Expanded(child: _addPlayerButton()),
+              const SizedBox(width: 8),
               Expanded(
-                flex: 2,
                 child: ElevatedButton.icon(
                   onPressed: _scrollToScoreButtons,
                   icon: const Icon(Icons.sports_cricket_rounded, size: 18),
-                  label: const Text('Add Ball'),
+                  label: const FittedBox(child: Text('Add Ball')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _D.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
                   ),
                 ),
@@ -557,21 +596,6 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  // ── FAB ────────────────────────────────────
-  Widget _buildFAB(LiveScoreControlProvider provider) {
-    // Add Player Button
-    return FloatingActionButton.extended(
-      onPressed: () => _showAddPlayerOptions(context, provider),
-      backgroundColor: _D.primary,
-      elevation: 0,
-      icon: const Icon(Icons.person_add_rounded, color: Colors.white),
-      label: const Text(
-        'Add Player',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -4347,30 +4371,71 @@ class _OverSummaryCard extends StatefulWidget {
 
 class _OverSummaryCardState extends State<_OverSummaryCard> {
   final MatchService _matchService = MatchService();
-  bool _expanded = false;
+  bool _expanded = true;
   bool _isLoading = false;
   List<Map<String, dynamic>> _overs = const [];
-  int? _loadedForBallCount;
+  int? _loadedPulse;
+  Timer? _reloadDebounce;
 
-  Future<void> _toggle() async {
-    setState(() => _expanded = !_expanded);
-    if (!_expanded) return;
-    // Refetch if new balls have been scored since the last load.
-    final ballCount = widget.provider.currentOverBalls.length +
-        (widget.provider.currentStatus == 'live' ? 1 : 0);
-    if (_overs.isNotEmpty && _loadedForBallCount == ballCount) return;
-    setState(() => _isLoading = true);
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OverSummaryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Every ball bumps updatePulse: refresh the summary shortly after.
+    if (_expanded && widget.provider.updatePulse != _loadedPulse) {
+      _reloadDebounce?.cancel();
+      _reloadDebounce = Timer(const Duration(milliseconds: 600), _load);
+    }
+  }
+
+  @override
+  void dispose() {
+    _reloadDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final pulse = widget.provider.updatePulse;
+    if (_overs.isEmpty && mounted) setState(() => _isLoading = true);
     final overs = await _matchService.getOverSummaryData(widget.matchId);
     if (!mounted) return;
     setState(() {
       _overs = overs;
-      _loadedForBallCount = ballCount;
+      _loadedPulse = pulse;
       _isLoading = false;
     });
   }
 
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    if (_expanded && widget.provider.updatePulse != _loadedPulse) _load();
+  }
+
+  static int _int(dynamic v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
+
+  /// Balls store the over 1-based (Over 1 = first over); older 0-based rows
+  /// are shifted so the list always starts at Over 1.
+  static int _overLabel(dynamic raw) {
+    final n = _int(raw);
+    return n < 1 ? n + 1 : n;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final byInnings = <int, List<Map<String, dynamic>>>{};
+    for (final over in _overs) {
+      byInnings.putIfAbsent(_int(over['innings']).clamp(1, 99), () => []).add(over);
+    }
+    final inningsKeys = byInnings.keys.toList()..sort();
+    for (final list in byInnings.values) {
+      list.sort((a, b) => _int(a['overNumber']).compareTo(_int(b['overNumber'])));
+    }
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -4395,9 +4460,7 @@ class _OverSummaryCardState extends State<_OverSummaryCard> {
                   ),
                 ),
                 Icon(
-                  _expanded
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
+                  _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
                   color: _D.textMuted,
                 ),
               ],
@@ -4409,110 +4472,100 @@ class _OverSummaryCardState extends State<_OverSummaryCard> {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.4),
-                  ),
+                  child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4)),
                 ),
               )
             else if (_overs.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 20),
-                decoration: BoxDecoration(
-                  color: _D.surfaceAlt,
-                  borderRadius: BorderRadius.circular(_D.rMD),
-                ),
+                decoration: BoxDecoration(color: _D.surfaceAlt, borderRadius: BorderRadius.circular(_D.rMD)),
                 child: const Center(
                   child: Text(
-                    'No overs bowled yet',
-                    style: TextStyle(
-                      color: _D.textMuted,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    'Over 1 will appear here after the first ball',
+                    style: TextStyle(color: _D.textMuted, fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                 ),
               )
             else
-              Column(
-                children: _overs.map((over) {
-                  final overNumber = over['overNumber'] ?? 0;
-                  final innings = over['innings'] ?? 1;
-                  final runs = over['runs'] ?? 0;
-                  final wickets = over['wickets'] ?? 0;
-                  final balls = (over['balls'] is List)
-                      ? List<Map>.from(over['balls'])
-                      : const <Map>[];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _D.surfaceAlt,
-                      borderRadius: BorderRadius.circular(_D.rMD),
+              for (final inningsNo in inningsKeys) ...[
+                if (inningsKeys.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8, top: 4),
+                    child: Text(
+                      inningsNo == 1 ? '1st Innings' : inningsNo == 2 ? '2nd Innings' : 'Innings $inningsNo',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _D.textSecondary),
                     ),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 64,
-                          child: Text(
-                            'Inn $innings · Ov ${overNumber + 1}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: _D.textSecondary,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Wrap(
-                            spacing: 4,
-                            children: balls.map((b) {
-                              final isWicket = b['isWicket'] == true;
-                              final isExtra =
-                                  b['isWide'] == true || b['isNoBall'] == true;
-                              return Container(
-                                width: 20,
-                                height: 20,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: isWicket
-                                      ? _D.live.withOpacity(0.15)
-                                      : isExtra
-                                          ? _D.orange.withOpacity(0.15)
-                                          : _D.border,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  isWicket ? 'W' : '${b['runs'] ?? 0}',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                    color: isWicket
-                                        ? _D.live
-                                        : _D.textPrimary,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                        Text(
-                          '$runs${wickets > 0 ? '/$wickets' : ''}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: _D.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                ...byInnings[inningsNo]!.map(_overRow),
+              ],
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _overRow(Map<String, dynamic> over) {
+    final runs = _int(over['runs']);
+    final wickets = _int(over['wickets']);
+    final balls = (over['balls'] is List) ? List<Map>.from(over['balls']) : const <Map>[];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: _D.surfaceAlt, borderRadius: BorderRadius.circular(_D.rMD)),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 62,
+            child: Text(
+              'Over ${_overLabel(over['overNumber'])}',
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _D.textPrimary),
+            ),
+          ),
+          Expanded(
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: balls.map((b) {
+                final isWicket = b['isWicket'] == true;
+                final isWide = b['isWide'] == true;
+                final isNoBall = b['isNoBall'] == true;
+                final label = isWicket
+                    ? 'W'
+                    : isWide
+                        ? 'wd'
+                        : isNoBall
+                            ? 'nb'
+                            : '${b['runs'] ?? 0}';
+                return Container(
+                  width: 22,
+                  height: 22,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isWicket
+                        ? _D.live.withOpacity(0.15)
+                        : (isWide || isNoBall)
+                            ? _D.orange.withOpacity(0.15)
+                            : _D.border,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: label.length > 1 ? 8 : 9.5,
+                      fontWeight: FontWeight.w800,
+                      color: isWicket ? _D.live : _D.textPrimary,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$runs run${runs == 1 ? '' : 's'}${wickets > 0 ? ' · $wickets W' : ''}',
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _D.primary),
+          ),
         ],
       ),
     );

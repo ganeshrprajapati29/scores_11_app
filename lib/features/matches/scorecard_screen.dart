@@ -535,7 +535,7 @@ class _ScorecardScreenState extends State<ScorecardScreen>
         ? scorecard.bowling[inningsIndex]
         : <BowlerStats>[];
     final activeBatters = batting
-        .where((b) => _isRealPlayerName(b.playerName) && !b.isOut && _hasBatted(b))
+        .where((b) => _isRealPlayerName(b.playerName) && b.isNotOut && _hasBatted(b))
         .take(2)
         .toList();
     final activeBowlers = bowling.where((b) => _isRealPlayerName(b.playerName) && _hasBowled(b)).toList()
@@ -1373,6 +1373,7 @@ Widget _buildMatchHeader(FullScorecard scorecard) {
   }
 
   String _dismissalText(BatsmanStats player) {
+    if (player.isRetired) return player.dismissalDisplay.replaceAll(' (not out)', '');
     if (!player.isOut) return 'not out';
     final clean = player.dismissalDisplay;
     return _looksLikeId(clean) ? 'out' : clean;
@@ -1647,7 +1648,7 @@ Widget _buildStatsRow(FullScorecard scorecard) {
                             ? null
                             : () => Navigator.pushNamed(context, '/player-profile/${player.playerId}'),
                         child: Text(
-                          '${_displayPlayerName(player.playerName, fallback: 'Batter ${index + 1}')}${!player.isOut ? '*' : ''}',
+                          '${_displayPlayerName(player.playerName, fallback: 'Batter ${index + 1}')}${player.isNotOut ? '*' : ''}',
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _cyan),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,

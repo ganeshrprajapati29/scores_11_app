@@ -3000,15 +3000,13 @@ class _HomeTabState extends State<HomeTab> {
           // Live match spotlight — mirrors the reference home screen's
           // priority order: greeting → live match card → quick actions →
           // match hub (live/upcoming/completed) → the rest.
-          if (dashboardProvider.hasDashboardCarouselMatches ||
-              dashboardLiveMatches.isNotEmpty) ...[
-            _LiveScoreCarousel(
-              liveMatches: carouselLiveMatches,
-              dashboardLiveMatches: dashboardLiveMatches,
-              completedMatches: recentCompletedMatches,
-            ),
-            const SizedBox(height: 18),
-          ],
+          // Only matches that are live right now; otherwise a clear empty card.
+          _LiveScoreCarousel(
+            liveMatches: carouselLiveMatches,
+            dashboardLiveMatches: dashboardLiveMatches,
+            completedMatches: recentCompletedMatches,
+          ),
+          const SizedBox(height: 18),
 
           const _CricHeroQuickActions(),
           // Promotional banners managed from the admin panel (hidden when none).
@@ -4514,6 +4512,59 @@ class _TopPerformerCard extends StatelessWidget {
   }
 }
 
+/// Home spotlight when no match is being scored right now.
+class _NoLiveMatchCard extends StatelessWidget {
+  const _NoLiveMatchCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+        decoration: BoxDecoration(
+          color: _DS.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _DS.surfaceBorder),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: const BoxDecoration(color: _DS.liveSoft, shape: BoxShape.circle),
+              child: const Icon(Icons.sports_cricket_rounded, color: _DS.live, size: 26),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'No live match available',
+              style: TextStyle(color: _DS.textPrimary, fontSize: 16, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Matches being scored right now will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _DS.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/create-match'),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Start a match'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _DS.primary,
+                side: const BorderSide(color: _DS.primary),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LiveScoreCarousel extends StatefulWidget {
   final List<Match> liveMatches;
   final List<LiveMatch> dashboardLiveMatches;
@@ -4611,7 +4662,7 @@ class _LiveScoreCarouselState extends State<_LiveScoreCarousel> {
   @override
   Widget build(BuildContext context) {
     final items = _items;
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (items.isEmpty) return const _NoLiveMatchCard();
     if (_currentIndex >= items.length) _currentIndex = 0;
 
     return LayoutBuilder(
