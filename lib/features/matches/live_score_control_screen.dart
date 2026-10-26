@@ -326,13 +326,17 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
           // Add Player lives in the bottom bar (no floating button covering
           // the score): Score tab = Scorecard | Add Player | Add Ball,
           // Playing XI tab = Add Player.
-          bottomNavigationBar: AnimatedBuilder(
-            animation: _tabController.animation ?? _tabController,
-            builder: (context, _) {
-              if (_tabController.index == 2) return _buildScoreTabActionBar();
-              if (_tabController.index == 1) return _buildPlayingXiActionBar();
-              return const SizedBox.shrink();
-            },
+          // The provider is created inside this build, so the bars must get
+          // it from a Consumer (the State's own context sits above it).
+          bottomNavigationBar: Consumer<LiveScoreControlProvider>(
+            builder: (context, provider, _) => AnimatedBuilder(
+              animation: _tabController.animation ?? _tabController,
+              builder: (context, _) {
+                if (_tabController.index == 2) return _buildScoreTabActionBar(provider);
+                if (_tabController.index == 1) return _buildPlayingXiActionBar(provider);
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       ),
@@ -362,8 +366,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
     );
   }
 
-  Widget _addPlayerButton() {
-    final provider = context.read<LiveScoreControlProvider>();
+  Widget _addPlayerButton(LiveScoreControlProvider provider) {
     return OutlinedButton.icon(
       onPressed: () => _showAddPlayerOptions(context, provider),
       icon: const Icon(Icons.person_add_rounded, size: 18),
@@ -373,12 +376,12 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
   }
 
   // ── Bottom action bar (Playing XI tab) ─────
-  Widget _buildPlayingXiActionBar() {
-    return _actionBarShell(SizedBox(width: double.infinity, child: _addPlayerButton()));
+  Widget _buildPlayingXiActionBar(LiveScoreControlProvider provider) {
+    return _actionBarShell(SizedBox(width: double.infinity, child: _addPlayerButton(provider)));
   }
 
   // ── Bottom action bar (Score tab) ─────
-  Widget _buildScoreTabActionBar() {
+  Widget _buildScoreTabActionBar(LiveScoreControlProvider provider) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -406,7 +409,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(child: _addPlayerButton()),
+              Expanded(child: _addPlayerButton(provider)),
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton.icon(

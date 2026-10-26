@@ -8,7 +8,10 @@ import '../../core/constants/app_colors.dart';
 import '../../data/models/match_model.dart';
 import '../../providers/live_score_control_provider.dart';
 
-class WagonWheelScreen extends StatefulWidget {
+/// Opened from the scorer panel (which provides the scoring provider) or on
+/// its own (Toss screen, /wagon-wheel route). Without a provider above it,
+/// it creates one for the match instead of failing with a blank screen.
+class WagonWheelScreen extends StatelessWidget {
   final String matchId;
   final Match? match;
 
@@ -19,10 +22,30 @@ class WagonWheelScreen extends StatefulWidget {
   });
 
   @override
-  State<WagonWheelScreen> createState() => _WagonWheelScreenState();
+  Widget build(BuildContext context) {
+    try {
+      Provider.of<LiveScoreControlProvider>(context, listen: false);
+      return _WagonWheelView(matchId: matchId, match: match);
+    } on ProviderNotFoundException {
+      return ChangeNotifierProvider(
+        create: (_) => LiveScoreControlProvider()..initialize(matchId, match),
+        child: _WagonWheelView(matchId: matchId, match: match),
+      );
+    }
+  }
 }
 
-class _WagonWheelScreenState extends State<WagonWheelScreen>
+class _WagonWheelView extends StatefulWidget {
+  final String matchId;
+  final Match? match;
+
+  const _WagonWheelView({required this.matchId, this.match});
+
+  @override
+  State<_WagonWheelView> createState() => _WagonWheelScreenState();
+}
+
+class _WagonWheelScreenState extends State<_WagonWheelView>
     with TickerProviderStateMixin {
   int? _selectedZone;
   final List<Map<String, dynamic>> _recentShots = [];
