@@ -298,8 +298,11 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
     final auth = context.watch<AuthProvider>();
     final bool signedIn = auth.status == AuthStatus.authenticated &&
         (auth.user?.role ?? '').toUpperCase() != 'GUEST';
-    final bool isLive = signedIn && _match?.isLive == true;
-    final bool canStart = signedIn && _canStartLive();
+    // Only the match creator runs live scoring; others just watch.
+    final bool isScorer = signedIn &&
+        (_match?.canBeScoredBy(auth.user?.id, role: auth.userRole) ?? false);
+    final bool isLive = isScorer && _match?.isLive == true;
+    final bool canStart = isScorer && _canStartLive();
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -464,7 +467,9 @@ class _MatchDetailScreenState extends State<MatchDetailScreen>
             key: ValueKey('stream-${_match!.id}'),
             matchId: _match!.id,
           ),
-          if (_match!.isScheduled || _match!.isTeamSelecting || _match!.isReady) ...[
+          if ((_match!.isScheduled || _match!.isTeamSelecting || _match!.isReady) &&
+              _match!.canBeScoredBy(context.watch<AuthProvider>().user?.id,
+                  role: context.watch<AuthProvider>().userRole)) ...[
             const SizedBox(height: 16),
             _buildStartFlowCard(),
           ],

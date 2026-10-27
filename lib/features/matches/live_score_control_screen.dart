@@ -327,15 +327,19 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                 builder: (context, provider, _) =>
                     _SyncStatusBar(provider: provider),
               ),
-              // Tab content
+              // Tab content (scoring is only for the match creator)
               Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildTossTab(),
-                    _buildPlayingXiTab(),
-                    _buildScoreEntryTab(),
-                  ],
+                child: Consumer<LiveScoreControlProvider>(
+                  builder: (context, provider, tabs) =>
+                      _isNotScorer(context, provider) ? _buildNotScorerView() : tabs!,
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildTossTab(),
+                      _buildPlayingXiTab(),
+                      _buildScoreEntryTab(),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -349,12 +353,67 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
             builder: (context, provider, _) => AnimatedBuilder(
               animation: _tabController.animation ?? _tabController,
               builder: (context, _) {
+                if (_isNotScorer(context, provider)) return const SizedBox.shrink();
                 if (_tabController.index == 2) return _buildScoreTabActionBar(provider);
                 if (_tabController.index == 1) return _buildPlayingXiActionBar(provider);
                 return const SizedBox.shrink();
               },
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Someone other than the match creator opened the scorer panel.
+  bool _isNotScorer(BuildContext context, LiveScoreControlProvider provider) {
+    final match = provider.match;
+    if (provider.isLoading || match == null) return false;
+    final auth = context.read<AuthProvider>();
+    return !match.canBeScoredBy(auth.user?.id, role: auth.userRole);
+  }
+
+  Widget _buildNotScorerView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(color: _D.primary.withOpacity(0.08), shape: BoxShape.circle),
+              child: const Icon(Icons.lock_outline_rounded, color: _D.primary, size: 30),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Only the match creator can score this match',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _D.textPrimary),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'You can follow the live score and scorecard.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: _D.textSecondary),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => ScorecardScreen(matchId: widget.matchId)),
+              ),
+              icon: const Icon(Icons.bar_chart_rounded, size: 18),
+              label: const Text('View scorecard'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _D.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_D.rMD)),
+              ),
+            ),
+          ],
         ),
       ),
     );

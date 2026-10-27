@@ -8,6 +8,8 @@ import '../../data/models/match_model.dart';
 import '../../data/services/match_service.dart';
 import 'package:shimmer/shimmer.dart';
 import 'create_match_screen.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class MatchListScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -1237,14 +1239,20 @@ class _MatchCard extends StatelessWidget {
 
   void _handleMatchTap(BuildContext context) {
     final status = match.status;
+    final auth = context.read<AuthProvider>();
+    // The match creator scores it from Live Score Control; everyone else
+    // watches the scorecard / match centre.
+    final isScorer = match.canBeScoredBy(auth.user?.id, role: auth.userRole);
 
     final normalized = status.toLowerCase();
-    if (match.isLive || match.isCompleted) {
+    if (match.isCompleted) {
       Navigator.pushNamed(context, '/scorecard', arguments: match.id);
+    } else if (match.isLive) {
+      Navigator.pushNamed(context, isScorer ? '/live-control' : '/scorecard', arguments: match.id);
     } else if (normalized == 'team_selecting' || normalized == 'ready') {
-      Navigator.pushNamed(context, '/live-control', arguments: match.id);
+      Navigator.pushNamed(context, isScorer ? '/live-control' : '/match-detail', arguments: match.id);
     } else if (normalized == 'toss') {
-      Navigator.pushNamed(context, '/toss', arguments: match.id);
+      Navigator.pushNamed(context, isScorer ? '/toss' : '/match-detail', arguments: match.id);
     } else {
       Navigator.pushNamed(context, '/match-detail', arguments: match.id);
     }

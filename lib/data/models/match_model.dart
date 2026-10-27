@@ -242,6 +242,13 @@ class Match extends Equatable {
   }
 
   String get normalizedStatus => status.toLowerCase();
+
+  /// Live scoring belongs to whoever created the match (or a platform admin);
+  /// everyone else gets the scorecard / match centre.
+  bool canBeScoredBy(String? userId, {String? role}) {
+    if ((role ?? '').toLowerCase() == 'admin') return true;
+    return userId != null && userId.isNotEmpty && createdBy == userId;
+  }
   bool get isLive => const {
         'live',
         'in_progress',

@@ -9,6 +9,8 @@ import '../../../core/widgets/custom_appbar.dart';
 import '../../../data/models/scorecard_model.dart';
 import '../../../data/models/match_model.dart';
 import '../../../data/services/match_service.dart';
+import '../../../providers/auth_provider.dart';
+import 'live_score_control_screen.dart';
 
 class ScorecardScreen extends StatefulWidget {
   final String matchId;
@@ -106,6 +108,30 @@ class _ScorecardScreenState extends State<ScorecardScreen>
       value: provider,
       child: Scaffold(
         backgroundColor: Colors.white,
+        // The match creator jumps from the match centre to live scoring.
+        floatingActionButton: Consumer<ScorecardProvider>(
+          builder: (context, provider, _) {
+            final match = provider.match;
+            final auth = context.watch<AuthProvider>();
+            final scoring = match != null &&
+                (match.isLive || match.isReady || match.isTeamSelecting) &&
+                match.canBeScoredBy(auth.user?.id, role: auth.userRole);
+            if (!scoring) return const SizedBox.shrink();
+            return FloatingActionButton.extended(
+              heroTag: 'scorecard_live_control',
+              backgroundColor: const Color(0xFFB71C1C),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.sports_cricket_rounded),
+              label: const Text('Live Control', style: TextStyle(fontWeight: FontWeight.w700)),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => LiveScoreControlScreen(matchId: widget.matchId, match: match),
+                ),
+              ),
+            );
+          },
+        ),
         appBar: AppBar(
           backgroundColor: _navy,
           surfaceTintColor: _navy,
