@@ -124,6 +124,21 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final GlobalKey _scoreButtonsKey = GlobalKey();
+  // Opening a match that is already being scored lands on the Score tab
+  // (toss done but not started: Playing XI) instead of the Toss tab.
+  bool _openedOnRightTab = false;
+
+  void _openRightTabOnce(LiveScoreControlProvider provider) {
+    if (_openedOnRightTab || provider.isLoading || provider.match == null) return;
+    _openedOnRightTab = true;
+    final target = provider.flowStatus == MatchFlowStatus.live
+        ? 2
+        : (provider.tossDone ? 1 : 0);
+    if (target == 0 || _tabController.index != 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _tabController.index == 0) _tabController.animateTo(target);
+    });
+  }
 
   @override
   void initState() {
@@ -302,8 +317,10 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
             children: [
               // Live Score Banner
               Consumer<LiveScoreControlProvider>(
-                builder: (context, provider, _) =>
-                    _LiveBanner(provider: provider),
+                builder: (context, provider, _) {
+                  _openRightTabOnce(provider);
+                  return _LiveBanner(provider: provider);
+                },
               ),
               // Offline / syncing status: balls saved on the phone
               Consumer<LiveScoreControlProvider>(

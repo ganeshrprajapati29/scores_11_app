@@ -498,11 +498,28 @@ class LiveScoreControlProvider extends ChangeNotifier {
 
     try {
       if (matchId.isNotEmpty) {
-        _match = await _matchService.getMatchById(matchId, forceRefresh: true);
+        // Match and live score together, and the score goes on screen at
+        // once: reopening a match (e.g. after the app was closed mid-over)
+        // used to show 0/0 until both teams' player lists had loaded.
+        final results = await Future.wait<Object?>([
+          _matchService.getMatchById(matchId, forceRefresh: true),
+          _matchService
+              .getLiveScore(matchId)
+              .then<Map<String, dynamic>?>((value) => value)
+              .catchError((_) => null),
+        ]);
+        _match = results[0] as Match;
         _updateFlowStatus();
+        final live = results[1] as Map<String, dynamic>?;
+        if (live != null && live.isNotEmpty && !hasUnsyncedScore) {
+          _applyLiveData(live);
+          _isLoading = false;
+          notifyListeners();
+        }
       }
       await _loadTeamPlayers();
       _hydrateTossAndLineups();
+      // Again with the players loaded, so striker/non-striker/bowler resolve.
       await _loadLiveData();
       _isOffline = false;
     } catch (e) {
@@ -541,9 +558,10 @@ class LiveScoreControlProvider extends ChangeNotifier {
       _flowStatus = MatchFlowStatus.ready;
     } else if (status == 'toss') {
       _flowStatus = MatchFlowStatus.toss;
-    } else if (status == 'live') {
+    } else if (status == 'live' || status == 'paused' || status == 'duckworth_lewis' ||
+        status == 'in_progress' || status == 'innings_break') {
       _flowStatus = MatchFlowStatus.live;
-    } else if (status == 'completed') {
+    } else if (const {'completed', 'abandoned', 'cancelled', 'tie', 'washed_out'}.contains(status)) {
       _flowStatus = MatchFlowStatus.completed;
     }
   }
@@ -571,14 +589,13 @@ class LiveScoreControlProvider extends ChangeNotifier {
   Future<void> _loadTeamPlayers() async {
     if (_match == null) return;
 
-    _team1Players = await _loadPlayersForTeam(
-      _match!.team1Id,
-      _match!.team1Data,
-    );
-    _team2Players = await _loadPlayersForTeam(
-      _match!.team2Id,
-      _match!.team2Data,
-    );
+    // Both teams at the same time.
+    final teams = await Future.wait([
+      _loadPlayersForTeam(_match!.team1Id, _match!.team1Data),
+      _loadPlayersForTeam(_match!.team2Id, _match!.team2Data),
+    ]);
+    _team1Players = teams[0];
+    _team2Players = teams[1];
     notifyListeners();
   }
 
@@ -592,15 +609,27 @@ class LiveScoreControlProvider extends ChangeNotifier {
     final loadedPlayers = <Player>[];
     loadedPlayers.addAll(embeddedPlayers);
 
-    try {
-      final players = await _playerService.getPlayersByTeam(teamId);
-      loadedPlayers.addAll(players);
-    } catch (e) {
+    // Both lookups at the same time; either may fail on its own.
+    final byTeamFuture = _playerService
+        .getPlayersByTeam(teamId)
+        .then<List<Player>?>((value) => value)
+        .catchError((Object e) {
       debugPrint('Team players API failed for $teamId: $e');
-    }
+      return null;
+    });
+    final withPlayersFuture = _teamService
+        .getTeamWithPlayers(teamId)
+        .then<Map<String, dynamic>?>((value) => Map<String, dynamic>.from(value))
+        .catchError((Object e) {
+      debugPrint('Team fallback failed for $teamId: $e');
+      return null;
+    });
+    final byTeam = await byTeamFuture;
+    if (byTeam != null) loadedPlayers.addAll(byTeam);
 
     try {
-      final teamWithPlayers = await _teamService.getTeamWithPlayers(teamId);
+      final teamWithPlayers = await withPlayersFuture;
+      if (teamWithPlayers == null) return _uniquePlayers(loadedPlayers);
       final players = teamWithPlayers['players'];
       if (players is List<Player>) loadedPlayers.addAll(players);
       if (players is List) {
