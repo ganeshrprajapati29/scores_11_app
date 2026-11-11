@@ -448,7 +448,7 @@ factory PointsTable.fromJson(Map<String, dynamic> json) {
       points: int.tryParse(json['points']?.toString() ?? '0') ?? 0,
       netRunRate: double.tryParse(json['netRunRate']?.toString() ?? '0') ?? 0.0,
       runsFor: int.tryParse(json['runsFor']?.toString() ?? '0') ?? 0,
-      oversFor: int.tryParse(json['oversFor']?.toString() ?? '0') ?? 0,
+      oversFor: (double.tryParse(json['oversFor']?.toString() ?? '0') ?? 0).floor(),
       runsAgainst: int.tryParse(json['runsAgainst']?.toString() ?? '0') ?? 0,
       oversAgainst: int.tryParse(json['oversAgainst']?.toString() ?? '0') ?? 0,
       position: int.tryParse(json['position']?.toString() ?? '0') ?? 0,

@@ -154,7 +154,7 @@ class _PointRow extends StatelessWidget {
           _Cell('${row.matchesLost}', color: const Color(0xFFEF4444)),
           _Cell('${row.matchesTied}'),
           _Cell('${row.points}', bold: true),
-          _Cell(row.netRunRate.toStringAsFixed(2), color: row.netRunRate >= 0 ? const Color(0xFF16A34A) : const Color(0xFFEF4444)),
+          _Cell("${row.netRunRate > 0 ? '+' : ''}${row.netRunRate.toStringAsFixed(3)}", color: row.netRunRate >= 0 ? const Color(0xFF16A34A) : const Color(0xFFEF4444)),
         ],
       ),
     );

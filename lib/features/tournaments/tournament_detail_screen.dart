@@ -922,7 +922,7 @@ class _PointsRow extends StatelessWidget {
           _TableCell('${row.matchesWon}'),
           _TableCell('${row.matchesLost}'),
           _TableCell('${row.points}', bold: true),
-          _TableCell(row.netRunRate.toStringAsFixed(2)),
+          _TableCell("${row.netRunRate > 0 ? '+' : ''}${row.netRunRate.toStringAsFixed(3)}"),
         ],
       ),
     );

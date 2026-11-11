@@ -65,10 +65,24 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
     return const [];
   }
 
+  static String _scopeFor(String filter) {
+    switch (filter) {
+      case 'Matches':
+        return 'matches';
+      case 'Tournaments':
+        return 'tournaments';
+      case 'Practice':
+        return 'practice';
+      default:
+        return 'all';
+    }
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final fullProfileResult = await _userService.getFullProfile();
+      final fullProfileResult =
+          await _userService.getFullProfile(scope: _scopeFor(_selectedFilter));
       final statsResult = await _userService.getCricketStats();
       Map<String, dynamic>? cricketStats;
       if (fullProfileResult['success'] == true) {
@@ -175,7 +189,11 @@ class _CricketProfileScreenState extends State<CricketProfileScreen>
                 _FilterBar(
                   filters: _filters,
                   selected: _selectedFilter,
-                  onSelected: (f) => setState(() => _selectedFilter = f),
+                  onSelected: (f) {
+                    if (f == _selectedFilter) return;
+                    setState(() => _selectedFilter = f);
+                    _loadData();
+                  },
                 ),
                 _TabBar(controller: _tabController),
                 Expanded(
@@ -634,7 +652,7 @@ class _OverviewTab extends StatelessWidget {
                     {
                       'label': 'HS',
                       'value':
-                          cricketStats?['highestScore']?.toString() ?? '0'
+                          (cricketStats?['highestScoreDisplay'] ?? cricketStats?['highestScore'])?.toString() ?? '0'
                     },
                   ],
                 ),
@@ -934,7 +952,7 @@ class _StatsTab extends StatelessWidget {
               {
                 'label': 'Highest Score',
                 'value':
-                    cricketStats?['highestScore']?.toString() ?? '0'
+                    (cricketStats?['highestScoreDisplay'] ?? cricketStats?['highestScore'])?.toString() ?? '0'
               },
               {
                 'label': 'Centuries',

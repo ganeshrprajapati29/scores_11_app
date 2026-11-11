@@ -47,9 +47,13 @@ class UserService {
     }
   }
 
-  Future<Map<String, dynamic>> getFullProfile() async {
+  /// [scope]: all | matches | tournaments | practice (profile filter chips).
+  Future<Map<String, dynamic>> getFullProfile({String scope = 'all'}) async {
     try {
-      final response = await _apiClient.get('${ApiConfig.users}/me/full-profile');
+      final response = await _apiClient.get(
+        '${ApiConfig.users}/me/full-profile',
+        queryParameters: {'scope': scope},
+      );
       return {
         'success': true,
         'data': response.data['data'],

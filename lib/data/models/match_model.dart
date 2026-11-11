@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../core/utils/batting_order.dart';
 
 class Match extends Equatable {
   final String id;
@@ -284,6 +285,27 @@ class Match extends Equatable {
   String get team2Id => team2Data is Map
       ? (team2Data['_id'] ?? team2Data['id'] ?? team2).toString()
       : team2;
+
+  /// 1 when team1 batted first, 2 when team2 did.
+  int get firstBattingSide {
+    String? firstBatting;
+    for (final inn in innings) {
+      if (inn.inningsNumber == 1) firstBatting = inn.battingTeam;
+    }
+    final t1 = team1Data is Map ? team1Data as Map : const {};
+    final t2 = team2Data is Map ? team2Data as Map : const {};
+    return firstBattingSideFor(
+      firstInningsBattingTeam: firstBatting,
+      tossWinner: toss?.winner,
+      tossDecision: toss?.decision,
+      team1Refs: [team1Id, team1, t1['shortName']?.toString(), t1['name']?.toString()],
+      team2Refs: [team2Id, team2, t2['shortName']?.toString(), t2['name']?.toString()],
+    );
+  }
+
+  /// Side (1 or 2) batting in the current innings.
+  int get currentBattingSide =>
+      battingSideForInnings(firstBattingSide, currentInnings);
 
   String get team1ScoreDisplay {
     return '${score.team1.runs}/${score.team1.wickets} (${score.team1.overs})';
@@ -757,6 +779,9 @@ class MatchResult extends Equatable {
   final int? target;
   final int? requiredRuns;
   final int? requiredBalls;
+  /// DLS revision of the chase (revisedTarget, revisedOvers, parScore,
+  /// team1Resources, team2Resources, note ...), when rain cut the match.
+  final Map<String, dynamic>? dls;
 
   const MatchResult({
     this.winner,
@@ -767,7 +792,10 @@ class MatchResult extends Equatable {
     this.target,
     this.requiredRuns,
     this.requiredBalls,
+    this.dls,
   });
+
+  bool get hasDls => dls != null && dls!['revisedTarget'] != null;
 
   factory MatchResult.fromJson(Map<String, dynamic> json) {
     return MatchResult(
@@ -783,6 +811,7 @@ class MatchResult extends Equatable {
           (json['requiredRuns'] ?? json['runsRequired'] ?? '').toString()),
       requiredBalls: int.tryParse(
           (json['requiredBalls'] ?? json['ballsRemaining'] ?? '').toString()),
+      dls: json['dls'] is Map ? Map<String, dynamic>.from(json['dls'] as Map) : null,
     );
   }
 
@@ -808,6 +837,7 @@ class MatchResult extends Equatable {
       'method': method,
       'message': message,
       'playerOfMatch': playerOfMatch,
+      if (dls != null) 'dls': dls,
       'target': target,
       'requiredRuns': requiredRuns,
       'requiredBalls': requiredBalls,

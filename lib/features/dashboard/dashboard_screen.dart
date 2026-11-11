@@ -5076,7 +5076,11 @@ class _DashboardMatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final battingTeamNum = isLive ? (match.currentInnings == 2 ? 2 : 1) : 0;
+    // The side that batted first is shown on the left; the big score is
+    // always the side batting now (team2 often bats first after the toss).
+    final firstSide = match.firstBattingSide;
+    final secondSide = firstSide == 1 ? 2 : 1;
+    final battingTeamNum = isLive ? match.currentBattingSide : 0;
     var scoreText = '';
     var oversText = '';
     if (battingTeamNum != 0) {
@@ -5085,20 +5089,29 @@ class _DashboardMatchCard extends StatelessWidget {
       scoreText = '${teamScore.runs}/${teamScore.wickets}';
       if (teamScore.overs.isNotEmpty) oversText = '(${teamScore.overs} overs)';
     }
-    final team1Caption = battingTeamNum == 2 ? match.team1ScoreDisplay : '';
-    final team2Caption = battingTeamNum == 1 ? 'Yet to Bat' : '';
+    String sideScore(int side) =>
+        side == 1 ? match.team1ScoreDisplay : match.team2ScoreDisplay;
+    // Caption under the side that is not batting right now.
+    final leftCaption = battingTeamNum == secondSide ? sideScore(firstSide) : '';
+    final rightCaption = battingTeamNum == firstSide ? 'Yet to Bat' : '';
+    String sideName(int side) =>
+        _shortTeamName(side == 1 ? match.team1 : match.team2);
+    String? sideLogo(int side) {
+      final data = side == 1 ? match.team1Data : match.team2Data;
+      return data is Map ? data['logo']?.toString() : null;
+    }
     final matchLabel = [
       match.format.toUpperCase(),
       if (match.matchNumber != null) 'Match ${match.matchNumber}',
     ].join(' · ');
 
     return _LiveHeroCard(
-      team1Name: _shortTeamName(match.team1),
-      team1Logo: match.team1Data is Map ? match.team1Data['logo']?.toString() : null,
-      team2Name: _shortTeamName(match.team2),
-      team2Logo: match.team2Data is Map ? match.team2Data['logo']?.toString() : null,
-      team1Caption: team1Caption,
-      team2Caption: team2Caption,
+      team1Name: sideName(firstSide),
+      team1Logo: sideLogo(firstSide),
+      team2Name: sideName(secondSide),
+      team2Logo: sideLogo(secondSide),
+      team1Caption: leftCaption,
+      team2Caption: rightCaption,
       scoreText: scoreText,
       oversText: oversText,
       battingCaption: isLive ? 'Batting' : '',
@@ -5120,10 +5133,9 @@ class _DashboardMatchCard extends StatelessWidget {
   }
 
   static String _liveSummary(Match match) {
-    final battingTeam = match.currentInnings == 2 ? match.team2 : match.team1;
-    final score = match.currentInnings == 2
-        ? match.team2ScoreDisplay
-        : match.team1ScoreDisplay;
+    final side = match.currentBattingSide;
+    final battingTeam = side == 2 ? match.team2 : match.team1;
+    final score = side == 2 ? match.team2ScoreDisplay : match.team1ScoreDisplay;
     return '${_shortTeamName(battingTeam)} batting: $score';
   }
 
@@ -5206,7 +5218,9 @@ class _LiveMatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final battingTeamNum = match.currentInnings == 2 ? 2 : 1;
+    final firstSide = match.firstBattingSide;
+    final secondSide = firstSide == 1 ? 2 : 1;
+    final battingTeamNum = match.currentBattingSide;
     final battingRuns = battingTeamNum == 1
         ? (match.team1Score ?? match.currentRuns)
         : (match.team2Score ?? match.currentRuns);
@@ -5220,24 +5234,25 @@ class _LiveMatchCard extends StatelessWidget {
     final oversText = (battingOvers != null && battingOvers.isNotEmpty)
         ? '($battingOvers overs)'
         : '';
-    final team1Caption = battingTeamNum == 2 ? (match.scoreForTeam(1) ?? '') : '';
-    final team2Caption = battingTeamNum == 1 ? 'Yet to Bat' : '';
+    // Left = side that batted first; caption under the side not batting now.
+    final leftCaption = battingTeamNum == secondSide
+        ? (match.scoreForTeam(firstSide) ?? '')
+        : '';
+    final rightCaption = battingTeamNum == firstSide ? 'Yet to Bat' : '';
+    final left = firstSide == 1 ? match.team1 : match.team2;
+    final right = firstSide == 1 ? match.team2 : match.team1;
     final matchLabel = [
       if (match.format.trim().isNotEmpty) match.format.toUpperCase(),
       if (match.tournament.name.trim().isNotEmpty) match.tournament.name,
     ].join(' · ');
 
     return _LiveHeroCard(
-      team1Name: match.team1.shortName.isNotEmpty
-          ? match.team1.shortName
-          : match.team1.name,
-      team1Logo: match.team1.logo,
-      team2Name: match.team2.shortName.isNotEmpty
-          ? match.team2.shortName
-          : match.team2.name,
-      team2Logo: match.team2.logo,
-      team1Caption: team1Caption,
-      team2Caption: team2Caption,
+      team1Name: left.shortName.isNotEmpty ? left.shortName : left.name,
+      team1Logo: left.logo,
+      team2Name: right.shortName.isNotEmpty ? right.shortName : right.name,
+      team2Logo: right.logo,
+      team1Caption: leftCaption,
+      team2Caption: rightCaption,
       scoreText: scoreText,
       oversText: oversText,
       battingCaption: 'Batting',

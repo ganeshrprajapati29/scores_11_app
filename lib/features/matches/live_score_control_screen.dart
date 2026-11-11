@@ -591,7 +591,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
       ),
       actions: [
         Consumer<LiveScoreControlProvider>(
-          builder: (context, provider, _) => provider.currentStatus == 'live'
+          builder: (context, provider, _) => provider.canEndInnings
               ? Container(
                   margin: const EdgeInsets.only(right: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1665,7 +1665,7 @@ class _LiveScoreControlScreenState extends State<LiveScoreControlScreen>
                       // Also enabled once the match has just completed, so a
                       // chase that finishes on the winning run still leaves a
                       // window to extend/continue instead of being locked out.
-                      onPressed: (provider.currentStatus == 'live' ||
+                      onPressed: (provider.canEndInnings ||
                               provider.currentStatus == 'completed')
                           ? () => _ScoreButtonsGrid(
                               provider: provider,
@@ -2258,6 +2258,29 @@ class _LiveBanner extends StatelessWidget {
     final team2Wkts = team1Batting ? otherWkts : liveWkts;
     final team2Overs = team1Batting ? otherOvers : liveOvers;
 
+    // The side that batted first is always shown on the left.
+    final team1BattedFirst =
+        provider.isSecondInnings ? !team1Batting : team1Batting;
+    final left = _HeroTeamScore(
+      name: team1BattedFirst ? team1Name : team2Name,
+      logoAsset: team1BattedFirst
+          ? 'assets/images/teams/team1_logo.png'
+          : 'assets/images/teams/team2_logo.png',
+      runs: team1BattedFirst ? team1Runs : team2Runs,
+      wickets: team1BattedFirst ? team1Wkts : team2Wkts,
+      overs: team1BattedFirst ? team1Overs : team2Overs,
+    );
+    final right = _HeroTeamScore(
+      name: team1BattedFirst ? team2Name : team1Name,
+      logoAsset: team1BattedFirst
+          ? 'assets/images/teams/team2_logo.png'
+          : 'assets/images/teams/team1_logo.png',
+      runs: team1BattedFirst ? team2Runs : team1Runs,
+      wickets: team1BattedFirst ? team2Wkts : team1Wkts,
+      overs: team1BattedFirst ? team2Overs : team1Overs,
+      alignRight: true,
+    );
+
     final tossText = provider.tossDone
         ? '${provider.tossWinnerName ?? ''} chose to ${provider.tossDecision == 'bat' ? 'bat' : 'bowl'}'
         : 'Toss pending';
@@ -2283,15 +2306,7 @@ class _LiveBanner extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
-                  child: _HeroTeamScore(
-                    name: team1Name,
-                    logoAsset: 'assets/images/teams/team1_logo.png',
-                    runs: team1Runs,
-                    wickets: team1Wkts,
-                    overs: team1Overs,
-                  ),
-                ),
+                Expanded(child: left),
                 Container(
                   width: 32,
                   height: 32,
@@ -2310,16 +2325,7 @@ class _LiveBanner extends StatelessWidget {
                         fontWeight: FontWeight.w800),
                   ),
                 ),
-                Expanded(
-                  child: _HeroTeamScore(
-                    name: team2Name,
-                    logoAsset: 'assets/images/teams/team2_logo.png',
-                    runs: team2Runs,
-                    wickets: team2Wkts,
-                    overs: team2Overs,
-                    alignRight: true,
-                  ),
-                ),
+                Expanded(child: right),
               ],
             ),
           ),
@@ -2393,6 +2399,16 @@ class _LiveBanner extends StatelessWidget {
                     valueColor: _D.green,
                   ),
                 ),
+                Container(width: 1, height: 32, color: _D.border),
+                // Runs per over still needed to win the chase.
+                Expanded(
+                  child: _HeroStatCol(
+                    label: 'RRR',
+                    value: provider.requiredRunRateDisplay,
+                    valueColor: _D.orange,
+                    caption: provider.isSecondInnings ? 'per over' : null,
+                  ),
+                ),
               ],
             ),
           ),
@@ -2408,6 +2424,29 @@ class _LiveBanner extends StatelessWidget {
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
                 ),
+              ),
+            )
+          else if (provider.hasDlsRevision)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  const Icon(Icons.water_drop_outlined,
+                      size: 16, color: _D.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'DLS revised · ${provider.dlsSummary}',
+                      style: const TextStyle(
+                        color: _D.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             )
           else if (provider.appreciations.isNotEmpty)
@@ -3043,7 +3082,7 @@ class _RequiredActionBanner extends StatelessWidget {
     String? message;
     if (provider.error != null && provider.error!.isNotEmpty) {
       message = provider.error;
-    } else if (provider.currentStatus == 'live') {
+    } else if (provider.canEndInnings) {
       final missing = <String>[
         if (provider.currentStriker == null) 'striker',
         if (provider.currentNonStriker == null) 'non-striker',
@@ -3441,8 +3480,12 @@ class _ScoreButtonsGrid extends StatelessWidget {
   }
 
   Future<void> _showRainDlsDialog(BuildContext context) async {
+    // Revising again starts from the overs currently allotted.
+    final currentRevised = provider.dlsRevision?['revisedOvers'];
     final revisedOversController = TextEditingController(
-      text: provider.match?.overs.toString() ?? '20',
+      text: currentRevised is num
+          ? currentRevised.toInt().toString()
+          : (provider.match?.overs.toString() ?? '20'),
     );
     var method = 'dls';
     var completeMatch = false;
@@ -3474,7 +3517,9 @@ class _ScoreButtonsGrid extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Set the revised overs after rain. The revised target, par score, required runs and result method are calculated and saved.',
+                    'Set the overs the chasing side now gets in total. The target uses DLS resources (overs left and wickets lost): '
+                    'if Team 2 has fewer resources, T = S x R2/R1 + 1; if more, T = S + G50 x (R2 - R1)/100 + 1. '
+                    'Apply again to update the target after another interruption or to correct it.',
                     style: TextStyle(
                       color: _D.textSecondary,
                       fontSize: 12,
@@ -5048,6 +5093,28 @@ class _MatchControlSummary extends StatelessWidget {
               fullWidth: true,
             ),
           ],
+          if (provider.hasDlsRevision &&
+              provider.resultMessage == null) ...[
+            const SizedBox(height: 10),
+            _InfoPill(
+              label: 'DLS Revised Target',
+              value: provider.dlsSummary ?? '',
+              color: _D.primary,
+              fullWidth: true,
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: provider.canEndInnings
+                    ? () => _ScoreButtonsGrid(provider: provider)
+                        ._showRainDlsDialog(context)
+                    : null,
+                icon: const Icon(Icons.edit_note_rounded),
+                label: const Text('Update / Revise DLS'),
+              ),
+            ),
+          ],
           if (provider.resultMessage != null) ...[
             const SizedBox(height: 10),
             _InfoPill(
@@ -5144,14 +5211,18 @@ class _MatchActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canEnd = provider.currentStatus == 'live';
+    // Live and rain-revised (DLS) matches can both be ended/finished.
+    final canEnd = provider.canEndInnings;
+    final busy = provider.isEndingInnings;
     final isFinalInnings = provider.inningsNumber >= 2;
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: canEnd
-            ? () => _confirmEnd(context, isFinalInnings)
-            : provider.startMatch,
+        onPressed: busy
+            ? null
+            : canEnd
+                ? () => _confirmEnd(context, isFinalInnings)
+                : provider.startMatch,
         icon: Icon(
           canEnd
               ? (isFinalInnings
@@ -5160,9 +5231,11 @@ class _MatchActionBar extends StatelessWidget {
               : Icons.play_arrow_rounded,
         ),
         label: Text(
-          canEnd
-              ? (isFinalInnings ? 'Finish Match' : 'End 1st Innings')
-              : 'Go Live',
+          busy
+              ? 'Please wait...'
+              : canEnd
+                  ? (isFinalInnings ? 'Finish Match' : 'End 1st Innings')
+                  : 'Go Live',
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: canEnd ? _D.live : _D.green,
@@ -5198,7 +5271,7 @@ class _MatchActionBar extends StatelessWidget {
         ],
       ),
     );
-    if (confirmed == true) {
+    if (confirmed == true && !provider.isEndingInnings) {
       await provider.endInnings();
     }
   }

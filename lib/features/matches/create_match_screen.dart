@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_textfield.dart';
 import '../../core/utils/friendly_error.dart';
+import '../../core/services/location_service.dart';
 import '../../data/services/match_service.dart';
 import '../../data/services/team_service.dart';
 import '../../data/services/tournament_service_safe.dart'
@@ -192,8 +193,9 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
     super.initState();
     // Schedule is optional - left blank so the backend defaults to "now"
     // rather than silently forcing every match to next-day 2 PM.
-    _tossDate = DateTime.now().add(const Duration(days: 1));
-    _tossTime = const TimeOfDay(hour: 13, minute: 30);
+    // Toss defaults to today, now - matches are usually created at the ground.
+    _tossDate = DateUtils.dateOnly(DateTime.now());
+    _tossTime = TimeOfDay.now();
     _loadAllTeams();
     _loadTournaments();
     _team1SearchController.addListener(_filterTeams1);
@@ -308,13 +310,82 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
 
   // ── Date/time pickers ───────────────────────────────────────────────────────
 
+  // Today or later, date part only (a date picker asserts initial >= first).
+  DateTime _clampToToday(DateTime value) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final day = DateUtils.dateOnly(value);
+    return day.isBefore(today) ? today : day;
+  }
+
+  // ── Venue from GPS ──────────────────────────────────────────────────────────
+
+  bool _locatingVenue = false;
+  double? _venueLat;
+  double? _venueLng;
+  String? _venueAddress;
+
+  Future<void> _useCurrentLocation() async {
+    if (_locatingVenue) return;
+    setState(() => _locatingVenue = true);
+    final location = LocationService();
+    try {
+      final position = await location.getCurrentPosition();
+      if (position == null) {
+        _snack('Turn on location and allow permission to capture the venue.', isError: true);
+        return;
+      }
+      final address = await location.getAddressFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      if (!mounted) return;
+      // Plus codes ("X8F2+3Q") are not readable venue names.
+      String pick(List<String?> values) => values
+          .map((v) => (v ?? '').trim())
+          .firstWhere((v) => v.isNotEmpty && !v.contains('+'), orElse: () => '');
+      final venueName = pick([
+        address?['subLocality'],
+        address?['name'],
+        address?['street'],
+        address?['locality'],
+      ]);
+      final city = pick([
+        address?['locality'],
+        address?['subAdministrativeArea'],
+        address?['administrativeArea'],
+      ]);
+      setState(() {
+        _venueLat = position.latitude;
+        _venueLng = position.longitude;
+        _venueAddress = [
+          address?['street'],
+          address?['locality'],
+          address?['administrativeArea'],
+          address?['postalCode'],
+        ].where((v) => v != null && v.trim().isNotEmpty).join(', ');
+        if (venueName.isNotEmpty) {
+          _venueNameController.text = venueName;
+        } else if (_venueNameController.text.trim().isEmpty) {
+          _venueNameController.text =
+              '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+        }
+        if (city.isNotEmpty) _venueCityController.text = city;
+      });
+      _snack('Venue captured from your current location');
+    } catch (_) {
+      _snack('Could not get your location. Enter the venue manually.', isError: true);
+    } finally {
+      if (mounted) setState(() => _locatingVenue = false);
+    }
+  }
+
   Future<void> _pickDate({required bool isToss}) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: (isToss ? _tossDate : _scheduledDate) ??
-          DateTime.now().add(const Duration(days: 1)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: _clampToToday((isToss ? _tossDate : _scheduledDate) ??
+          DateTime.now()),
+      firstDate: DateUtils.dateOnly(DateTime.now()),
+      lastDate: DateUtils.dateOnly(DateTime.now()).add(const Duration(days: 365)),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: ColorScheme.light(
@@ -402,6 +473,10 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
         'name': _venueNameController.text.trim(),
         if (_venueCityController.text.trim().isNotEmpty)
           'city': _venueCityController.text.trim(),
+        if (_venueLat != null) 'latitude': _venueLat,
+        if (_venueLng != null) 'longitude': _venueLng,
+        if (_venueAddress != null && _venueAddress!.isNotEmpty)
+          'address': _venueAddress,
       };
       DateTime? scheduledDateTime;
       if (!_startNow && _scheduledDate != null && _selectedTime != null) {
@@ -916,6 +991,18 @@ class _CreateMatchScreenState extends State<CreateMatchScreen> {
                   controller: _venueNameController,
                   labelText: 'Venue Name *',
                   prefixIcon: Icons.location_on_rounded,
+                  suffixIcon: IconButton(
+                    tooltip: 'Use my current location',
+                    onPressed: _locatingVenue ? null : _useCurrentLocation,
+                    icon: _locatingVenue
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(Icons.my_location_rounded,
+                            color: AppColors.primary),
+                  ),
                   validator: (v) => (v == null || v.trim().isEmpty)
                       ? 'Please enter venue name'
                       : null,

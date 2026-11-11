@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../data/models/tournament_model.dart';
+import '../../core/utils/batting_order.dart';
 
 // ==================== Main Dashboard Model ====================
 class DashboardData {
@@ -445,6 +446,33 @@ class LiveMatch {
     if (overs == null || overs.isEmpty) return score;
     return '$score ($overs ov)';
   }
+
+  /// 1 when team1 batted first, 2 when team2 did.
+  int get firstBattingSide {
+    String? firstBatting;
+    final items = innings?['items'];
+    if (items is List) {
+      for (final item in items) {
+        if (item is Map && item['inningsNumber']?.toString() == '1') {
+          final bt = item['battingTeam'];
+          firstBatting = bt is Map
+              ? (bt['_id'] ?? bt['id'] ?? bt['name'])?.toString()
+              : bt?.toString();
+        }
+      }
+    }
+    return firstBattingSideFor(
+      firstInningsBattingTeam: firstBatting,
+      tossWinner: tossWinner,
+      tossDecision: tossDecision,
+      team1Refs: [team1.id, team1.name, team1.shortName],
+      team2Refs: [team2.id, team2.name, team2.shortName],
+    );
+  }
+
+  /// Side (1 or 2) batting in the current innings.
+  int get currentBattingSide =>
+      battingSideForInnings(firstBattingSide, currentInnings);
 
   String get currentScoreDisplay {
     final runs = currentRuns ?? (currentInnings == 2 ? team2Score : team1Score);

@@ -82,7 +82,9 @@ class LocationService {
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
         return {
+          'name': place.name ?? '',
           'street': place.street ?? '',
+          'subLocality': place.subLocality ?? '',
           'locality': place.locality ?? '',
           'subAdministrativeArea': place.subAdministrativeArea ?? '',
           'administrativeArea': place.administrativeArea ?? '',

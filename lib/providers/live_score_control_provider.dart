@@ -384,7 +384,52 @@ class LiveScoreControlProvider extends ChangeNotifier {
         .toInt();
   }
 
-  String? get resultMessage => _localResultMessage ?? _match?.result?.message;
+  /// The final result only. A DLS revision is not a result: the chase goes on.
+  String? get resultMessage {
+    if (_localResultMessage != null) return _localResultMessage;
+    final message = _match?.result?.message;
+    if (message == null || message.trim().isEmpty) return null;
+    // Older servers wrote the DLS revision note into the result message.
+    if (currentStatus != 'completed' &&
+        message.toLowerCase().startsWith('rain dls applied')) {
+      return null;
+    }
+    return message;
+  }
+
+  /// Revision currently applied to the chase, if rain cut it.
+  Map<String, dynamic>? get dlsRevision {
+    final result = _match?.result;
+    if (result == null || !result.hasDls) return null;
+    return result.dls;
+  }
+
+  bool get hasDlsRevision => dlsRevision != null;
+
+  /// e.g. "Target 57 in 4 overs · Par 56 · R1 17.2% · R2 13.8%"
+  String? get dlsSummary {
+    final dls = dlsRevision;
+    if (dls == null) return null;
+    final overs = dls['revisedOvers'];
+    final parts = <String>[
+      'Target ${dls['revisedTarget']} in ${overs is num && overs == overs.roundToDouble() ? overs.toInt() : overs} overs',
+      if (dls['parScore'] != null) 'Par ${dls['parScore']}',
+      if (dls['team1Resources'] != null) 'R1 ${dls['team1Resources']}%',
+      if (dls['team2Resources'] != null) 'R2 ${dls['team2Resources']}%',
+    ];
+    return parts.join(' · ');
+  }
+
+  /// Runs per over still needed to win, for the chase only.
+  String get requiredRunRateDisplay {
+    if (!isSecondInnings) return '-';
+    final runs = requiredRuns;
+    final balls = requiredBalls;
+    if (runs == null || balls == null) return '-';
+    if (runs <= 0) return '0.00';
+    if (balls <= 0) return '-';
+    return ((runs * 6) / balls).toStringAsFixed(2);
+  }
   String? get playerOfMatchName =>
       _localPlayerOfMatch ?? _match?.result?.playerOfMatch;
   List<String> get appreciations => List.unmodifiable(_appreciations);
@@ -1487,8 +1532,16 @@ class LiveScoreControlProvider extends ChangeNotifier {
         'completeMatch': completeMatch,
       });
       final resultData = result['result'];
-      if (resultData is Map && resultData['message'] != null) {
+      // Only a finished match has a result. A DLS revision keeps the chase
+      // open: the revised target must not lock score entry (it used to be
+      // stored as the result, which made every next ball a no-op).
+      final finished = const {'completed', 'tie', 'washed_out', 'abandoned'}
+          .contains((result['status'] ?? '').toString());
+      if (finished && resultData is Map && resultData['message'] != null) {
         _localResultMessage = resultData['message'].toString();
+      } else {
+        _localResultMessage = null;
+        _localPlayerOfMatch = null;
       }
       if (resultData is Map && resultData['target'] != null) {
         _localTarget = int.tryParse(resultData['target'].toString());
@@ -1528,20 +1581,30 @@ class LiveScoreControlProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _isEndingInnings = false;
+  bool get isEndingInnings => _isEndingInnings;
+
   Future<void> endInnings() async {
+    // A second tap while the first request is still running used to end the
+    // brand-new 2nd innings too and complete the match at 0/0.
+    if (_isEndingInnings || _matchId == null) return;
     if (_blockedWhileSyncing()) return;
+    final endingInnings = inningsNumber;
+    _isEndingInnings = true;
     _error = null;
     notifyListeners();
     try {
-      await _matchService.endInnings(_matchId!);
+      await _matchService.endInnings(_matchId!, inningsNumber: endingInnings);
       _currentStriker = null;
       _currentNonStriker = null;
       _currentBowler = null;
       await refreshMatchData();
     } catch (e) {
-      _error = inningsNumber == 1
+      _error = endingInnings == 1
           ? friendlyError(e, fallback: 'Could not end the first innings.')
           : friendlyError(e, fallback: 'Could not finish the match.');
+    } finally {
+      _isEndingInnings = false;
       notifyListeners();
     }
   }
@@ -1561,7 +1624,7 @@ class LiveScoreControlProvider extends ChangeNotifier {
             ? null
             : _winnerNameFromMessage(),
         'message': _localResultMessage,
-        'method': 'normal',
+        'method': isRainAdjusted ? 'dls' : 'normal',
         'playerOfMatch': _localPlayerOfMatch,
         'target': target,
         'requiredRuns': requiredRuns,
@@ -1946,21 +2009,22 @@ class LiveScoreControlProvider extends ChangeNotifier {
     final chaseTarget = target;
     if (chaseTarget == null) return;
 
+    final dlsTag = isRainAdjusted ? ' (DLS)' : '';
     final chasingTeam = _secondInningsBattingTeamName;
     final defendingTeam = _firstInningsBattingTeamName;
     if (_currentScore.runs >= chaseTarget) {
       final wicketsLeft = (10 - _currentScore.wickets).clamp(0, 10);
       _localResultMessage =
-          '$chasingTeam won by $wicketsLeft wicket${wicketsLeft == 1 ? '' : 's'}';
+          '$chasingTeam won by $wicketsLeft wicket${wicketsLeft == 1 ? '' : 's'}$dlsTag';
     } else if (_currentScore.wickets >= 10 ||
         _legalBalls >= _effectiveMaxBalls) {
       final firstInningsRuns = chaseTarget - 1;
       if (_currentScore.runs == firstInningsRuns) {
-        _localResultMessage = 'Match tied';
+        _localResultMessage = 'Match tied$dlsTag';
       } else {
         final margin = firstInningsRuns - _currentScore.runs;
         _localResultMessage =
-            '$defendingTeam won by $margin run${margin == 1 ? '' : 's'}';
+            '$defendingTeam won by $margin run${margin == 1 ? '' : 's'}$dlsTag';
       }
     }
     if (_localResultMessage != null) {

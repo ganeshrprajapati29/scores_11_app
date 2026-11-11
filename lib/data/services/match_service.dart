@@ -832,10 +832,13 @@ class MatchService {
   }
 
   /// End current innings
-  Future<void> endInnings(String matchId) async {
+  /// [inningsNumber] is the innings the scorer means to end: the server
+  /// ignores a repeated request once that innings is already over.
+  Future<void> endInnings(String matchId, {int? inningsNumber}) async {
     try {
       final response = await _apiClient.post(
         '/scoring/match/$matchId/innings/end',
+        data: {if (inningsNumber != null) 'inningsNumber': inningsNumber},
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(response.data['message'] ?? 'Failed to end innings');
